@@ -1,192 +1,123 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import { useState } from 'react';
+import { StyleSheet, FlatList, Pressable, View, Alert, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
-import { isLightColor, shade, type CardDesign } from '@/constants/card-styles';
-import { formatMoney } from '@/utils/currency';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { BalanceCarousel } from '@/components/balance-carousel';
+import { SpendingOverview } from '@/components/spending-overview';
+import { TransactionRow } from '@/components/transaction-row';
+import { useTransactions } from '@/context/TransactionsContext';
+import { useTheme } from '@/hooks/use-theme';
+import { AccountModal } from '@/components/account-modal';
+import { useProfile } from '@/context/ProfileContext';
 
-const STRIPES = Array.from({ length: 17 }, (_, i) => -60 + i * 10);
+export default function HomeScreen() {
+  const { recentTransactions, accounts } = useTransactions();
+  const colors = useTheme();
+  const router = useRouter();
 
-function inkFor(color: string) {
-  return isLightColor(color)
-    ? { main: '#111827', muted: 'rgba(17,24,39,0.65)', chip: 'rgba(17,24,39,0.12)', line: 'rgba(17,24,39,0.25)', deco: 'rgba(17,24,39,0.07)' }
-    : { main: '#FFFFFF', muted: 'rgba(255,255,255,0.7)', chip: 'rgba(255,255,255,0.2)', line: 'rgba(255,255,255,0.3)', deco: 'rgba(255,255,255,0.08)' };
-}
+  // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
-export function CardBackground({ color, design }: { color: string; design: CardDesign }) {
-  const ink = inkFor(color);
+  const { displayName } = useProfile();
+  const [accountModalVisible, setAccountModalVisible] = useState(false);
 
-  if (design === 'solid') {
-    return <View style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />;
+  function showComingSoon() {
+    Alert.alert('Notifications', 'Coming soon — this will show reminders and budget alerts.');
   }
 
-  return (
-    <>
-      <LinearGradient
-        colors={[shade(color, 0.12), shade(color, -0.4)]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {design === 'aurora' && (
-        <>
-          <View style={[styles.circleLarge, { backgroundColor: ink.deco }]} />
-          <View style={[styles.circleSmall, { backgroundColor: ink.deco }]} />
-        </>
-      )}
-      {design === 'stripes' && (
-        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 60" preserveAspectRatio="none">
-          {STRIPES.map((x) => (
-            <Line key={x} x1={x} y1={60} x2={x + 60} y2={0} stroke={ink.deco} strokeWidth={1.4} />
-          ))}
-        </Svg>
-      )}
-    </>
-  );
-}
-
-function signedMoney(amount: number) {
-  return (amount < 0 ? '-' : '') + formatMoney(amount);
-}
-
-const MASK_BALANCE = 'RM ••••••';
-const MASK_SPLIT = 'RM ••••';
-
-type Props = {
-  width?: number; // omit to stretch to the parent's width
-  title: string;
-  subtitle: string;
-  icon: string;
-  balance: number;
-  income: number;
-  spending: number;
-  color: string;
-  design: CardDesign;
-  last4?: string;
-  /** Mask the balance, income and spending. */
-  hidden?: boolean;
-  /** When provided, an eye button is shown on the card to toggle `hidden`. */
-  onToggleHidden?: () => void;
-};
-
-export function AccountCard({
-  width,
-  title,
-  subtitle,
-  icon,
-  balance,
-  income,
-  spending,
-  color,
-  design,
-  last4,
-  hidden = false,
-  onToggleHidden,
-}: Props) {
-  const ink = inkFor(color);
+  const recent = recentTransactions(6, selectedAccount?.id);
 
   return (
-    <View style={[styles.card, width ? { width } : styles.stretch]}>
-      <CardBackground color={color} design={design} />
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <FlatList
+          data={recent}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <TransactionRow item={item} />}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <View>
+              <View style={styles.headerRow}>
+                <Pressable style={styles.headerLeft} onPress={() => setAccountModalVisible(true)}>
+                  <View style={[styles.avatar, { backgroundColor: colors.backgroundElement }]}>
+                    <ThemedText style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase()}</ThemedText>
+                  </View>
+                  <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
+                    Hi, <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
+                  </Text>
+                </Pressable>
 
-      <View style={styles.top}>
-        <View style={[styles.iconChip, { backgroundColor: ink.chip }]}>
-          <Text style={styles.iconText}>{icon}</Text>
-        </View>
-        <View style={styles.flex}>
-          <Text style={[styles.title, { color: ink.main }]} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={[styles.subtitle, { color: ink.muted }]} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        </View>
-        {last4 ? <Text style={[styles.last4, { color: ink.muted }]}>•••• {last4}</Text> : null}
-      </View>
+                <Pressable
+                  style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]}
+                  onPress={showComingSoon}
+                >
+                  <ThemedText style={styles.bellIcon}>🔔</ThemedText>
+                </Pressable>
+              </View>
 
-      <View>
-        <View style={styles.balanceLabelRow}>
-          <Text style={[styles.balanceLabel, { color: ink.muted }]}>BALANCE</Text>
-          {onToggleHidden ? (
-            <Pressable
-              onPress={onToggleHidden}
-              hitSlop={12}
-              style={[styles.eyeButton, { backgroundColor: ink.chip }]}
-              accessibilityRole="button"
-              accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
-            >
-              <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={ink.main} />
-            </Pressable>
-          ) : null}
-        </View>
-        <Text
-          style={[styles.balanceAmount, { color: ink.main }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.6}
-        >
-          {hidden ? MASK_BALANCE : signedMoney(balance)}
-        </Text>
-      </View>
+              <BalanceCarousel onSelectAccount={setSelectedAccountId} />
 
-      <View style={[styles.bottom, { borderTopColor: ink.line }]}>
-        <View>
-          <Text style={[styles.splitLabel, { color: ink.muted }]}>Income</Text>
-          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(income)}</Text>
-        </View>
-        <View style={styles.right}>
-          <Text style={[styles.splitLabel, { color: ink.muted }]}>Spending</Text>
-          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(spending)}</Text>
-        </View>
-      </View>
-    </View>
+              <View style={styles.chartBlock}>
+                <SpendingOverview accountId={selectedAccount?.id} accountName={selectedAccount?.name} />
+              </View>
+
+              <View style={styles.recentHeaderRow}>
+                <ThemedText type="smallBold" style={styles.recentHeading} numberOfLines={1}>
+                  {selectedAccount ? `Recent · ${selectedAccount.name}` : 'Recent transactions'}
+                </ThemedText>
+                <Pressable onPress={() => router.push('/transactions')} hitSlop={8}>
+                  <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                    See all
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          }
+          ListEmptyComponent={
+            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+              {selectedAccount
+                ? `No transactions in ${selectedAccount.name} yet — tap + below to add one.`
+                : 'No transactions yet — tap + below to add your first one.'}
+            </ThemedText>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+
+        <AccountModal visible={accountModalVisible} onClose={() => setAccountModalVisible(false)} />
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  right: { alignItems: 'flex-end' },
-  card: {
-    height: 196,
-    borderRadius: 24,
-    padding: 20,
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  listContent: { paddingHorizontal: Spacing.four, paddingBottom: 130 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    overflow: 'hidden',
+    paddingTop: Spacing.two,
+    marginBottom: Spacing.three,
   },
-  stretch: { alignSelf: 'stretch' },
-  circleLarge: {
-    position: 'absolute',
-    width: '62%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    top: '-38%',
-    right: '-16%',
-  },
-  circleSmall: {
-    position: 'absolute',
-    width: '40%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    bottom: '-30%',
-    left: '-8%',
-  },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
-  title: { fontSize: 17, fontWeight: '700' },
-  subtitle: { fontSize: 12, fontWeight: '500' },
-  last4: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
-  balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  balanceLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
-  balanceAmount: { fontSize: 34, lineHeight: 40, fontWeight: '700', marginTop: 2 },
-  bottom: {
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontWeight: '700' },
+  greeting: { fontSize: 28, lineHeight: 34, fontWeight: '400', flexShrink: 1 },
+  greetingName: { fontWeight: '700' },
+  bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  bellIcon: { fontSize: 18 },
+  chartBlock: { marginBottom: Spacing.five },
+  recentHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    marginBottom: Spacing.two,
   },
-  splitLabel: { fontSize: 12, fontWeight: '500' },
-  splitValue: { fontSize: 15, fontWeight: '700', marginTop: 1 },
+  recentHeading: { fontSize: 16 },
 });

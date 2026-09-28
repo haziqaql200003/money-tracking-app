@@ -165,6 +165,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
               spending={item.spending}
               color={item.color}
               design={item.design}
+              last4={item.last4}
               hidden={hideAmounts}
               onToggleHidden={toggleHideAmounts}
             />

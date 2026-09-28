@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
-import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
-import { formatCompact, formatMoney } from '@/utils/currency';
+import { formatMoney } from '@/utils/currency';
 
-const GUTTER = 34; // room on the left for the Y-axis labels
 const PADDING_TOP = 46; // room above the plot so the tooltip never gets clipped
-const PLOT_HEIGHT = 112;
+const PLOT_HEIGHT = 128; // from the top padding down to the x-axis line
+const BASE_GAP = 16; // empty space between the x-axis line and the lowest dot (raise/lower to taste)
 const PADDING_BOTTOM = 8;
 const CHART_HEIGHT = PADDING_TOP + PLOT_HEIGHT + PADDING_BOTTOM;
 const TOOLTIP_WIDTH = 104;
@@ -48,15 +48,6 @@ function smoothLinePath(coords: Coord[]): string {
   return d;
 }
 
-// Rounds up to 1 / 2 / 5 / 10 x a power of ten, so the grid lines land on clean numbers.
-function niceCeil(value: number) {
-  if (value <= 0) return 1;
-  const exp = Math.pow(10, Math.floor(Math.log10(value)));
-  const f = value / exp;
-  const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
-  return nice * exp;
-}
-
 // "Mon, 21 Sep" for week points, "Sep 2026" for month points, "2026" for year points.
 function tooltipTitle(point: ChartPoint, period: ChartPeriod) {
   if (period === 'week') {
@@ -82,36 +73,32 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
   }
 
   const n = data.length;
-  const niceMax = niceCeil(Math.max(...data.map((d) => d.value), 0));
+  const max = Math.max(...data.map((d) => d.value), 1);
   const hasData = data.some((d) => d.value > 0);
 
-  const plotWidth = Math.max(width - GUTTER, 0);
-  const colWidth = n > 0 ? plotWidth / n : 0;
-  const baselineY = PADDING_TOP + PLOT_HEIGHT;
+  const colWidth = n > 0 ? width / n : 0;
+  const baselineY = PADDING_TOP + PLOT_HEIGHT; // the x-axis line
+  const dataBottom = baselineY - BASE_GAP; // where a value of 0 is drawn
+  const dataHeight = PLOT_HEIGHT - BASE_GAP;
 
   // Points sit in the middle of their column, so they line up with the labels underneath.
   const coords = data.map((point, i) => ({
-    x: GUTTER + colWidth * (i + 0.5),
-    y: PADDING_TOP + PLOT_HEIGHT * (1 - point.value / niceMax),
+    x: colWidth * (i + 0.5),
+    y: PADDING_TOP + dataHeight * (1 - point.value / max),
     point,
     i,
   }));
   const drawn = coords.filter((c) => !c.point.isFuture);
 
   const linePath = smoothLinePath(drawn);
+  // The fill stops at `dataBottom`, so it never touches the x-axis line.
   const areaPath =
     drawn.length > 1
-      ? `${linePath} L ${drawn[drawn.length - 1].x} ${baselineY} L ${drawn[0].x} ${baselineY} Z`
+      ? `${linePath} L ${drawn[drawn.length - 1].x} ${dataBottom} L ${drawn[0].x} ${dataBottom} Z`
       : '';
 
-  const gridLines = [0, 0.5, 1].map((f) => ({
-    y: PADDING_TOP + PLOT_HEIGHT * (1 - f),
-    value: niceMax * f,
-    baseline: f === 0,
-  }));
-
   const active = selected !== null ? coords[selected] : undefined;
-  const tooltipLeft = active ? Math.min(Math.max(active.x - TOOLTIP_WIDTH / 2, GUTTER - 6), width - TOOLTIP_WIDTH) : 0;
+  const tooltipLeft = active ? Math.min(Math.max(active.x - TOOLTIP_WIDTH / 2, 0), width - TOOLTIP_WIDTH) : 0;
   const tooltipTop = active ? Math.max(active.y - 52, 0) : 0;
 
   return (
@@ -127,30 +114,8 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
                 </LinearGradient>
               </Defs>
 
-              {gridLines.map((g) => (
-                <Line
-                  key={g.y}
-                  x1={GUTTER}
-                  x2={width}
-                  y1={g.y}
-                  y2={g.y}
-                  stroke={colors.divider}
-                  strokeWidth={1}
-                  strokeDasharray={g.baseline ? undefined : '4 5'}
-                />
-              ))}
-              {gridLines.map((g) => (
-                <SvgText
-                  key={`t-${g.y}`}
-                  x={GUTTER - 8}
-                  y={g.y + 3.5}
-                  fontSize={10}
-                  fill={colors.textSecondary}
-                  textAnchor="end"
-                >
-                  {formatCompact(g.value)}
-                </SvgText>
-              ))}
+              {/* x-axis line */}
+              <Line x1={0} x2={width} y1={baselineY} y2={baselineY} stroke={colors.divider} strokeWidth={1} />
 
               {active && !active.point.isFuture && (
                 <Line
@@ -206,7 +171,7 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
             )}
 
             {/* Tap targets: one full-height column per point. */}
-            <View style={[styles.tapRow, { left: GUTTER }]}>
+            <View style={styles.tapRow}>
               {data.map((point, i) => (
                 <Pressable
                   key={point.key}
@@ -236,7 +201,7 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
         )}
       </View>
 
-      <View style={[styles.labelRow, { marginLeft: GUTTER }]}>
+      <View style={styles.labelRow}>
         {data.map((point, i) => {
           const highlighted = i === selected || (selected === null && point.isToday);
           return (
@@ -266,14 +231,14 @@ const styles = StyleSheet.create({
   chartArea: { width: '100%', height: CHART_HEIGHT },
   emptyOverlay: {
     position: 'absolute',
-    left: GUTTER,
+    left: 0,
     right: 0,
     top: PADDING_TOP,
-    height: PLOT_HEIGHT,
+    height: PLOT_HEIGHT - BASE_GAP,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tapRow: { position: 'absolute', top: 0, right: 0, height: CHART_HEIGHT, flexDirection: 'row' },
+  tapRow: { position: 'absolute', top: 0, left: 0, right: 0, height: CHART_HEIGHT, flexDirection: 'row' },
   tapColumn: { flex: 1 },
   tooltip: {
     position: 'absolute',
