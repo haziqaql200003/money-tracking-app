@@ -107,26 +107,11 @@ export default function TransactionsScreen() {
           }
           ListEmptyComponent={
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              No transactions yet — tap + to add one.
+              No transactions yet — tap + below to add one.
             </ThemedText>
           }
           contentContainerStyle={styles.listContent}
           stickySectionHeadersEnabled={false}
-        />
-
-        <Pressable
-          style={[styles.fab, { backgroundColor: colors.accent }]}
-          onPress={() => setModalVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Add transaction"
-        >
-          <ThemedText style={styles.fabText}>No transactions yet — tap + below to add one.</ThemedText>
-        </Pressable>
-
-        <AddTransactionModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          onSave={addTransaction}
         />
       </SafeAreaView>
     </ThemedView>
@@ -149,20 +134,4 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 15, fontWeight: '700', marginTop: 2 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   listContent: { paddingBottom: 100 },
-  fab: {
-    position: 'absolute',
-    right: Spacing.four,
-    bottom: Spacing.five,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  fabText: { color: '#fff', fontSize: 28, fontWeight: '500', marginTop: -2 },
 });
