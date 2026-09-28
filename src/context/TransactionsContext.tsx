@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import type { CardDesign } from '@/constants/card-styles';
 
 export type TransactionType = 'debit' | 'credit';
 
@@ -10,6 +11,11 @@ export type Account = {
   type: AccountType;
   icon: string; // emoji, same pattern as category icons
   initialBalance: number; // starting balance before any tracked transactions
+  // Card look + optional details (all optional so older accounts keep working)
+  color?: string; // hex, e.g. '#2563EB'
+  design?: CardDesign;
+  provider?: string; // e.g. 'Maybank', 'TNG eWallet'
+  last4?: string; // last 4 digits only, never a full number
 };
 
 export type Transaction = {

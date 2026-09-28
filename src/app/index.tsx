@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, FlatList, Pressable, View, Alert } from 'react-native';
+import { StyleSheet, FlatList, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { BalanceCarousel } from '@/components/balance-carousel';
 import { SpendingChart } from '@/components/spending-chart';
 import { WeekChartPager } from '@/components/week-chart-pager';
 import { TransactionRow } from '@/components/transaction-row';
@@ -23,15 +24,7 @@ const PERIODS: { key: ChartPeriod; label: string }[] = [
 ];
 
 export default function HomeScreen() {
-  const {
-    balance,
-    recentTransactions,
-    getWeekChartData,
-    getMonthChartData,
-    getYearChartData,
-    totalIncomeThisMonth,
-    totalSpendingThisMonth,
-  } = useTransactions();
+  const { recentTransactions, getWeekChartData, getMonthChartData, getYearChartData } = useTransactions();
   const colors = useTheme();
   const router = useRouter();
 
@@ -52,9 +45,6 @@ export default function HomeScreen() {
   const chartData = period === 'week' ? weekData : period === 'month' ? monthData : yearData;
   const periodTotal = chartData.reduce((sum, p) => sum + p.value, 0);
   const recent = recentTransactions(6);
-
-  const income = totalIncomeThisMonth();
-  const spending = totalSpendingThisMonth();
 
   const weekRangeLabel =
     weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : `${Math.abs(weekOffset)} weeks ago`;
@@ -89,60 +79,26 @@ export default function HomeScreen() {
                   <View style={[styles.avatar, { backgroundColor: colors.backgroundElement }]}>
                     <ThemedText style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase()}</ThemedText>
                   </View>
-                  <View>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Hi,
-                    </ThemedText>
-                    <ThemedText style={styles.appTitle}>{displayName}</ThemedText>
-                  </View>
+                  <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
+                    Hi, <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
+                  </Text>
                 </Pressable>
 
-                <Pressable style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]} onPress={showComingSoon}>
+                <Pressable
+                  style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]}
+                  onPress={showComingSoon}
+                >
                   <ThemedText style={styles.bellIcon}>🔔</ThemedText>
                 </Pressable>
               </View>
 
-              <View style={[styles.balanceCard, { backgroundColor: colors.backgroundElement }]}>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Current balance
-                </ThemedText>
-                <ThemedText
-                  style={styles.balanceAmount}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.5}
-                >
-                  {formatMoney(balance)}
-                </ThemedText>
-
-                <View style={[styles.balanceSplitRow, { borderTopColor: colors.divider }]}>
-                  <View style={styles.balanceSplitColumn}>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Income this month
-                    </ThemedText>
-                    <ThemedText style={[styles.balanceSplitValue, { color: colors.positive }]}>
-                      {formatMoney(income)}
-                    </ThemedText>
-                  </View>
-                  <View style={[styles.balanceSplitColumn, styles.balanceSplitColumnRight]}>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Spending this month
-                    </ThemedText>
-                    <ThemedText style={[styles.balanceSplitValue, { color: colors.negative }]}>
-                      {formatMoney(spending)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
+              <BalanceCarousel />
 
               <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
                 {PERIODS.map((p) => (
                   <Pressable
                     key={p.key}
-                    style={[
-                      styles.segmentButton,
-                      period === p.key && { backgroundColor: colors.background },
-                    ]}
+                    style={[styles.segmentButton, period === p.key && { backgroundColor: colors.background }]}
                     onPress={() => selectPeriod(p.key)}
                   >
                     <ThemedText
@@ -193,10 +149,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.listContent}
         />
 
-        <AccountModal
-          visible={accountModalVisible}
-          onClose={() => setAccountModalVisible(false)}
-        />
+        <AccountModal visible={accountModalVisible} onClose={() => setAccountModalVisible(false)} />
       </SafeAreaView>
     </ThemedView>
   );
@@ -204,26 +157,22 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: Spacing.four },
-  header: { paddingTop: Spacing.two, paddingBottom: Spacing.three },
-  appTitle: { fontSize: 28, lineHeight: 34, fontWeight: '700', marginTop: 2 },
-  balanceCard: { borderRadius: 16, padding: Spacing.four, marginBottom: Spacing.four },
-  balanceAmount: {
-    fontSize: 36,
-    lineHeight: 42,
-    fontWeight: '700',
-    marginTop: Spacing.one,
-    includeFontPadding: false,
-  },
-  balanceSplitRow: {
+  safeArea: { flex: 1 },
+  listContent: { paddingHorizontal: Spacing.four, paddingBottom: 130 },
+  headerRow: {
     flexDirection: 'row',
-    marginTop: Spacing.three,
-    paddingTop: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.two,
+    marginBottom: Spacing.three,
   },
-  balanceSplitColumn: { flex: 1 },
-  balanceSplitColumnRight: { alignItems: 'flex-end' },
-  balanceSplitValue: { fontSize: 16, fontWeight: '700', marginTop: 2 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontWeight: '700' },
+  greeting: { fontSize: 28, lineHeight: 34, fontWeight: '400', flexShrink: 1 },
+  greetingName: { fontWeight: '700' },
+  bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  bellIcon: { fontSize: 18 },
   segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.four },
   segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   segmentActiveText: { fontWeight: '600' },
@@ -237,27 +186,4 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   recentHeading: { fontSize: 16 },
-  listContent: { paddingBottom: 100 },
-  fab: {
-    position: 'absolute',
-    right: Spacing.four,
-    bottom: Spacing.four,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 14,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  fabText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontWeight: '700' },
-  bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  bellIcon: { fontSize: 18 },
 });

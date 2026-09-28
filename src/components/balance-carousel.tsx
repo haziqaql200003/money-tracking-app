@@ -1,0 +1,199 @@
+import { useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+
+import { AccountCard } from '@/components/account-card';
+import { AddAccountModal } from '@/components/add-account-modal';
+import { DEFAULT_COLOR, DEFAULT_DESIGN, type CardDesign } from '@/constants/card-styles';
+import { Spacing } from '@/constants/theme';
+import type { Account, AccountType, Transaction } from '@/context/TransactionsContext';
+import { useTransactions } from '@/context/TransactionsContext';
+import { useTheme } from '@/hooks/use-theme';
+
+const PEEK = 28; // how much of the next card shows at the right edge
+const GAP = 12;
+const CARD_HEIGHT = 196;
+
+const TYPE_LABEL: Record<AccountType, string> = { bank: 'Bank', cash: 'Cash', other: 'Other' };
+
+type AccountSlide = {
+  kind: 'account';
+  id: string;
+  account: Account | null; // null = the "All accounts" card (not editable)
+  title: string;
+  subtitle: string;
+  icon: string;
+  balance: number;
+  income: number;
+  spending: number;
+  color: string;
+  design: CardDesign;
+  last4?: string;
+};
+type AddSlide = { kind: 'add'; id: 'add' };
+type Slide = AccountSlide | AddSlide;
+
+// This month's income/spending, optionally limited to one account.
+function monthTotals(transactions: Transaction[], accountId?: string) {
+  const now = new Date();
+  let income = 0;
+  let spending = 0;
+  transactions.forEach((t) => {
+    if (accountId && t.accountId !== accountId) return;
+    const d = new Date(t.date);
+    if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return;
+    if (t.type === 'credit') income += t.amount;
+    else spending += t.amount;
+  });
+  return { income, spending };
+}
+
+export function BalanceCarousel() {
+  const colors = useTheme();
+  const { width } = useWindowDimensions();
+  const { accounts, transactions, accountBalance, balance } = useTransactions();
+  const [index, setIndex] = useState(0);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editing, setEditing] = useState<Account | null>(null);
+
+  const cardWidth = width - Spacing.four * 2 - PEEK;
+  const snap = cardWidth + GAP;
+
+  const slides: Slide[] = [
+    {
+      kind: 'account',
+      id: 'total',
+      account: null,
+      title: 'All accounts',
+      subtitle: `${accounts.length} account${accounts.length === 1 ? '' : 's'}`,
+      icon: '💼',
+      balance,
+      ...monthTotals(transactions),
+      color: '#3B4A6B',
+      design: 'aurora',
+    },
+    ...accounts.map(
+      (a): AccountSlide => ({
+        kind: 'account',
+        id: a.id,
+        account: a,
+        title: a.name,
+        subtitle: [a.provider, TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
+        icon: a.icon,
+        balance: accountBalance(a.id),
+        ...monthTotals(transactions, a.id),
+        color: a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other,
+        design: a.design ?? DEFAULT_DESIGN,
+        last4: a.last4,
+      }),
+    ),
+    { kind: 'add', id: 'add' },
+  ];
+
+  const active = Math.min(index, slides.length - 1);
+
+  function openAdd() {
+    setEditing(null);
+    setModalVisible(true);
+  }
+
+  function openEdit(account: Account) {
+    setEditing(account);
+    setModalVisible(true);
+  }
+
+  return (
+    <View style={styles.wrapper}>
+      <FlatList
+        horizontal
+        data={slides}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={snap}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / snap))}
+        renderItem={({ item }) => {
+          if (item.kind === 'add') {
+            return (
+              <Pressable
+                onPress={openAdd}
+                style={[
+                  styles.addCard,
+                  { width: cardWidth, borderColor: colors.divider, backgroundColor: colors.backgroundElement },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Add a new account"
+              >
+                <View style={[styles.addCircle, { backgroundColor: colors.background }]}>
+                  <Text style={[styles.addPlus, { color: colors.text }]}>+</Text>
+                </View>
+                <Text style={[styles.addTitle, { color: colors.text }]}>Add a new account</Text>
+                <Text style={[styles.addHint, { color: colors.textSecondary }]}>
+                  Bank, cash, e-wallet or savings. Track each one separately.
+                </Text>
+              </Pressable>
+            );
+          }
+
+          const card = (
+            <AccountCard
+              width={cardWidth}
+              title={item.title}
+              subtitle={item.subtitle}
+              icon={item.icon}
+              balance={item.balance}
+              income={item.income}
+              spending={item.spending}
+              color={item.color}
+              design={item.design}
+              last4={item.last4}
+            />
+          );
+
+          return item.account ? <Pressable onPress={() => openEdit(item.account!)}>{card}</Pressable> : card;
+        }}
+      />
+
+      <View style={styles.dots}>
+        {slides.map((s, i) => (
+          <View
+            key={s.id}
+            style={[
+              styles.dot,
+              { backgroundColor: i === active ? colors.text : colors.divider },
+              i === active && styles.dotActive,
+            ]}
+          />
+        ))}
+      </View>
+
+      <AddAccountModal visible={modalVisible} onClose={() => setModalVisible(false)} editingAccount={editing} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: { marginBottom: Spacing.four },
+  // Bleeds to the screen edges so the next card can peek in.
+  list: { marginHorizontal: -Spacing.four, flexGrow: 0 },
+  listContent: { paddingHorizontal: Spacing.four, gap: GAP },
+  addCard: {
+    height: CARD_HEIGHT,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    gap: 6,
+  },
+  addCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  addPlus: { fontSize: 30, lineHeight: 34, fontWeight: '400' },
+  addTitle: { fontSize: 16, fontWeight: '700', marginTop: 4 },
+  addHint: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  dotActive: { width: 18 },
+});

@@ -1,9 +1,29 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AccountCard, CardBackground } from '@/components/account-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import {
+  CARD_COLORS,
+  CARD_DESIGNS,
+  DEFAULT_COLOR,
+  DEFAULT_DESIGN,
+  hslToHex,
+  isValidHex,
+  type CardDesign,
+} from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import type { Account, AccountType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -16,11 +36,55 @@ type Props = {
   editingAccount?: Account | null;
 };
 
-const TYPE_OPTIONS: { type: AccountType; label: string; icon: string }[] = [
-  { type: 'bank', label: 'Bank', icon: '🏦' },
-  { type: 'cash', label: 'Cash', icon: '💵' },
-  { type: 'other', label: 'Other', icon: '💼' },
+const TYPE_OPTIONS: { type: AccountType; label: string; icon: string; hint: string }[] = [
+  { type: 'bank', label: 'Bank', icon: '🏦', hint: 'Savings, current or a bank card account.' },
+  { type: 'cash', label: 'Cash', icon: '💵', hint: 'Physical money in your wallet or at home.' },
+  { type: 'other', label: 'Other', icon: '💼', hint: 'E-wallets (TNG, Boost), investments or anything else.' },
 ];
+
+const HUE_STOPS = Array.from({ length: 24 }, (_, i) => hslToHex(i * 15, 72, 50));
+const LIGHT_MIN = 25;
+const LIGHT_MAX = 75;
+
+// A tappable/draggable colour strip with a marker.
+function Strip({
+  segments,
+  ratio,
+  onPick,
+}: {
+  segments: string[];
+  ratio: number;
+  onPick: (ratio: number) => void;
+}) {
+  const [width, setWidth] = useState(0);
+
+  function handle(x: number) {
+    if (width <= 0) return;
+    onPick(Math.min(Math.max(x / width, 0), 1));
+  }
+
+  return (
+    <View
+      style={styles.stripOuter}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
+      onResponderGrant={(e) => handle(e.nativeEvent.locationX)}
+      onResponderMove={(e) => handle(e.nativeEvent.locationX)}
+    >
+      <View style={styles.strip} pointerEvents="none">
+        {segments.map((c, i) => (
+          <View key={`${c}-${i}`} style={[styles.stripSegment, { backgroundColor: c }]} />
+        ))}
+      </View>
+      <View
+        pointerEvents="none"
+        style={[styles.marker, { left: `${Math.min(Math.max(ratio, 0), 1) * 100}%` }]}
+      />
+    </View>
+  );
+}
 
 export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const colors = useTheme();
@@ -30,35 +94,95 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
 
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('bank');
+  const [provider, setProvider] = useState('');
+  const [last4, setLast4] = useState('');
   const [initialBalance, setInitialBalance] = useState('0');
+  const [design, setDesign] = useState<CardDesign>(DEFAULT_DESIGN);
+  const [color, setColor] = useState(DEFAULT_COLOR.bank);
+  const [colorTouched, setColorTouched] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [hue, setHue] = useState(220);
+  const [light, setLight] = useState(50);
+  const [hexInput, setHexInput] = useState(DEFAULT_COLOR.bank);
 
   // Reset/populate the form whenever the modal opens or the target account changes.
   useEffect(() => {
     if (!visible) return;
     if (editingAccount) {
+      const c = editingAccount.color ?? DEFAULT_COLOR[editingAccount.type] ?? DEFAULT_COLOR.other;
       setName(editingAccount.name);
       setType(editingAccount.type);
+      setProvider(editingAccount.provider ?? '');
+      setLast4(editingAccount.last4 ?? '');
       setInitialBalance(String(editingAccount.initialBalance));
+      setDesign(editingAccount.design ?? DEFAULT_DESIGN);
+      setColor(c);
+      setColorTouched(true);
+      setShowCustom(!CARD_COLORS.includes(c));
     } else {
       setName('');
       setType('bank');
+      setProvider('');
+      setLast4('');
       setInitialBalance('0');
+      setDesign(DEFAULT_DESIGN);
+      setColor(DEFAULT_COLOR.bank);
+      setColorTouched(false);
+      setShowCustom(false);
     }
+    setHue(220);
+    setLight(50);
   }, [visible, editingAccount]);
 
+  // Keep the hex box in sync when the colour changes from swatches/strips.
+  useEffect(() => {
+    setHexInput(color);
+  }, [color]);
+
+  const typeOption = TYPE_OPTIONS.find((t) => t.type === type)!;
+  const showBankFields = type !== 'cash';
   const trimmedName = name.trim();
   const parsedBalance = parseFloat(initialBalance.replace(',', '.'));
   const balanceValid = Number.isFinite(parsedBalance);
-  const canSave = trimmedName.length > 0 && balanceValid;
+  const last4Valid = last4.length === 0 || last4.length === 4;
+  const canSave = trimmedName.length > 0 && balanceValid && last4Valid;
+  const isCustomColor = !CARD_COLORS.includes(color);
+
+  const previewSubtitle = [showBankFields ? provider.trim() : '', typeOption.label].filter(Boolean).join(' · ');
+
+  function selectType(next: AccountType) {
+    setType(next);
+    if (!colorTouched) setColor(DEFAULT_COLOR[next]);
+  }
+
+  function pickColor(hex: string) {
+    setColor(hex);
+    setColorTouched(true);
+  }
+
+  function onHexChange(text: string) {
+    const cleaned = ('#' + text.replace(/[^0-9a-fA-F]/g, '')).slice(0, 7).toUpperCase();
+    setHexInput(cleaned);
+    if (isValidHex(cleaned)) pickColor(cleaned);
+  }
 
   function handleSave() {
     if (!canSave) return;
-    const icon = TYPE_OPTIONS.find((t) => t.type === type)!.icon;
+    const payload = {
+      name: trimmedName,
+      type,
+      icon: typeOption.icon,
+      initialBalance: parsedBalance,
+      color,
+      design,
+      provider: showBankFields ? provider.trim() || undefined : undefined,
+      last4: showBankFields ? last4 || undefined : undefined,
+    };
 
     if (isEditing && editingAccount) {
-      updateAccount(editingAccount.id, { name: trimmedName, type, icon, initialBalance: parsedBalance });
+      updateAccount(editingAccount.id, payload);
     } else {
-      addAccount({ name: trimmedName, type, icon, initialBalance: parsedBalance });
+      addAccount(payload);
     }
     onClose();
   }
@@ -84,7 +208,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
 
         <ThemedView
@@ -107,15 +231,16 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Name
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="e.g. Maybank, CIMB, Wallet"
-              placeholderTextColor={colors.textSecondary}
-              value={name}
-              onChangeText={setName}
+            <AccountCard
+              title={trimmedName || 'Account name'}
+              subtitle={previewSubtitle}
+              icon={typeOption.icon}
+              balance={balanceValid ? parsedBalance : 0}
+              income={0}
+              spending={0}
+              color={color}
+              design={design}
+              last4={showBankFields && last4.length === 4 ? last4 : undefined}
             />
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
@@ -129,9 +254,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                     key={opt.type}
                     style={[
                       styles.chip,
-                      { backgroundColor: active ? colors.accent : colors.backgroundElement, borderColor: active ? colors.accent : colors.divider },
+                      {
+                        backgroundColor: active ? colors.accent : colors.backgroundElement,
+                        borderColor: active ? colors.accent : colors.divider,
+                      },
                     ]}
-                    onPress={() => setType(opt.type)}
+                    onPress={() => selectType(opt.type)}
                   >
                     <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
                       {opt.icon} {opt.label}
@@ -140,9 +268,56 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 );
               })}
             </View>
+            <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
+              {typeOption.hint}
+            </ThemedText>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              {isEditing ? 'Starting balance' : 'Starting balance (RM)'}
+              Name
+            </ThemedText>
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+              placeholder="e.g. Maybank Savings, Wallet"
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+            />
+
+            {showBankFields ? (
+              <>
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Provider (optional)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder="e.g. Maybank, CIMB, TNG eWallet"
+                  placeholderTextColor={colors.textSecondary}
+                  value={provider}
+                  onChangeText={setProvider}
+                />
+
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Last 4 digits (optional)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder="1234"
+                  placeholderTextColor={colors.textSecondary}
+                  value={last4}
+                  onChangeText={(t) => setLast4(t.replace(/\D/g, '').slice(0, 4))}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
+                {!last4Valid ? (
+                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                    Enter all 4 digits, or leave it empty
+                  </ThemedText>
+                ) : null}
+              </>
+            ) : null}
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Starting balance (RM)
             </ThemedText>
             <TextInput
               style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -152,9 +327,120 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               onChangeText={setInitialBalance}
               keyboardType="decimal-pad"
             />
-            <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-              The balance this account had before you started tracking transactions in it.
+
+            <View style={[styles.infoBox, { backgroundColor: colors.backgroundElement }]}>
+              <ThemedText type="smallBold">Before you add</ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • Starting balance is the amount in this account today. Only transactions you record after this will change it.
+              </ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • Only the last 4 digits are kept. Never enter your full account or card number.
+              </ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • You can edit the look, or delete the card, any time from the Home or Assets tab.
+              </ThemedText>
+            </View>
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Design
             </ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {CARD_DESIGNS.map((d) => {
+                const active = design === d.id;
+                return (
+                  <Pressable key={d.id} style={styles.designItem} onPress={() => setDesign(d.id)}>
+                    <View
+                      style={[
+                        styles.designThumb,
+                        { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
+                      ]}
+                    >
+                      <CardBackground color={color} design={d.id} />
+                    </View>
+                    <ThemedText
+                      type="small"
+                      style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
+                    >
+                      {d.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Colour
+            </ThemedText>
+            <View style={styles.swatchRow}>
+              {CARD_COLORS.map((c) => {
+                const active = color === c;
+                return (
+                  <Pressable
+                    key={c}
+                    onPress={() => {
+                      pickColor(c);
+                      setShowCustom(false);
+                    }}
+                    style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text, borderWidth: 3 }]}
+                    accessibilityLabel={`Colour ${c}`}
+                  />
+                );
+              })}
+              <Pressable
+                onPress={() => setShowCustom((v) => !v)}
+                style={[
+                  styles.swatch,
+                  styles.customSwatch,
+                  { backgroundColor: isCustomColor ? color : colors.backgroundElement, borderColor: colors.divider },
+                  (isCustomColor || showCustom) && { borderColor: colors.text, borderWidth: 3 },
+                ]}
+                accessibilityLabel="Custom colour"
+              >
+                <ThemedText style={{ fontSize: 15 }}>🎨</ThemedText>
+              </Pressable>
+            </View>
+
+            {showCustom ? (
+              <View style={[styles.customPanel, { backgroundColor: colors.backgroundElement }]}>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Colour
+                </ThemedText>
+                <Strip
+                  segments={HUE_STOPS}
+                  ratio={hue / 360}
+                  onPick={(r) => {
+                    const h = Math.round(r * 359);
+                    setHue(h);
+                    pickColor(hslToHex(h, 72, light));
+                  }}
+                />
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Shade
+                </ThemedText>
+                <Strip
+                  segments={Array.from({ length: 12 }, (_, i) =>
+                    hslToHex(hue, 72, LIGHT_MIN + ((LIGHT_MAX - LIGHT_MIN) * i) / 11),
+                  )}
+                  ratio={(light - LIGHT_MIN) / (LIGHT_MAX - LIGHT_MIN)}
+                  onPick={(r) => {
+                    const l = Math.round(LIGHT_MIN + r * (LIGHT_MAX - LIGHT_MIN));
+                    setLight(l);
+                    pickColor(hslToHex(hue, 72, l));
+                  }}
+                />
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Hex code
+                </ThemedText>
+                <TextInput
+                  style={[styles.hexInput, { color: colors.text, backgroundColor: colors.background, borderColor: colors.divider }]}
+                  value={hexInput}
+                  onChangeText={onHexChange}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={7}
+                />
+              </View>
+            ) : null}
 
             <Pressable
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
@@ -173,7 +459,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             ) : null}
           </ScrollView>
         </ThemedView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -189,9 +475,15 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.three,
+  },
   sheetTitle: { fontSize: 18 },
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
+  helper: { marginTop: Spacing.one },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
@@ -201,7 +493,37 @@ const styles = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
+  infoBox: { borderRadius: 12, padding: Spacing.three, marginTop: Spacing.three, gap: 6 },
+  infoLine: { lineHeight: 19 },
+  designItem: { marginRight: Spacing.three, alignItems: 'center', gap: 6 },
+  designThumb: { width: 84, height: 54, borderRadius: 12, overflow: 'hidden' },
+  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  swatch: { width: 34, height: 34, borderRadius: 17, borderColor: 'transparent', borderWidth: 3 },
+  customSwatch: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  customPanel: { borderRadius: 12, padding: Spacing.three, marginTop: Spacing.three, gap: 8 },
+  stripOuter: { height: 28, justifyContent: 'center' },
+  strip: { height: 16, borderRadius: 8, overflow: 'hidden', flexDirection: 'row' },
+  stripSegment: { flex: 1 },
+  marker: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 6,
+    marginLeft: -3,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.45)',
+  },
+  hexInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 10,
+    fontSize: 16,
+    letterSpacing: 1,
+  },
+  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
 });
