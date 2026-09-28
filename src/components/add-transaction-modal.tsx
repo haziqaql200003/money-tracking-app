@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { CATEGORIES, EXPENSE_CATEGORY_IDS, INCOME_CATEGORY_ID } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import type { TransactionType, Transaction } from '@/context/TransactionsContext';
+import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -61,6 +62,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
+  const { accounts } = useTransactions();
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -68,6 +70,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
   const [date, setDate] = useState(toDateString(new Date()));
   const [categoryId, setCategoryId] = useState(DEFAULT_EXPENSE.id);
   const [subcategory, setSubcategory] = useState(DEFAULT_EXPENSE.subcategories[0]);
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [touchedAmount, setTouchedAmount] = useState(false);
@@ -82,7 +85,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
 
   const selectedCategory = CATEGORIES.find((c) => c.id === categoryId)!;
   const amountValid = isValidAmount(amount);
-  const canSave = amountValid;
+  const canSave = amountValid && !!accountId;
 
   useEffect(() => {
     if (!visibleCategories.some((c) => c.id === categoryId)) {
@@ -94,6 +97,13 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
     }
   }, [visibleCategories, categoryId]);
 
+  // Keep the selected account valid if the account list changes (e.g. one gets deleted).
+  useEffect(() => {
+    if (!accounts.some((a) => a.id === accountId)) {
+      setAccountId(accounts[0]?.id ?? '');
+    }
+  }, [accounts, accountId]);
+
   function reset() {
     setTitle('');
     setAmount('');
@@ -101,6 +111,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
     setDate(toDateString(new Date()));
     setCategoryId(DEFAULT_EXPENSE.id);
     setSubcategory(DEFAULT_EXPENSE.subcategories[0]);
+    setAccountId(accounts[0]?.id ?? '');
     setShowDatePicker(false);
     setTouchedAmount(false);
   }
@@ -164,6 +175,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
       date,
       categoryId,
       subcategory,
+      accountId,
     });
     reset();
     onClose();
@@ -283,6 +295,35 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
               value={title}
               onChangeText={setTitle}
             />
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Account
+            </ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+              {accounts.map((acc) => {
+                const active = accountId === acc.id;
+                return (
+                  <Pressable
+                    key={acc.id}
+                    style={[
+                      styles.categoryChip,
+                      {
+                        backgroundColor: active ? typeAccent : colors.backgroundElement,
+                        borderColor: active ? typeAccent : colors.divider,
+                      },
+                    ]}
+                    onPress={() => setAccountId(acc.id)}
+                  >
+                    <ThemedText
+                      type="small"
+                      style={active ? styles.chipTextActive : { color: colors.text }}
+                    >
+                      {acc.icon} {acc.name}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Category

@@ -9,12 +9,41 @@ import type { ChartPoint, ChartPeriod } from '@/context/TransactionsContext';
 const CHART_HEIGHT = 130;
 const PADDING_X = 10;
 const PADDING_TOP = 16;
+const PADDING_BOTTOM = 10;
 
 const PERIOD_COLOR: Record<ChartPeriod, { light: string; dark: string }> = {
   week: { light: '#3654A6', dark: '#7C93D8' }, // blue
   month: { light: '#8A4FBF', dark: '#B98CE0' }, // purple
   year: { light: '#1F8A70', dark: '#57C9A6' }, // green
 };
+
+type Coord = { x: number; y: number };
+
+// Catmull-Rom -> cubic Bezier conversion, so the line curves smoothly through
+// every point instead of joining them with straight segments.
+function smoothLinePath(coords: Coord[]): string {
+  if (coords.length === 0) return '';
+  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+  if (coords.length === 2) {
+    return `M ${coords[0].x} ${coords[0].y} L ${coords[1].x} ${coords[1].y}`;
+  }
+
+  let d = `M ${coords[0].x} ${coords[0].y}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i - 1] ?? coords[i];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] ?? p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
 
 export function SpendingChart({ data, period }: { data: ChartPoint[]; period: ChartPeriod }) {
   const scheme = useColorScheme();
@@ -32,7 +61,7 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
   const max = Math.max(...data.map((d) => d.value), 1);
   const n = data.length;
   const usableWidth = Math.max(width - PADDING_X * 2, 0);
-  const usableHeight = CHART_HEIGHT - PADDING_TOP;
+  const usableHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
   const stepX = n > 1 ? usableWidth / (n - 1) : 0;
 
   const coords = data.map((point, i) => ({
@@ -41,10 +70,10 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
     point,
   }));
 
-  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+  const linePath = smoothLinePath(coords);
   const areaPath =
     coords.length > 1
-      ? `${linePath} L ${coords[coords.length - 1].x} ${CHART_HEIGHT} L ${coords[0].x} ${CHART_HEIGHT} Z`
+      ? `${linePath} L ${coords[coords.length - 1].x} ${CHART_HEIGHT - PADDING_BOTTOM} L ${coords[0].x} ${CHART_HEIGHT - PADDING_BOTTOM} Z`
       : '';
 
   return (

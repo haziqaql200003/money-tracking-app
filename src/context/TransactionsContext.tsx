@@ -2,6 +2,16 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 export type TransactionType = 'debit' | 'credit';
 
+export type AccountType = 'bank' | 'cash' | 'other';
+
+export type Account = {
+  id: string;
+  name: string;
+  type: AccountType;
+  icon: string; // emoji, same pattern as category icons
+  initialBalance: number; // starting balance before any tracked transactions
+};
+
 export type Transaction = {
   id: string;
   title: string;
@@ -10,6 +20,7 @@ export type Transaction = {
   subcategory: string;
   amount: number; // always positive; sign comes from `type`
   type: TransactionType;
+  accountId: string;
 };
 
 export type ChartPeriod = 'week' | 'month' | 'year';
@@ -27,6 +38,9 @@ type TransactionsContextValue = {
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
   balance: number;
   spentThisMonth: (categoryId: string) => number;
+  totalIncomeThisMonth: () => number;
+  totalSpendingThisMonth: () => number;
+  categoryBreakdownThisMonth: () => { categoryId: string; value: number; percent: number }[];
   recentTransactions: (count?: number) => Transaction[];
   /** weekOffset: 0 = the week containing today, -1 = the week before that, etc. */
   getWeekChartData: (weekOffset: number) => ChartPoint[];
@@ -34,14 +48,31 @@ type TransactionsContextValue = {
   getMonthChartData: () => ChartPoint[];
   /** one point per calendar year that has data (current year always included) */
   getYearChartData: () => ChartPoint[];
+
+  // Accounts (bank, cash, etc.)
+  accounts: Account[];
+  addAccount: (a: Omit<Account, 'id'>) => void;
+  updateAccount: (id: string, patch: Partial<Omit<Account, 'id'>>) => void;
+  /** Deletes the account and any transactions tied to it. */
+  deleteAccount: (id: string) => void;
+  accountBalance: (accountId: string) => number;
+  /** Every account paired with its current computed balance — handy for the Assets tab. */
+  accountBalances: () => (Account & { balance: number })[];
+
+  resetAllData: () => void;
 };
 
 const TransactionsContext = createContext<TransactionsContextValue | undefined>(undefined);
 
+const initialAccounts: Account[] = [
+  { id: 'bank', name: 'Bank', type: 'bank', icon: '🏦', initialBalance: 0 },
+  { id: 'cash', name: 'Cash', type: 'cash', icon: '💵', initialBalance: 0 },
+];
+
 const initialTransactions: Transaction[] = [
-  { id: '1', title: 'Groceries', date: '2026-09-20', categoryId: 'food', subcategory: 'Groceries', amount: 45.2, type: 'debit' },
-  { id: '2', title: 'Salary', date: '2026-09-01', categoryId: 'income', subcategory: 'Salary', amount: 2500, type: 'credit' },
-  { id: '3', title: 'Coffee', date: '2026-09-21', categoryId: 'food', subcategory: 'Coffee', amount: 4.5, type: 'debit' },
+  { id: '1', title: 'Groceries', date: '2026-09-20', categoryId: 'food', subcategory: 'Groceries', amount: 45.2, type: 'debit', accountId: 'bank' },
+  { id: '2', title: 'Salary', date: '2026-09-01', categoryId: 'income', subcategory: 'Salary', amount: 2500, type: 'credit', accountId: 'bank' },
+  { id: '3', title: 'Coffee', date: '2026-09-21', categoryId: 'food', subcategory: 'Coffee', amount: 4.5, type: 'debit', accountId: 'cash' },
 ];
 
 // Monday-first, matching how the week chart is laid out.
@@ -68,15 +99,38 @@ function startOfWeek(d: Date): Date {
 
 export function TransactionsProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
 
   function addTransaction(t: Omit<Transaction, 'id'>) {
     setTransactions((prev) => [{ ...t, id: Date.now().toString() }, ...prev]);
   }
 
-  const balance = transactions.reduce(
-    (sum, t) => sum + (t.type === 'credit' ? t.amount : -t.amount),
-    0
-  );
+  function addAccount(a: Omit<Account, 'id'>) {
+    setAccounts((prev) => [...prev, { ...a, id: Date.now().toString() }]);
+  }
+
+  function updateAccount(id: string, patch: Partial<Omit<Account, 'id'>>) {
+    setAccounts((prev) => prev.map((acc) => (acc.id === id ? { ...acc, ...patch } : acc)));
+  }
+
+  function deleteAccount(id: string) {
+    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+    setTransactions((prev) => prev.filter((t) => t.accountId !== id));
+  }
+
+  function accountBalance(accountId: string) {
+    const account = accounts.find((a) => a.id === accountId);
+    const base = account?.initialBalance ?? 0;
+    return transactions
+      .filter((t) => t.accountId === accountId)
+      .reduce((sum, t) => sum + (t.type === 'credit' ? t.amount : -t.amount), base);
+  }
+
+  function accountBalances() {
+    return accounts.map((a) => ({ ...a, balance: accountBalance(a.id) }));
+  }
+
+  const balance = accounts.reduce((sum, a) => sum + accountBalance(a.id), 0);
 
   function spentThisMonth(categoryId: string) {
     const now = new Date();
@@ -93,11 +147,49 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       .reduce((sum, t) => sum + t.amount, 0);
   }
 
+  function totalIncomeThisMonth() {
+    const now = new Date();
+    return transactions
+      .filter((t) => {
+        const d = new Date(t.date);
+        return t.type === 'credit' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  }
+
+  function totalSpendingThisMonth() {
+    const now = new Date();
+    return transactions
+      .filter((t) => {
+        const d = new Date(t.date);
+        return t.type === 'debit' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  }
+
   // Most recent transactions first, for the Home screen's short list.
   function recentTransactions(count = 10) {
     return [...transactions]
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
       .slice(0, count);
+  }
+
+  function categoryBreakdownThisMonth() {
+    const now = new Date();
+    const monthTxns = transactions.filter((t) => {
+      const d = new Date(t.date);
+      return t.type === 'debit' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const totals = new Map<string, number>();
+    monthTxns.forEach((t) => {
+      totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
+    });
+    const total = Array.from(totals.values()).reduce((a, b) => a + b, 0);
+
+    return Array.from(totals.entries())
+      .map(([categoryId, value]) => ({ categoryId, value, percent: total > 0 ? (value / total) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
   }
 
   // Monday -> Sunday for the week `weekOffset` weeks away from the current one.
@@ -156,6 +248,11 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       });
   }
 
+  function resetAllData() {
+    setTransactions(initialTransactions);
+    setAccounts(initialAccounts);
+  }
+
   return (
     <TransactionsContext.Provider
       value={{
@@ -163,10 +260,20 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         addTransaction,
         balance,
         spentThisMonth,
+        categoryBreakdownThisMonth,
+        totalIncomeThisMonth,
+        totalSpendingThisMonth,
         recentTransactions,
         getWeekChartData,
         getMonthChartData,
         getYearChartData,
+        accounts,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        accountBalance,
+        accountBalances,
+        resetAllData,
       }}
     >
       {children}
