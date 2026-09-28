@@ -1,5 +1,7 @@
+
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import { isLightColor, shade, type CardDesign } from '@/constants/card-styles';
@@ -49,6 +51,9 @@ function signedMoney(amount: number) {
   return (amount < 0 ? '-' : '') + formatMoney(amount);
 }
 
+const MASK_BALANCE = 'RM ••••••';
+const MASK_SPLIT = 'RM ••••';
+
 type Props = {
   width?: number; // omit to stretch to the parent's width
   title: string;
@@ -60,9 +65,26 @@ type Props = {
   color: string;
   design: CardDesign;
   last4?: string;
+  /** Mask the balance, income and spending. */
+  hidden?: boolean;
+  /** When provided, an eye button is shown on the card to toggle `hidden`. */
+  onToggleHidden?: () => void;
 };
 
-export function AccountCard({ width, title, subtitle, icon, balance, income, spending, color, design, last4 }: Props) {
+export function AccountCard({
+  width,
+  title,
+  subtitle,
+  icon,
+  balance,
+  income,
+  spending,
+  color,
+  design,
+  last4,
+  hidden = false,
+  onToggleHidden,
+}: Props) {
   const ink = inkFor(color);
 
   return (
@@ -85,25 +107,38 @@ export function AccountCard({ width, title, subtitle, icon, balance, income, spe
       </View>
 
       <View>
-        <Text style={[styles.balanceLabel, { color: ink.muted }]}>BALANCE</Text>
+        <View style={styles.balanceLabelRow}>
+          <Text style={[styles.balanceLabel, { color: ink.muted }]}>BALANCE</Text>
+          {onToggleHidden ? (
+            <Pressable
+              onPress={onToggleHidden}
+              hitSlop={12}
+              style={[styles.eyeButton, { backgroundColor: ink.chip }]}
+              accessibilityRole="button"
+              accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+            >
+              <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={ink.main} />
+            </Pressable>
+          ) : null}
+        </View>
         <Text
           style={[styles.balanceAmount, { color: ink.main }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}
         >
-          {signedMoney(balance)}
+          {hidden ? MASK_BALANCE : signedMoney(balance)}
         </Text>
       </View>
 
       <View style={[styles.bottom, { borderTopColor: ink.line }]}>
         <View>
           <Text style={[styles.splitLabel, { color: ink.muted }]}>Income</Text>
-          <Text style={[styles.splitValue, { color: ink.main }]}>{formatMoney(income)}</Text>
+          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(income)}</Text>
         </View>
         <View style={styles.right}>
           <Text style={[styles.splitLabel, { color: ink.muted }]}>Spending</Text>
-          <Text style={[styles.splitValue, { color: ink.main }]}>{formatMoney(spending)}</Text>
+          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(spending)}</Text>
         </View>
       </View>
     </View>
@@ -143,6 +178,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '700' },
   subtitle: { fontSize: 12, fontWeight: '500' },
   last4: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eyeButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   balanceLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
   balanceAmount: { fontSize: 34, lineHeight: 40, fontWeight: '700', marginTop: 2 },
   bottom: {

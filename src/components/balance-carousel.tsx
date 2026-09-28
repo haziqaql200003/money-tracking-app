@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { AccountCard } from '@/components/account-card';
@@ -6,6 +6,7 @@ import { AddAccountModal } from '@/components/add-account-modal';
 import { DEFAULT_COLOR, DEFAULT_DESIGN, type CardDesign } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import type { Account, AccountType, Transaction } from '@/context/TransactionsContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -47,8 +48,17 @@ function monthTotals(transactions: Transaction[], accountId?: string) {
   return { income, spending };
 }
 
-export function BalanceCarousel() {
+type Props = {
+  /**
+   * Called when the card in view changes. `null` means the "All accounts" card.
+   * Not called while the "Add a new account" card is in view, so the previous selection stays.
+   */
+  onSelectAccount?: (accountId: string | null) => void;
+};
+
+export function BalanceCarousel({ onSelectAccount }: Props) {
   const colors = useTheme();
+  const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { width } = useWindowDimensions();
   const { accounts, transactions, accountBalance, balance } = useTransactions();
   const [index, setIndex] = useState(0);
@@ -90,6 +100,13 @@ export function BalanceCarousel() {
   ];
 
   const active = Math.min(index, slides.length - 1);
+  // undefined = the "Add" card is showing (leave the selection alone), null = "All accounts"
+  const activeSlide = slides[active];
+  const selection = activeSlide.kind === 'add' ? undefined : (activeSlide.account?.id ?? null);
+
+  useEffect(() => {
+    if (selection !== undefined) onSelectAccount?.(selection);
+  }, [selection, onSelectAccount]);
 
   function openAdd() {
     setEditing(null);
@@ -148,7 +165,8 @@ export function BalanceCarousel() {
               spending={item.spending}
               color={item.color}
               design={item.design}
-              last4={item.last4}
+              hidden={hideAmounts}
+              onToggleHidden={toggleHideAmounts}
             />
           );
 

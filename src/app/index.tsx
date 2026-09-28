@@ -1,189 +1,192 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet, FlatList, Pressable, View, Alert, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Line } from 'react-native-svg';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { BalanceCarousel } from '@/components/balance-carousel';
-import { SpendingChart } from '@/components/spending-chart';
-import { WeekChartPager } from '@/components/week-chart-pager';
-import { TransactionRow } from '@/components/transaction-row';
-import { useTransactions } from '@/context/TransactionsContext';
-import type { ChartPeriod } from '@/context/TransactionsContext';
-import { useTheme } from '@/hooks/use-theme';
+import { isLightColor, shade, type CardDesign } from '@/constants/card-styles';
 import { formatMoney } from '@/utils/currency';
-import { AccountModal } from '@/components/account-modal';
-import { useProfile } from '@/context/ProfileContext';
 
-const PERIODS: { key: ChartPeriod; label: string }[] = [
-  { key: 'week', label: 'Week' },
-  { key: 'month', label: 'Month' },
-  { key: 'year', label: 'Year' },
-];
+const STRIPES = Array.from({ length: 17 }, (_, i) => -60 + i * 10);
 
-export default function HomeScreen() {
-  const { recentTransactions, getWeekChartData, getMonthChartData, getYearChartData } = useTransactions();
-  const colors = useTheme();
-  const router = useRouter();
+function inkFor(color: string) {
+  return isLightColor(color)
+    ? { main: '#111827', muted: 'rgba(17,24,39,0.65)', chip: 'rgba(17,24,39,0.12)', line: 'rgba(17,24,39,0.25)', deco: 'rgba(17,24,39,0.07)' }
+    : { main: '#FFFFFF', muted: 'rgba(255,255,255,0.7)', chip: 'rgba(255,255,255,0.2)', line: 'rgba(255,255,255,0.3)', deco: 'rgba(255,255,255,0.08)' };
+}
 
-  const [period, setPeriod] = useState<ChartPeriod>('week');
-  const [weekOffset, setWeekOffset] = useState(0);
+export function CardBackground({ color, design }: { color: string; design: CardDesign }) {
+  const ink = inkFor(color);
 
-  const { displayName } = useProfile();
-  const [accountModalVisible, setAccountModalVisible] = useState(false);
-
-  function showComingSoon() {
-    Alert.alert('Notifications', 'Coming soon — this will show reminders and budget alerts.');
-  }
-
-  const weekData = useMemo(() => getWeekChartData(weekOffset), [getWeekChartData, weekOffset]);
-  const monthData = useMemo(() => getMonthChartData(), [getMonthChartData]);
-  const yearData = useMemo(() => getYearChartData(), [getYearChartData]);
-
-  const chartData = period === 'week' ? weekData : period === 'month' ? monthData : yearData;
-  const periodTotal = chartData.reduce((sum, p) => sum + p.value, 0);
-  const recent = recentTransactions(6);
-
-  const weekRangeLabel =
-    weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : `${Math.abs(weekOffset)} weeks ago`;
-
-  const currentYear = new Date().getFullYear();
-  const captionLabel =
-    period === 'week'
-      ? weekRangeLabel
-      : period === 'month'
-        ? `Spent in ${currentYear}`
-        : yearData.length > 1
-          ? `Total, ${yearData[0].label}–${yearData[yearData.length - 1].label}`
-          : `Total, ${yearData[0]?.label ?? currentYear}`;
-
-  function selectPeriod(key: ChartPeriod) {
-    setPeriod(key);
-    if (key === 'week') setWeekOffset(0);
+  if (design === 'solid') {
+    return <View style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />;
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <FlatList
-          data={recent}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TransactionRow item={item} />}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View>
-              <View style={styles.headerRow}>
-                <Pressable style={styles.headerLeft} onPress={() => setAccountModalVisible(true)}>
-                  <View style={[styles.avatar, { backgroundColor: colors.backgroundElement }]}>
-                    <ThemedText style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase()}</ThemedText>
-                  </View>
-                  <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
-                    Hi, <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
-                  </Text>
-                </Pressable>
+    <>
+      <LinearGradient
+        colors={[shade(color, 0.12), shade(color, -0.4)]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {design === 'aurora' && (
+        <>
+          <View style={[styles.circleLarge, { backgroundColor: ink.deco }]} />
+          <View style={[styles.circleSmall, { backgroundColor: ink.deco }]} />
+        </>
+      )}
+      {design === 'stripes' && (
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 60" preserveAspectRatio="none">
+          {STRIPES.map((x) => (
+            <Line key={x} x1={x} y1={60} x2={x + 60} y2={0} stroke={ink.deco} strokeWidth={1.4} />
+          ))}
+        </Svg>
+      )}
+    </>
+  );
+}
 
-                <Pressable
-                  style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]}
-                  onPress={showComingSoon}
-                >
-                  <ThemedText style={styles.bellIcon}>🔔</ThemedText>
-                </Pressable>
-              </View>
+function signedMoney(amount: number) {
+  return (amount < 0 ? '-' : '') + formatMoney(amount);
+}
 
-              <BalanceCarousel />
+const MASK_BALANCE = 'RM ••••••';
+const MASK_SPLIT = 'RM ••••';
 
-              <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-                {PERIODS.map((p) => (
-                  <Pressable
-                    key={p.key}
-                    style={[styles.segmentButton, period === p.key && { backgroundColor: colors.background }]}
-                    onPress={() => selectPeriod(p.key)}
-                  >
-                    <ThemedText
-                      type="small"
-                      style={period === p.key ? styles.segmentActiveText : { color: colors.textSecondary }}
-                    >
-                      {p.label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
-              </View>
+type Props = {
+  width?: number; // omit to stretch to the parent's width
+  title: string;
+  subtitle: string;
+  icon: string;
+  balance: number;
+  income: number;
+  spending: number;
+  color: string;
+  design: CardDesign;
+  last4?: string;
+  /** Mask the balance, income and spending. */
+  hidden?: boolean;
+  /** When provided, an eye button is shown on the card to toggle `hidden`. */
+  onToggleHidden?: () => void;
+};
 
-              <View style={styles.chartBlock}>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {captionLabel} · {formatMoney(periodTotal)}
-                </ThemedText>
-                <View style={styles.chartSpacing}>
-                  {period === 'week' ? (
-                    <WeekChartPager onWeekChange={setWeekOffset} />
-                  ) : (
-                    <SpendingChart data={chartData} period={period} />
-                  )}
-                </View>
-                {period === 'week' && (
-                  <ThemedText type="small" style={[styles.swipeHint, { color: colors.textSecondary }]}>
-                    Swipe left to see previous weeks
-                  </ThemedText>
-                )}
-              </View>
+export function AccountCard({
+  width,
+  title,
+  subtitle,
+  icon,
+  balance,
+  income,
+  spending,
+  color,
+  design,
+  last4,
+  hidden = false,
+  onToggleHidden,
+}: Props) {
+  const ink = inkFor(color);
 
-              <View style={styles.recentHeaderRow}>
-                <ThemedText type="smallBold" style={styles.recentHeading}>
-                  Recent transactions
-                </ThemedText>
-                <Pressable onPress={() => router.push('/transactions')} hitSlop={8}>
-                  <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                    See all
-                  </ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          }
-          ListEmptyComponent={
-            <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              No transactions yet — tap + below to add your first one.
-            </ThemedText>
-          }
-          contentContainerStyle={styles.listContent}
-        />
+  return (
+    <View style={[styles.card, width ? { width } : styles.stretch]}>
+      <CardBackground color={color} design={design} />
 
-        <AccountModal visible={accountModalVisible} onClose={() => setAccountModalVisible(false)} />
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.top}>
+        <View style={[styles.iconChip, { backgroundColor: ink.chip }]}>
+          <Text style={styles.iconText}>{icon}</Text>
+        </View>
+        <View style={styles.flex}>
+          <Text style={[styles.title, { color: ink.main }]} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={[styles.subtitle, { color: ink.muted }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        </View>
+        {last4 ? <Text style={[styles.last4, { color: ink.muted }]}>•••• {last4}</Text> : null}
+      </View>
+
+      <View>
+        <View style={styles.balanceLabelRow}>
+          <Text style={[styles.balanceLabel, { color: ink.muted }]}>BALANCE</Text>
+          {onToggleHidden ? (
+            <Pressable
+              onPress={onToggleHidden}
+              hitSlop={12}
+              style={[styles.eyeButton, { backgroundColor: ink.chip }]}
+              accessibilityRole="button"
+              accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+            >
+              <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={ink.main} />
+            </Pressable>
+          ) : null}
+        </View>
+        <Text
+          style={[styles.balanceAmount, { color: ink.main }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {hidden ? MASK_BALANCE : signedMoney(balance)}
+        </Text>
+      </View>
+
+      <View style={[styles.bottom, { borderTopColor: ink.line }]}>
+        <View>
+          <Text style={[styles.splitLabel, { color: ink.muted }]}>Income</Text>
+          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(income)}</Text>
+        </View>
+        <View style={styles.right}>
+          <Text style={[styles.splitLabel, { color: ink.muted }]}>Spending</Text>
+          <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(spending)}</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safeArea: { flex: 1 },
-  listContent: { paddingHorizontal: Spacing.four, paddingBottom: 130 },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  flex: { flex: 1 },
+  right: { alignItems: 'flex-end' },
+  card: {
+    height: 196,
+    borderRadius: 24,
+    padding: 20,
     justifyContent: 'space-between',
-    paddingTop: Spacing.two,
-    marginBottom: Spacing.three,
+    overflow: 'hidden',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontWeight: '700' },
-  greeting: { fontSize: 28, lineHeight: 34, fontWeight: '400', flexShrink: 1 },
-  greetingName: { fontWeight: '700' },
-  bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  bellIcon: { fontSize: 18 },
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.four },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  segmentActiveText: { fontWeight: '600' },
-  chartBlock: { marginBottom: Spacing.five },
-  chartSpacing: { marginTop: Spacing.two },
-  swipeHint: { textAlign: 'center', marginTop: 6, opacity: 0.7 },
-  recentHeaderRow: {
+  stretch: { alignSelf: 'stretch' },
+  circleLarge: {
+    position: 'absolute',
+    width: '62%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    top: '-38%',
+    right: '-16%',
+  },
+  circleSmall: {
+    position: 'absolute',
+    width: '40%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    bottom: '-30%',
+    left: '-8%',
+  },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  iconText: { fontSize: 18 },
+  title: { fontSize: 17, fontWeight: '700' },
+  subtitle: { fontSize: 12, fontWeight: '500' },
+  last4: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eyeButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  balanceLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
+  balanceAmount: { fontSize: 34, lineHeight: 40, fontWeight: '700', marginTop: 2 },
+  bottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.two,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  recentHeading: { fontSize: 16 },
+  splitLabel: { fontSize: 12, fontWeight: '500' },
+  splitValue: { fontSize: 15, fontWeight: '700', marginTop: 1 },
 });

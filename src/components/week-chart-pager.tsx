@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,8 +15,16 @@ const WEEKS_BACK = 52;
 // oldest -> newest, last entry is always 0 (the current week)
 const WEEK_OFFSETS = Array.from({ length: WEEKS_BACK + 1 }, (_, i) => -(WEEKS_BACK - i));
 
-export function WeekChartPager({ onWeekChange }: { onWeekChange?: (offset: number) => void }) {
-  const { getWeekChartData } = useTransactions();
+type Props = {
+  onWeekChange?: (offset: number) => void;
+  /** Limit the chart to one account (omit for all accounts). */
+  accountId?: string;
+};
+
+export function WeekChartPager({ onWeekChange, accountId }: Props) {
+  const { getWeekChartData, transactions } = useTransactions();
+  // FlatList only re-renders its pages when `extraData` changes, so tie it to what the pages read.
+  const extraData = useMemo(() => ({ accountId, transactions }), [accountId, transactions]);
   const [pageWidth, setPageWidth] = useState(0);
   const listRef = useRef<FlatList<number>>(null);
 
@@ -38,6 +46,7 @@ export function WeekChartPager({ onWeekChange }: { onWeekChange?: (offset: numbe
         <FlatList
           ref={listRef}
           data={WEEK_OFFSETS}
+          extraData={extraData}
           keyExtractor={(offset) => String(offset)}
           horizontal
           pagingEnabled
@@ -47,7 +56,7 @@ export function WeekChartPager({ onWeekChange }: { onWeekChange?: (offset: numbe
           onMomentumScrollEnd={handleMomentumEnd}
           renderItem={({ item: offset }) => (
             <View style={{ width: pageWidth }}>
-              <SpendingChart data={getWeekChartData(offset)} period="week" />
+              <SpendingChart data={getWeekChartData(offset, accountId)} period="week" />
             </View>
           )}
         />

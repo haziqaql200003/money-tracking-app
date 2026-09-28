@@ -37,6 +37,7 @@ export type ChartPoint = {
   value: number;
   /** true when this point represents "today" (only ever set for week points) */
   isToday?: boolean;
+  isFuture?: boolean;
 };
 
 type TransactionsContextValue = {
@@ -47,13 +48,14 @@ type TransactionsContextValue = {
   totalIncomeThisMonth: () => number;
   totalSpendingThisMonth: () => number;
   categoryBreakdownThisMonth: () => { categoryId: string; value: number; percent: number }[];
-  recentTransactions: (count?: number) => Transaction[];
-  /** weekOffset: 0 = the week containing today, -1 = the week before that, etc. */
-  getWeekChartData: (weekOffset: number) => ChartPoint[];
+  /** Pass `accountId` to limit the list to one account (omit for all accounts). */
+  recentTransactions: (count?: number, accountId?: string) => Transaction[];
+  /** weekOffset: 0 = the week containing today, -1 = the week before that, etc. `accountId` limits to one account. */
+  getWeekChartData: (weekOffset: number, accountId?: string) => ChartPoint[];
   /** Jan -> Dec of the current year */
-  getMonthChartData: () => ChartPoint[];
+  getMonthChartData: (accountId?: string) => ChartPoint[];
   /** one point per calendar year that has data (current year always included) */
-  getYearChartData: () => ChartPoint[];
+  getYearChartData: (accountId?: string) => ChartPoint[];
 
   // Accounts (bank, cash, etc.)
   accounts: Account[];
@@ -174,8 +176,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   }
 
   // Most recent transactions first, for the Home screen's short list.
-  function recentTransactions(count = 10) {
-    return [...transactions]
+  function recentTransactions(count = 10, accountId?: string) {
+    return transactions
+      .filter((t) => !accountId || t.accountId === accountId)
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
       .slice(0, count);
   }
@@ -200,7 +203,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   // Monday -> Sunday for the week `weekOffset` weeks away from the current one.
   // weekOffset 0 = this week, -1 = last week, -2 = the week before that, ...
-  function getWeekChartData(weekOffset: number): ChartPoint[] {
+  function getWeekChartData(weekOffset: number, accountId?: string): ChartPoint[] {
     const now = new Date();
     const todayKey = toDateKey(now);
     const monday = startOfWeek(now);
@@ -212,23 +215,26 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       d.setDate(monday.getDate() + i);
       const key = toDateKey(d);
       const value = transactions
-        .filter((t) => t.type === 'debit' && t.date === key)
+        .filter((t) => t.type === 'debit' && t.date === key && (!accountId || t.accountId === accountId))
         .reduce((sum, t) => sum + t.amount, 0);
-      points.push({ key, label: WEEKDAY_LABELS[i], value, isToday: key === todayKey });
+      points.push({ key, label: WEEKDAY_LABELS[i], value, isToday: key === todayKey, isFuture: key > todayKey });
     }
     return points;
   }
 
   // Jan -> Dec of the current year (each point is one month's total spend).
-  function getMonthChartData(): ChartPoint[] {
-    const year = new Date().getFullYear();
+  function getMonthChartData(accountId?: string): ChartPoint[] {
+    const now = new Date();
+    const year = now.getFullYear();
     const points: ChartPoint[] = MONTH_LABELS.map((label, i) => ({
       key: `${year}-${i}`,
       label,
       value: 0,
+      isFuture: i > now.getMonth(),
     }));
 
     transactions.forEach((t) => {
+      if (accountId && t.accountId !== accountId) return;
       const d = new Date(t.date);
       if (t.type === 'debit' && d.getFullYear() === year) {
         points[d.getMonth()].value += t.amount;
@@ -239,7 +245,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   // One point per calendar year that has transactions, plus the current year
   // even if it's still empty, sorted oldest -> newest (e.g. 2025, 2026).
-  function getYearChartData(): ChartPoint[] {
+  function getYearChartData(accountId?: string): ChartPoint[] {
     const currentYear = new Date().getFullYear();
     const years = new Set<number>([currentYear]);
     transactions.forEach((t) => years.add(new Date(t.date).getFullYear()));
@@ -248,7 +254,12 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => a - b)
       .map((year) => {
         const value = transactions
-          .filter((t) => t.type === 'debit' && new Date(t.date).getFullYear() === year)
+          .filter(
+            (t) =>
+              t.type === 'debit' &&
+              new Date(t.date).getFullYear() === year &&
+              (!accountId || t.accountId === accountId),
+          )
           .reduce((sum, t) => sum + t.amount, 0);
         return { key: String(year), label: String(year), value };
       });

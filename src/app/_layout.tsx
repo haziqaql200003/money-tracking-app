@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { AddRecordProvider } from '@/context/AddRecordContext';
+import { PrivacyProvider } from '@/context/PrivacyContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { TransactionsProvider } from '@/context/TransactionsContext';
 
@@ -15,13 +16,15 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <ProfileProvider>
-        <TransactionsProvider>
-          <AddRecordProvider>
-            <AnimatedSplashOverlay />
-            <AppTabs />
-          </AddRecordProvider>
-        </TransactionsProvider>
-      </ProfileProvider>
+        <PrivacyProvider>
+          <TransactionsProvider>
+            <AddRecordProvider>
+              <AnimatedSplashOverlay />
+              <AppTabs />
+            </AddRecordProvider>
+          </TransactionsProvider>
+        </PrivacyProvider>
+       </ProfileProvider>
     </ThemeProvider>
   );
 }
