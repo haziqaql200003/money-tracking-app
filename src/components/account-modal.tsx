@@ -8,6 +8,7 @@ import { Spacing } from '@/constants/theme';
 import { useProfile } from '@/context/ProfileContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useCategories } from '@/context/CategoriesContext';
 
 type Props = {
   visible: boolean;
@@ -19,6 +20,7 @@ export function AccountModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { displayName, setDisplayName } = useProfile();
   const { resetAllData } = useTransactions();
+  const { resetCategories } = useCategories();
 
   const [name, setName] = useState(displayName);
 
@@ -38,7 +40,7 @@ export function AccountModal({ visible, onClose }: Props) {
       'This clears every transaction and account back to the sample data. Useful for testing — this cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', style: 'destructive', onPress: () => { resetAllData(); onClose(); } },
+        { text: 'Reset', style: 'destructive', onPress: () => { resetAllData(); resetCategories(); onClose(); } },
       ],
     );
   }

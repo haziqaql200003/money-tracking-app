@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   Modal,
   TextInput,
   Pressable,
@@ -14,8 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CATEGORIES, EXPENSE_CATEGORY_IDS, INCOME_CATEGORY_ID } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
+import { useCategories } from '@/context/CategoriesContext';
 import type { TransactionType, Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -24,11 +26,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSave: (t: Omit<Transaction, 'id'>) => void;
+  /** Add mode: called on save. */
+  onSave?: (t: Omit<Transaction, 'id'>) => void;
+  /** Pass an existing transaction for Edit mode (shows a Delete button). */
+  editingTransaction?: Transaction | null;
 };
-
-const DEFAULT_EXPENSE = CATEGORIES.find((c) => c.id === 'food')!;
-const DEFAULT_INCOME = CATEGORIES.find((c) => c.id === INCOME_CATEGORY_ID)!;
 
 function toDateString(d: Date) {
   const y = d.getFullYear();
@@ -57,42 +59,38 @@ function isValidAmount(raw: string) {
   return Number.isFinite(n) && n > 0;
 }
 
-export function AddTransactionModal({ visible, onClose, onSave }: Props) {
+export function AddTransactionModal({ visible, onClose, onSave, editingTransaction }: Props) {
   const colors = useTheme();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { accounts } = useTransactions();
+  const { accounts, updateTransaction, deleteTransaction } = useTransactions();
+  const { expenseCategories, incomeCategories, getCategory } = useCategories();
+  const isEditing = !!editingTransaction;
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType>('debit');
   const [date, setDate] = useState(toDateString(new Date()));
-  const [categoryId, setCategoryId] = useState(DEFAULT_EXPENSE.id);
-  const [subcategory, setSubcategory] = useState(DEFAULT_EXPENSE.subcategories[0]);
+  const [categoryId, setCategoryId] = useState(expenseCategories[0]?.id ?? '');
+  const [subcategory, setSubcategory] = useState(expenseCategories[0]?.subcategories[0] ?? '');
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [touchedAmount, setTouchedAmount] = useState(false);
 
-  const visibleCategories = useMemo(
-    () =>
-      type === 'credit'
-        ? CATEGORIES.filter((c) => c.id === INCOME_CATEGORY_ID)
-        : CATEGORIES.filter((c) => EXPENSE_CATEGORY_IDS.includes(c.id as (typeof EXPENSE_CATEGORY_IDS)[number])),
-    [type],
-  );
-
-  const selectedCategory = CATEGORIES.find((c) => c.id === categoryId)!;
+  const visibleCategories = type === 'credit' ? incomeCategories : expenseCategories;
+  const selectedCategory = getCategory(categoryId) ?? visibleCategories[0];
   const amountValid = isValidAmount(amount);
-  const canSave = amountValid && !!accountId;
+  const canSave = amountValid && !!accountId && !!selectedCategory;
 
+  // Keep the selected category valid when the type changes or categories are edited/deleted.
   useEffect(() => {
     if (!visibleCategories.some((c) => c.id === categoryId)) {
       const first = visibleCategories[0];
       if (first) {
         setCategoryId(first.id);
-        setSubcategory(first.subcategories[0]);
+        setSubcategory(first.subcategories[0] ?? '');
       }
     }
   }, [visibleCategories, categoryId]);
@@ -104,13 +102,28 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
     }
   }, [accounts, accountId]);
 
+  // Fill the form when Edit mode opens.
+  useEffect(() => {
+    if (!visible || !editingTransaction) return;
+    setTitle(editingTransaction.title);
+    setAmount(String(editingTransaction.amount));
+    setType(editingTransaction.type);
+    setDate(editingTransaction.date);
+    setCategoryId(editingTransaction.categoryId);
+    setSubcategory(editingTransaction.subcategory);
+    setAccountId(editingTransaction.accountId);
+    setShowDatePicker(false);
+    setTouchedAmount(false);
+  }, [visible, editingTransaction]);
+
   function reset() {
+    const first = expenseCategories[0];
     setTitle('');
     setAmount('');
     setType('debit');
     setDate(toDateString(new Date()));
-    setCategoryId(DEFAULT_EXPENSE.id);
-    setSubcategory(DEFAULT_EXPENSE.subcategories[0]);
+    setCategoryId(first?.id ?? '');
+    setSubcategory(first?.subcategories[0] ?? '');
     setAccountId(accounts[0]?.id ?? '');
     setShowDatePicker(false);
     setTouchedAmount(false);
@@ -118,19 +131,18 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
 
   function setTransactionType(next: TransactionType) {
     setType(next);
-    if (next === 'credit') {
-      setCategoryId(DEFAULT_INCOME.id);
-      setSubcategory(DEFAULT_INCOME.subcategories[0]);
-    } else {
-      setCategoryId(DEFAULT_EXPENSE.id);
-      setSubcategory(DEFAULT_EXPENSE.subcategories[0]);
+    const first = (next === 'credit' ? incomeCategories : expenseCategories)[0];
+    if (first) {
+      setCategoryId(first.id);
+      setSubcategory(first.subcategories[0] ?? '');
     }
   }
 
   function pickCategory(id: string) {
-    const cat = CATEGORIES.find((c) => c.id === id)!;
+    const cat = getCategory(id);
+    if (!cat) return;
     setCategoryId(id);
-    setSubcategory(cat.subcategories[0]);
+    setSubcategory(cat.subcategories[0] ?? '');
   }
 
   function setQuickDate(offsetDays: number) {
@@ -168,17 +180,38 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
   function handleSave() {
     if (!canSave) return;
     const parsed = parseFloat(amount.replace(',', '.'));
-    onSave({
-      title: title.trim() || subcategory,
+    const payload = {
+      title: title.trim() || subcategory || selectedCategory.name,
       amount: Math.abs(parsed),
       type,
       date,
-      categoryId,
+      categoryId: selectedCategory.id,
       subcategory,
       accountId,
-    });
+    };
+    if (editingTransaction) {
+      updateTransaction(editingTransaction.id, payload);
+    } else {
+      onSave?.(payload);
+    }
     reset();
     onClose();
+  }
+
+  function handleDelete() {
+    if (!editingTransaction) return;
+    Alert.alert('Delete transaction?', `"${editingTransaction.title}" akan dipadam. Tindakan ini tak boleh dibatalkan.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteTransaction(editingTransaction.id);
+          reset();
+          onClose();
+        },
+      },
+    ]);
   }
 
   function handleClose() {
@@ -209,7 +242,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
 
           <View style={styles.sheetHeader}>
             <ThemedText type="smallBold" style={styles.sheetTitle}>
-              Record transaction
+              {isEditing ? 'Edit transaction' : 'Record transaction'}
             </ThemedText>
             <Pressable onPress={handleClose} hitSlop={12}>
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
@@ -290,7 +323,7 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
                   borderColor: colors.divider,
                 },
               ]}
-              placeholder={`Optional — defaults to ${subcategory}`}
+              placeholder={`Optional — defaults to ${subcategory || selectedCategory?.name || 'the category'}`}
               placeholderTextColor={colors.textSecondary}
               value={title}
               onChangeText={setTitle}
@@ -343,12 +376,15 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
                     ]}
                     onPress={() => pickCategory(cat.id)}
                   >
-                    <ThemedText
-                      type="small"
-                      style={active ? styles.chipTextActive : { color: colors.text }}
-                    >
-                      {cat.name}
-                    </ThemedText>
+                    <View style={styles.chipInner}>
+                      <Ionicons name={cat.icon} size={15} color={active ? '#fff' : cat.color} />
+                      <ThemedText
+                        type="small"
+                        style={active ? styles.chipTextActive : { color: colors.text }}
+                      >
+                        {cat.name}
+                      </ThemedText>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -475,9 +511,15 @@ export function AddTransactionModal({ visible, onClose, onSave }: Props) {
               disabled={!canSave}
             >
               <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
-                Save transaction
+                {isEditing ? 'Save changes' : 'Save transaction'}
               </ThemedText>
             </Pressable>
+
+            {isEditing ? (
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete transaction</ThemedText>
+              </Pressable>
+            ) : null}
           </ScrollView>
         </ThemedView>
       </KeyboardAvoidingView>
@@ -599,4 +641,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

@@ -1,45 +1,52 @@
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
+import { CategoryIcon } from '@/components/category-icon';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { CATEGORIES } from '@/constants/categories';
+import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { formatMoney } from '@/utils/currency';
 
-export function TransactionRow({ item }: { item: Transaction }) {
+type Props = {
+  item: Transaction;
+  showAccount?: boolean;
+  hidden?: boolean;
+  onPress?: () => void;
+};
+
+export function TransactionRow({ item, showAccount = true, hidden = false, onPress }: Props) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const category = CATEGORIES.find((c) => c.id === item.categoryId);
+  const { getCategory } = useCategories();
+  const category = getCategory(item.categoryId);
   const { accounts } = useTransactions();
   const account = accounts.find((a) => a.id === item.accountId);
 
+  const amountColor = item.type === 'debit' ? colors.negative : colors.positive;
+  const subtitle = item.subcategory || category?.name || 'Uncategorized';
+
   return (
-    <View style={[styles.row, { borderBottomColor: colors.divider }]}>
-      <View style={[styles.avatar, { backgroundColor: colors.backgroundElement }]}>
-        <ThemedText style={styles.avatarIcon}>{category?.icon ?? '💳'}</ThemedText>
-      </View>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [styles.row, { borderBottomColor: colors.divider }, pressed && { opacity: 0.6 }]}
+    >
+      <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} />
 
       <View style={styles.details}>
         <ThemedText numberOfLines={1}>{item.title}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-          {item.subcategory} · {formatDate(item.date)}
-          {account ? ` · ${account.name}` : ''}
+          {subtitle}
+          {showAccount && account ? ` · ${account.name}` : ''}
         </ThemedText>
       </View>
 
-      <ThemedText
-        style={{ color: item.type === 'debit' ? colors.negative : colors.positive, fontWeight: '700' }}
-      >
-        {formatMoney(item.amount, { signed: true, type: item.type })}
+      <ThemedText style={{ color: amountColor, fontWeight: '700' }}>
+        {hidden ? 'RM ••••' : formatMoney(item.amount, { signed: true, type: item.type })}
       </ThemedText>
-    </View>
+    </Pressable>
   );
-}
-
-function formatDate(date: string) {
-  const d = new Date(date);
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 }
 
 const styles = StyleSheet.create({
@@ -50,7 +57,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  avatarIcon: { fontSize: 20 },
   details: { flex: 1 },
 });

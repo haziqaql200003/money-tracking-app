@@ -43,6 +43,9 @@ export type ChartPoint = {
 type TransactionsContextValue = {
   transactions: Transaction[];
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, patch: Partial<Omit<Transaction, 'id'>>) => void;
+  deleteTransaction: (id: string) => void;
+  reassignCategory: (fromId: string, toId: string) => void;
   balance: number;
   spentThisMonth: (categoryId: string) => number;
   totalIncomeThisMonth: () => number;
@@ -111,6 +114,18 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   function addTransaction(t: Omit<Transaction, 'id'>) {
     setTransactions((prev) => [{ ...t, id: Date.now().toString() }, ...prev]);
+  }
+
+  function updateTransaction(id: string, patch: Partial<Omit<Transaction, 'id'>>) {
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }
+
+  function deleteTransaction(id: string) {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function reassignCategory(fromId: string, toId: string) {
+    setTransactions((prev) => prev.map((t) => (t.categoryId === fromId ? { ...t, categoryId: toId } : t)));
   }
 
   function addAccount(a: Omit<Account, 'id'>) {
@@ -275,6 +290,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       value={{
         transactions,
         addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        reassignCategory,
         balance,
         spentThisMonth,
         categoryBreakdownThisMonth,
