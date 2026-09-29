@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useContext, useMemo } from 'react';
 
 import {
   DEFAULT_CATEGORIES,
@@ -6,18 +6,17 @@ import {
   PROTECTED_CATEGORY_IDS,
   type Category,
 } from '@/constants/categories';
+import { useAuth } from '@/context/AuthContext';
+import { usePersistedState } from '@/hooks/use-persisted-state';
 
 type CategoriesContextValue = {
   categories: Category[];
-  /** Expense categories, with the fallback ("Other") always last. */
   expenseCategories: Category[];
   incomeCategories: Category[];
-  /** Sum of every expense category's monthly limit. */
   totalBudget: number;
   getCategory: (id: string) => Category | undefined;
   addCategory: (c: Omit<Category, 'id'>) => void;
   updateCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) => void;
-  /** Only removes the category. Move its transactions first with `reassignCategory`. */
   deleteCategory: (id: string) => void;
   resetCategories: () => void;
 };
@@ -25,7 +24,8 @@ type CategoriesContextValue = {
 const CategoriesContext = createContext<CategoriesContextValue | undefined>(undefined);
 
 export function CategoriesProvider({ children }: { children: ReactNode }) {
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const { user } = useAuth();
+  const [categories, setCategories] = usePersistedState<Category[]>('categories', DEFAULT_CATEGORIES, user?.id ?? null);
 
   const value = useMemo<CategoriesContextValue>(() => {
     const expense = categories.filter((c) => c.kind === 'expense');
@@ -49,7 +49,7 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
       },
       resetCategories: () => setCategories(DEFAULT_CATEGORIES),
     };
-  }, [categories]);
+  }, [categories, setCategories]);
 
   return <CategoriesContext.Provider value={value}>{children}</CategoriesContext.Provider>;
 }

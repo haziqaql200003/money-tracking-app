@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
+import { createContext, ReactNode, useContext, useMemo } from 'react';
 
 import { CARD_COLORS } from '@/constants/card-styles';
+import { useAuth } from '@/context/AuthContext';
 
 type ProfileContextValue = {
   displayName: string;
@@ -11,16 +12,18 @@ type ProfileContextValue = {
 
 const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
 
+// Profil kini datang dari akaun yang sedang login (bukan hardcoded "Aqil").
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [displayName, setDisplayName] = useState('Aqil');
-  const [avatarColor, setAvatarColor] = useState(CARD_COLORS[0]);
+  const { user, updateProfile } = useAuth();
 
-  const setName = useCallback((name: string) => setDisplayName(name), []);
-  const setColor = useCallback((color: string) => setAvatarColor(color), []);
-
-  const value = useMemo(
-    () => ({ displayName, setDisplayName: setName, avatarColor, setAvatarColor: setColor }),
-    [displayName, avatarColor, setName, setColor],
+  const value = useMemo<ProfileContextValue>(
+    () => ({
+      displayName: user?.displayName ?? '',
+      setDisplayName: (displayName) => updateProfile({ displayName }),
+      avatarColor: user?.avatarColor ?? CARD_COLORS[0],
+      setAvatarColor: (avatarColor) => updateProfile({ avatarColor }),
+    }),
+    [user, updateProfile],
   );
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

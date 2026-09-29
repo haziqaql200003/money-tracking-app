@@ -2,6 +2,9 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 import type { CardDesign } from '@/constants/card-styles';
 import type { IconName } from '@/constants/categories';
+import { useAuth } from '@/context/AuthContext';
+import { usePersistedState } from '@/hooks/use-persisted-state';
+
 
 export type TransactionType = 'debit' | 'credit';
 
@@ -86,11 +89,7 @@ const initialAccounts: Account[] = [
   { id: 'cash', name: 'Cash', type: 'cash', icon: 'cash', initialBalance: 0 },
 ];
 
-const initialTransactions: Transaction[] = [
-  { id: '1', title: 'Groceries', date: '2026-09-20', categoryId: 'food', subcategory: 'Groceries', amount: 45.2, type: 'debit', accountId: 'bank' },
-  { id: '2', title: 'Salary', date: '2026-09-01', categoryId: 'income', subcategory: 'Salary', amount: 2500, type: 'credit', accountId: 'bank' },
-  { id: '3', title: 'Coffee', date: '2026-09-21', categoryId: 'food', subcategory: 'Coffee', amount: 4.5, type: 'debit', accountId: 'cash' },
-];
+const initialTransactions: Transaction[] = [];
 
 // Monday-first, matching how the week chart is laid out.
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -115,8 +114,9 @@ function startOfWeek(d: Date): Date {
 }
 
 export function TransactionsProvider({ children }: { children: ReactNode }) {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const { user } = useAuth();
+  const [transactions, setTransactions] = usePersistedState<Transaction[]>('transactions', initialTransactions, user?.id ?? null);
+  const [accounts, setAccounts] = usePersistedState<Account[]>('accounts', initialAccounts, user?.id ?? null);
 
   function addTransaction(t: Omit<Transaction, 'id'>) {
     setTransactions((prev) => [{ ...t, id: Date.now().toString() }, ...prev]);

@@ -17,6 +17,7 @@ import { useSettings, type ThemePreference } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { toCsv } from '@/utils/csv';
+import { useAuth } from '@/context/AuthContext';
 
 const THEMES: { key: ThemePreference; label: string }[] = [
   { key: 'system', label: 'System' },
@@ -94,6 +95,15 @@ export default function SettingsScreen() {
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { transactions, accounts, resetAllData } = useTransactions();
   const { getCategory, resetCategories } = useCategories();
+
+  const { user, signOut, deleteAccount, updateProfile } = useAuth();
+
+  function confirmDelete() {
+    Alert.alert('Padam akaun?', 'Akaun dan semua data anda dipadam kekal. Tindakan ini tidak boleh dibatalkan.', [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Padam', style: 'destructive', onPress: () => deleteAccount() },
+    ]);
+  }
 
   const [name, setName] = useState(displayName);
   const [dailyLimitText, setDailyLimitText] = useState(dailyLimit > 0 ? String(dailyLimit) : '');
@@ -177,6 +187,13 @@ export default function SettingsScreen() {
                 />
               </View>
             </View>
+          </Section>
+
+          <Section title="Akaun">
+            <Row first icon="mail-outline" label="Email" value={user?.email} />
+            <Row icon="school-outline" label="Ulang tutorial" onPress={() => updateProfile({ hasOnboarded: false })} />
+            <Row icon="log-out-outline" label="Log keluar" onPress={signOut} />
+            <Row icon="trash-outline" label="Padam akaun" subtitle="Padam semua data anda" danger onPress={confirmDelete} />
           </Section>
 
           <Section title="Appearance">
