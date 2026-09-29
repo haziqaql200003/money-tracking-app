@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,13 +9,21 @@ import { BalanceCarousel } from '@/components/balance-carousel';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { AccountModal } from '@/components/account-modal';
 import { useProfile } from '@/context/ProfileContext';
 
+const WHATS_NEW_BODY = `• Budgets with daily pacing and warnings
+- Custom categories and icons
+- New account card designs
+- Hide amounts everywhere
+- Bug fixes and improvements`;
+
 export default function HomeScreen() {
   const { accounts } = useTransactions();
   const colors = useTheme();
+  const { isReady, showWhatsNew, dismissWhatsNew } = useSettings();
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -27,6 +35,12 @@ export default function HomeScreen() {
   function showComingSoon() {
     Alert.alert('Notifications', 'Coming soon — this will show reminders and budget alerts.');
   }
+
+  useEffect(() => {
+    if (isReady && showWhatsNew) {
+      Alert.alert("What's New", WHATS_NEW_BODY, [{ text: 'Got it', onPress: dismissWhatsNew }]);
+    }
+  }, [isReady, showWhatsNew, dismissWhatsNew]);
 
   return (
     <ThemedView style={styles.container}>

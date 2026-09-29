@@ -39,6 +39,7 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
           {subtitle}
           {showAccount && account ? ` · ${account.name}` : ''}
+          {item.items && item.items.length > 0 ? ` · ${item.items.length} items` : ''}
         </ThemedText>
       </View>
 

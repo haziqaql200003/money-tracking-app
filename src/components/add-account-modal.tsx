@@ -28,6 +28,9 @@ import { Spacing } from '@/constants/theme';
 import type { Account, AccountType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { Ionicons } from '@expo/vector-icons';
+import { ACCOUNT_ICONS, DEFAULT_ACCOUNT_ICON } from '@/constants/accounts';
+import type { IconName } from '@/constants/categories';
 
 type Props = {
   visible: boolean;
@@ -36,10 +39,10 @@ type Props = {
   editingAccount?: Account | null;
 };
 
-const TYPE_OPTIONS: { type: AccountType; label: string; icon: string; hint: string }[] = [
-  { type: 'bank', label: 'Bank', icon: '🏦', hint: 'Savings, current or a bank card account.' },
-  { type: 'cash', label: 'Cash', icon: '💵', hint: 'Physical money in your wallet or at home.' },
-  { type: 'other', label: 'Other', icon: '💼', hint: 'E-wallets (TNG, Boost), investments or anything else.' },
+const TYPE_OPTIONS: { type: AccountType; label: string; hint: string }[] = [
+  { type: 'bank', label: 'Bank', hint: 'Savings, current or a bank card account.' },
+  { type: 'cash', label: 'Cash', hint: 'Physical money in your wallet or at home.' },
+  { type: 'other', label: 'Other', hint: 'E-wallets (TNG, Boost), investments or anything else.' },
 ];
 
 const HUE_STOPS = Array.from({ length: 24 }, (_, i) => hslToHex(i * 15, 72, 50));
@@ -100,6 +103,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const [design, setDesign] = useState<CardDesign>(DEFAULT_DESIGN);
   const [color, setColor] = useState(DEFAULT_COLOR.bank);
   const [colorTouched, setColorTouched] = useState(false);
+  const [icon, setIcon] = useState<IconName>(DEFAULT_ACCOUNT_ICON.bank);
+  const [iconTouched, setIconTouched] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [hue, setHue] = useState(220);
   const [light, setLight] = useState(50);
@@ -119,6 +124,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setColor(c);
       setColorTouched(true);
       setShowCustom(!CARD_COLORS.includes(c));
+      setIcon(editingAccount.icon);
+      setIconTouched(true);
     } else {
       setName('');
       setType('bank');
@@ -129,6 +136,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setColor(DEFAULT_COLOR.bank);
       setColorTouched(false);
       setShowCustom(false);
+      setIcon(DEFAULT_ACCOUNT_ICON.bank);
+      setIconTouched(false);
     }
     setHue(220);
     setLight(50);
@@ -153,11 +162,17 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   function selectType(next: AccountType) {
     setType(next);
     if (!colorTouched) setColor(DEFAULT_COLOR[next]);
+    if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[next]);
   }
 
   function pickColor(hex: string) {
     setColor(hex);
     setColorTouched(true);
+  }
+
+  function pickIcon(next: IconName) {
+    setIcon(next);
+    setIconTouched(true);
   }
 
   function onHexChange(text: string) {
@@ -171,7 +186,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
     const payload = {
       name: trimmedName,
       type,
-      icon: typeOption.icon,
+      icon,
       initialBalance: parsedBalance,
       color,
       design,
@@ -234,7 +249,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <AccountCard
               title={trimmedName || 'Account name'}
               subtitle={previewSubtitle}
-              icon={typeOption.icon}
+              icon={icon}
               balance={balanceValid ? parsedBalance : 0}
               income={0}
               spending={0}
@@ -261,9 +276,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                     ]}
                     onPress={() => selectType(opt.type)}
                   >
-                    <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
-                      {opt.icon} {opt.label}
-                    </ThemedText>
+                    <View style={styles.chipInner}>
+                      <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
+                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
+                        {opt.label}
+                      </ThemedText>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -271,6 +289,25 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
               {typeOption.hint}
             </ThemedText>
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Icon
+            </ThemedText>
+            <View style={[styles.iconGrid, { backgroundColor: colors.backgroundElement }]}>
+              {ACCOUNT_ICONS.map((n) => {
+                const active = n === icon;
+                return (
+                  <Pressable
+                    key={n}
+                    onPress={() => pickIcon(n)}
+                    style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
+                    accessibilityLabel={`Icon ${n}`}
+                  >
+                    <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
+                  </Pressable>
+                );
+              })}
+            </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Name
@@ -526,4 +563,7 @@ const styles = StyleSheet.create({
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, borderRadius: 14, padding: 10, marginBottom: Spacing.one },
+  iconCell: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
 });

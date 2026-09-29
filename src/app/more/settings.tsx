@@ -90,16 +90,28 @@ export default function SettingsScreen() {
   const colors = useTheme();
   const { displayName, setDisplayName } = useProfile();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
-  const { themePreference, setThemePreference, warnPercent, setWarnPercent } = useSettings();
+  const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { transactions, accounts, resetAllData } = useTransactions();
   const { getCategory, resetCategories } = useCategories();
 
   const [name, setName] = useState(displayName);
+  const [dailyLimitText, setDailyLimitText] = useState(dailyLimit > 0 ? String(dailyLimit) : '');
 
   function commitName() {
     const trimmed = name.trim();
     if (trimmed) setDisplayName(trimmed);
     else setName(displayName);
+  }
+
+  function applyDailyLimit(n: number) {
+    const rounded = Math.round(n * 100) / 100;
+    setDailyLimit(rounded > 0 ? rounded : 0);
+    setDailyLimitText(rounded > 0 ? String(rounded) : '');
+  }
+
+  function commitDailyLimit() {
+    const n = parseFloat(dailyLimitText.replace(',', '.'));
+    applyDailyLimit(Number.isFinite(n) ? n : 0);
   }
 
   async function exportAll() {
@@ -229,6 +241,51 @@ export default function SettingsScreen() {
                   );
                 })}
               </View>
+              <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.four, marginBottom: Spacing.two }}>
+                Daily spending limit
+              </ThemedText>
+              <View style={styles.dailyLimitRow}>
+                <View style={[styles.dailyLimitInputWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
+                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                    RM
+                  </ThemedText>
+                  <TextInput
+                    style={[styles.dailyLimitInput, { color: colors.text }]}
+                    placeholder="Off"
+                    placeholderTextColor={colors.textSecondary}
+                    value={dailyLimitText}
+                    onChangeText={setDailyLimitText}
+                    onEndEditing={commitDailyLimit}
+                    keyboardType="decimal-pad"
+                    returnKeyType="done"
+                  />
+                </View>
+                {[50, 100, 150].map((q) => {
+                  const active = dailyLimit === q;
+                  return (
+                    <Pressable
+                      key={q}
+                      onPress={() => applyDailyLimit(active ? 0 : q)}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: active ? colors.accent : colors.background,
+                          borderColor: active ? colors.accent : colors.divider,
+                        },
+                      ]}
+                    >
+                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}>
+                        {q}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 6 }}>
+                {dailyLimit > 0
+                  ? `Shown as a line on your weekly spending chart on Home.`
+                  : 'Off — no line shown on the chart.'}
+              </ThemedText>
             </View>
           </Section>
 
@@ -281,4 +338,15 @@ const styles = StyleSheet.create({
 
   chipRow: { flexDirection: 'row', gap: Spacing.two },
   chip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+    dailyLimitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
+  dailyLimitInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minWidth: 100,
+  },
+  dailyLimitInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
 });

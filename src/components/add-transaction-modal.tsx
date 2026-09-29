@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,19 +19,30 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
-import type { TransactionType, Transaction } from '@/context/TransactionsContext';
+import type { Transaction, TransactionItem, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { formatMoney } from '@/utils/currency';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   /** Add mode: called on save. */
   onSave?: (t: Omit<Transaction, 'id'>) => void;
-  /** Pass an existing transaction for Edit mode (shows a Delete button). */
+  /** Pass an existing transaction for Edit mode (shows a Delete button in the header). */
   editingTransaction?: Transaction | null;
 };
+
+type DraftItem = { id: string; label: string; amountText: string };
+
+let itemCounter = 0;
+function newItemId() {
+  itemCounter += 1;
+  return `item_${Date.now()}_${itemCounter}`;
+}
+
+const QUICK_ITEMS = ['Service charge', 'SST / Tax', 'Tip', 'Delivery fee', 'Discount'];
 
 function toDateString(d: Date) {
   const y = d.getFullYear();
@@ -79,9 +91,18 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
   const [pickerDate, setPickerDate] = useState(new Date());
   const [touchedAmount, setTouchedAmount] = useState(false);
 
+  const [breakdownOn, setBreakdownOn] = useState(false);
+  const [items, setItems] = useState<DraftItem[]>([]);
+
   const visibleCategories = type === 'credit' ? incomeCategories : expenseCategories;
   const selectedCategory = getCategory(categoryId) ?? visibleCategories[0];
-  const amountValid = isValidAmount(amount);
+
+  const itemsTotal = items.reduce((sum, it) => {
+    const n = parseFloat(it.amountText.replace(',', '.'));
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  const amountValid = breakdownOn ? itemsTotal > 0 : isValidAmount(amount);
   const canSave = amountValid && !!accountId && !!selectedCategory;
 
   // Keep the selected category valid when the type changes or categories are edited/deleted.
@@ -114,6 +135,14 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
     setAccountId(editingTransaction.accountId);
     setShowDatePicker(false);
     setTouchedAmount(false);
+    setBreakdownOn(!!editingTransaction.items && editingTransaction.items.length > 0);
+    setItems(
+      editingTransaction.items?.map((it) => ({
+        id: it.id,
+        label: it.label,
+        amountText: it.amount ? String(it.amount) : '',
+      })) ?? [],
+    );
   }, [visible, editingTransaction]);
 
   function reset() {
@@ -127,6 +156,8 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
     setAccountId(accounts[0]?.id ?? '');
     setShowDatePicker(false);
     setTouchedAmount(false);
+    setBreakdownOn(false);
+    setItems([]);
   }
 
   function setTransactionType(next: TransactionType) {
@@ -177,18 +208,56 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
     if (selected) setPickerDate(selected);
   }
 
+  // --- Breakdown ---
+
+  function toggleBreakdown(next: boolean) {
+    setBreakdownOn(next);
+    if (next && items.length === 0) {
+      const seed = isValidAmount(amount) ? parseFloat(amount.replace(',', '.')) : 0;
+      setItems([{ id: newItemId(), label: '', amountText: seed > 0 ? String(seed) : '' }]);
+    }
+  }
+
+  function addItem(label = '') {
+    setItems((prev) => [...prev, { id: newItemId(), label, amountText: '' }]);
+  }
+
+  function updateItem(id: string, patch: Partial<DraftItem>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+  }
+
+  // --- Save / delete ---
+
   function handleSave() {
     if (!canSave) return;
-    const parsed = parseFloat(amount.replace(',', '.'));
-    const payload = {
+
+    const finalItems: TransactionItem[] = breakdownOn
+      ? items
+          .map((it, idx) => ({
+            id: it.id,
+            label: it.label.trim() || `Item ${idx + 1}`,
+            amount: Math.round((parseFloat(it.amountText.replace(',', '.')) || 0) * 100) / 100,
+          }))
+          .filter((it) => it.label.trim().length > 0 || it.amount !== 0)
+      : [];
+
+    const finalAmount = breakdownOn ? itemsTotal : Math.abs(parseFloat(amount.replace(',', '.')));
+
+    const payload: Omit<Transaction, 'id'> = {
       title: title.trim() || subcategory || selectedCategory.name,
-      amount: Math.abs(parsed),
+      amount: Math.round(finalAmount * 100) / 100,
       type,
       date,
       categoryId: selectedCategory.id,
       subcategory,
       accountId,
+      ...(finalItems.length > 0 ? { items: finalItems } : {}),
     };
+
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, payload);
     } else {
@@ -200,18 +269,22 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
   function handleDelete() {
     if (!editingTransaction) return;
-    Alert.alert('Delete transaction?', `"${editingTransaction.title}" akan dipadam. Tindakan ini tak boleh dibatalkan.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteTransaction(editingTransaction.id);
-          reset();
-          onClose();
+    Alert.alert(
+      'Delete transaction?',
+      `"${editingTransaction.title}" will be deleted. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteTransaction(editingTransaction.id);
+            reset();
+            onClose();
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   function handleClose() {
@@ -223,35 +296,37 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel="Close" />
 
         <ThemedView
           style={[
             styles.modalBox,
-            {
-              backgroundColor: colors.background,
-              paddingBottom: Math.max(insets.bottom, Spacing.three),
-            },
+            { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
           ]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <View style={styles.sheetHeader}>
-            <ThemedText type="smallBold" style={styles.sheetTitle}>
-              {isEditing ? 'Edit transaction' : 'Record transaction'}
-            </ThemedText>
             <Pressable onPress={handleClose} hitSlop={12}>
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
                 Cancel
               </ThemedText>
             </Pressable>
+            <ThemedText type="smallBold" style={styles.sheetTitle} numberOfLines={1}>
+              {isEditing ? 'Edit transaction' : 'Record transaction'}
+            </ThemedText>
+            {isEditing ? (
+              <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel="Delete transaction">
+                <Ionicons name="trash-outline" size={20} color={colors.negative} />
+              </Pressable>
+            ) : (
+              <View style={styles.headerSpacer} />
+            )}
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Expense / Income */}
             <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
               <Pressable
                 style={[styles.segmentButton, type === 'debit' && { backgroundColor: colors.background }]}
@@ -259,11 +334,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               >
                 <ThemedText
                   type="small"
-                  style={
-                    type === 'debit'
-                      ? { fontWeight: '600', color: colors.negative }
-                      : { color: colors.textSecondary }
-                  }
+                  style={type === 'debit' ? { fontWeight: '600', color: colors.negative } : { color: colors.textSecondary }}
                 >
                   Expense
                 </ThemedText>
@@ -274,61 +345,137 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               >
                 <ThemedText
                   type="small"
-                  style={
-                    type === 'credit'
-                      ? { fontWeight: '600', color: colors.positive }
-                      : { color: colors.textSecondary }
-                  }
+                  style={type === 'credit' ? { fontWeight: '600', color: colors.positive } : { color: colors.textSecondary }}
                 >
                   Income
                 </ThemedText>
               </Pressable>
             </View>
 
+            {/* Amount */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Amount (RM)
             </ThemedText>
-            <TextInput
-              style={[
-                styles.amountInput,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.backgroundElement,
-                  borderColor: colors.divider,
-                },
-              ]}
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              value={amount}
-              onChangeText={setAmount}
-              onBlur={() => setTouchedAmount(true)}
-              keyboardType="decimal-pad"
-              accessibilityLabel="Amount in Malaysian Ringgit"
-            />
-            {touchedAmount && !amountValid ? (
-              <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                Enter a valid amount greater than zero
-              </ThemedText>
-            ) : null}
+            {breakdownOn ? (
+              <View style={[styles.amountInput, styles.amountReadout, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+                <ThemedText style={styles.amountReadoutValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatMoney(itemsTotal)}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Auto total from {items.length} item{items.length === 1 ? '' : 's'}
+                </ThemedText>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textSecondary}
+                  value={amount}
+                  onChangeText={setAmount}
+                  onBlur={() => setTouchedAmount(true)}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Amount in Malaysian Ringgit"
+                />
+                {touchedAmount && !amountValid ? (
+                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                    Enter a valid amount greater than zero
+                  </ThemedText>
+                ) : null}
+              </>
+            )}
 
+            {/* Breakdown */}
+            <View style={[styles.breakdownCard, { backgroundColor: colors.backgroundElement }]}>
+              <View style={styles.breakdownHeader}>
+                <View style={styles.flex}>
+                  <ThemedText type="smallBold">Itemised breakdown</ThemedText>
+                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                    e.g. Nasi Lemak, Teh Tarik, Service Charge
+                  </ThemedText>
+                </View>
+                <Switch value={breakdownOn} onValueChange={toggleBreakdown} trackColor={{ true: colors.accent }} />
+              </View>
+
+              {breakdownOn ? (
+                <View style={styles.breakdownBody}>
+                  {items.map((it, idx) => (
+                    <View key={it.id} style={styles.itemRow}>
+                      <View style={[styles.itemBullet, { backgroundColor: colors.background }]}>
+                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                          {idx + 1}
+                        </ThemedText>
+                      </View>
+                      <TextInput
+                        style={[styles.itemLabelInput, { color: colors.text }]}
+                        placeholder={`Item ${idx + 1}`}
+                        placeholderTextColor={colors.textSecondary}
+                        value={it.label}
+                        onChangeText={(t) => updateItem(it.id, { label: t })}
+                      />
+                      <View style={[styles.itemAmountWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
+                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                          RM
+                        </ThemedText>
+                        <TextInput
+                          style={[styles.itemAmountInput, { color: colors.text }]}
+                          placeholder="0.00"
+                          placeholderTextColor={colors.textSecondary}
+                          value={it.amountText}
+                          onChangeText={(t) => updateItem(it.id, { amountText: t })}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                      <Pressable onPress={() => removeItem(it.id)} hitSlop={8} accessibilityLabel="Remove item">
+                        <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                      </Pressable>
+                    </View>
+                  ))}
+
+                  <Pressable onPress={() => addItem()} style={[styles.addItemRow, { borderColor: colors.divider }]}>
+                    <Ionicons name="add" size={18} color={colors.accent} />
+                    <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                      Add item
+                    </ThemedText>
+                  </Pressable>
+
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
+                    {QUICK_ITEMS.map((label) => (
+                      <Pressable
+                        key={label}
+                        onPress={() => addItem(label)}
+                        style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.divider }]}
+                      >
+                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                          + {label}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+
+                  <View style={[styles.itemsTotalRow, { borderTopColor: colors.divider }]}>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      Items total
+                    </ThemedText>
+                    <ThemedText type="smallBold">{formatMoney(itemsTotal)}</ThemedText>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Title */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Title
             </ThemedText>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.backgroundElement,
-                  borderColor: colors.divider,
-                },
-              ]}
+              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
               placeholder={`Optional — defaults to ${subcategory || selectedCategory?.name || 'the category'}`}
               placeholderTextColor={colors.textSecondary}
               value={title}
               onChangeText={setTitle}
             />
 
+            {/* Account */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Account
             </ThemedText>
@@ -347,17 +494,18 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                     ]}
                     onPress={() => setAccountId(acc.id)}
                   >
-                    <ThemedText
-                      type="small"
-                      style={active ? styles.chipTextActive : { color: colors.text }}
-                    >
-                      {acc.icon} {acc.name}
-                    </ThemedText>
+                    <View style={styles.chipInner}>
+                      <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
+                      <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
+                        {acc.name}
+                      </ThemedText>
+                    </View>
                   </Pressable>
                 );
               })}
             </ScrollView>
 
+            {/* Category */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Category
             </ThemedText>
@@ -378,10 +526,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                   >
                     <View style={styles.chipInner}>
                       <Ionicons name={cat.icon} size={15} color={active ? '#fff' : cat.color} />
-                      <ThemedText
-                        type="small"
-                        style={active ? styles.chipTextActive : { color: colors.text }}
-                      >
+                      <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
                         {cat.name}
                       </ThemedText>
                     </View>
@@ -390,11 +535,12 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               })}
             </ScrollView>
 
+            {/* Subcategory */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Subcategory
             </ThemedText>
             <View style={styles.subGrid}>
-              {selectedCategory.subcategories.map((sub) => {
+              {selectedCategory?.subcategories.map((sub) => {
                 const active = subcategory === sub;
                 return (
                   <Pressable
@@ -419,6 +565,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               })}
             </View>
 
+            {/* Date */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Date
             </ThemedText>
@@ -449,25 +596,20 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               })}
             </View>
             <Pressable
-              style={[
-                styles.dateRow,
-                { backgroundColor: colors.backgroundElement, borderColor: colors.divider },
-              ]}
+              style={[styles.dateRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
               onPress={openDatePicker}
             >
-              <ThemedText>{formatDisplayDate(date)}</ThemedText>
+              <View style={styles.chipInner}>
+                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+                <ThemedText>{formatDisplayDate(date)}</ThemedText>
+              </View>
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
                 Pick date
               </ThemedText>
             </Pressable>
 
             {showDatePicker && Platform.OS === 'ios' ? (
-              <View
-                style={[
-                  styles.iosPickerCard,
-                  { backgroundColor: colors.backgroundElement, borderColor: colors.divider },
-                ]}
-              >
+              <View style={[styles.iosPickerCard, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
                 <View style={styles.iosPickerToolbar}>
                   <Pressable onPress={cancelDatePicker} hitSlop={8}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -503,10 +645,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
             ) : null}
 
             <Pressable
-              style={[
-                styles.saveButton,
-                { backgroundColor: canSave ? colors.accent : colors.backgroundSelected },
-              ]}
+              style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
               onPress={handleSave}
               disabled={!canSave}
             >
@@ -514,12 +653,6 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                 {isEditing ? 'Save changes' : 'Save transaction'}
               </ThemedText>
             </Pressable>
-
-            {isEditing ? (
-              <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete transaction</ThemedText>
-              </Pressable>
-            ) : null}
           </ScrollView>
         </ThemedView>
       </KeyboardAvoidingView>
@@ -528,6 +661,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalBox: {
@@ -537,32 +671,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: Spacing.three,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.three,
-  },
-  sheetTitle: { fontSize: 18 },
-  segmentTrack: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: Spacing.four,
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
+  sheetTitle: { fontSize: 18, flex: 1, textAlign: 'center' },
+  headerSpacer: { width: 20 },
+
+  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.four },
+  segmentButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
   amountInput: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -573,6 +689,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 34,
   },
+  amountReadout: { alignItems: 'center', gap: 2 },
+  amountReadoutValue: { fontSize: 28, fontWeight: '700', lineHeight: 34 },
+
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
@@ -588,12 +707,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     marginRight: Spacing.two,
   },
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipTextActive: { color: '#fff', fontWeight: '600' },
-  subGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
+  subGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   subChip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -604,12 +720,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateQuickRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.two },
-  dateQuick: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
+  dateQuick: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -620,12 +731,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.two,
   },
-  iosPickerCard: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    marginBottom: Spacing.three,
-  },
+  iosPickerCard: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', marginBottom: Spacing.three },
   iosPickerToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -633,14 +739,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-  saveButton: {
-    padding: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: Spacing.three,
-    marginBottom: Spacing.two,
-  },
+  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
-  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  breakdownCard: { borderRadius: 16, padding: Spacing.three, marginTop: Spacing.three },
+  breakdownHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  breakdownBody: { marginTop: Spacing.three, gap: Spacing.two },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemBullet: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  itemLabelInput: { flex: 1, fontSize: 14, paddingVertical: 8 },
+  itemAmountWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    width: 92,
+  },
+  itemAmountInput: { flex: 1, fontSize: 14, paddingVertical: 8, textAlign: 'right' },
+  addItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  quickScroll: { marginTop: Spacing.one },
+  quickChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, marginRight: 8 },
+  itemsTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.two,
+    marginTop: Spacing.one,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
 });

@@ -10,6 +10,7 @@ import { PrivacyProvider } from '@/context/PrivacyContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { SettingsProvider } from '@/context/SettingsContext';
 import { TransactionsProvider } from '@/context/TransactionsContext';
+import { UpdatesProvider } from '@/context/UpdatesContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,20 +18,22 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <SettingsProvider>
-        <ProfileProvider>
-          <PrivacyProvider>
-            <CategoriesProvider>
-              <TransactionsProvider>
-                <AddRecordProvider>
-                  <AnimatedSplashOverlay />
-                  <AppTabs />
-                </AddRecordProvider>
-              </TransactionsProvider>
-            </CategoriesProvider>
-          </PrivacyProvider>
-        </ProfileProvider>
-      </SettingsProvider>
+      <UpdatesProvider>
+        <SettingsProvider>
+          <ProfileProvider>
+            <PrivacyProvider>
+              <CategoriesProvider>
+                <TransactionsProvider>
+                  <AddRecordProvider>
+                    <AnimatedSplashOverlay />
+                    <AppTabs />
+                  </AddRecordProvider>
+                </TransactionsProvider>
+              </CategoriesProvider>
+            </PrivacyProvider>
+          </ProfileProvider>
+        </SettingsProvider>
+      </UpdatesProvider>
     </ThemeProvider>
   );
 }

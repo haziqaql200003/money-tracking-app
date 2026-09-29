@@ -6,12 +6,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { useUpdates } from '@/context/UpdatesContext';
 
 export default function AppTabs() {
   const colors = useTheme();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const { openAddRecord } = useAddRecord();
+  const { hasUnseenUpdate } = useUpdates();
 
   return (
     <Tabs
@@ -79,7 +81,12 @@ export default function AppTabs() {
         name="more"
         options={{
           title: 'More',
-          tabBarIcon: ({ color, size }) => <Ionicons name="ellipsis-horizontal" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Ionicons name="ellipsis-horizontal" size={size} color={color} />
+              {hasUnseenUpdate ? <View style={[styles.tabBadge, { borderColor: colors.background }]} /> : null}
+            </View>
+          ),
         }}
       />
     </Tabs>
@@ -100,5 +107,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
   },
 });

@@ -18,11 +18,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { budgetStatus, spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
 import { monthKeyFromOffset } from '@/utils/dates';
+import { CURRENT_VERSION } from '@/constants/changelog';
+import { useUpdates } from '@/context/UpdatesContext';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/budgets' | '/more/categories' | '/more/settings' };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/budgets' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -33,6 +35,7 @@ export default function MoreScreen() {
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
   const [profileVisible, setProfileVisible] = useState(false);
+  const { hasUnseenUpdate } = useUpdates();
 
   const spent = spentByCategory(transactions, monthKeyFromOffset(0));
   const budgeted = expenseCategories.filter((c) => c.monthlyLimit > 0);
@@ -65,6 +68,14 @@ export default function MoreScreen() {
       tint: '#14B8A6',
       href: '/more/settings',
     },
+    {
+      icon: 'megaphone-outline',
+      label: "What's New",
+      subtitle: hasUnseenUpdate ? `v${CURRENT_VERSION} · new updates available` : `v${CURRENT_VERSION} · up to date`,
+      tint: '#F59E0B',
+      href: '/more/whats-new',
+      badge: hasUnseenUpdate,
+    },
   ];
 
   return (
@@ -93,6 +104,24 @@ export default function MoreScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </Pressable>
+
+          {hasUnseenUpdate ? (
+            <Pressable
+              style={[styles.card, styles.banner, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
+              onPress={() => router.push('/more/whats-new')}
+            >
+              <View style={[styles.bannerIcon, { backgroundColor: `${colors.accent}26` }]}>
+                <Ionicons name="sparkles" size={18} color={colors.accent} />
+              </View>
+              <View style={styles.flex}>
+                <ThemedText style={{ fontWeight: '700' }}>New in v{CURRENT_VERSION}</ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Budgets, custom categories, itemised transactions & more
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
 
           {/* Budget snapshot */}
           <Pressable
@@ -147,8 +176,11 @@ export default function MoreScreen() {
                   pressed && { opacity: 0.6 },
                 ]}
               >
-                <View style={[styles.menuIcon, { backgroundColor: `${item.tint}26` }]}>
-                  <Ionicons name={item.icon} size={20} color={item.tint} />
+                <View>
+                  <View style={[styles.menuIcon, { backgroundColor: `${item.tint}26` }]}>
+                    <Ionicons name={item.icon} size={20} color={item.tint} />
+                  </View>
+                  {item.badge ? <View style={[styles.dot, { backgroundColor: colors.negative, borderColor: colors.backgroundElement }]} /> : null}
                 </View>
                 <View style={styles.flex}>
                   <ThemedText>{item.label}</ThemedText>
@@ -196,4 +228,7 @@ const styles = StyleSheet.create({
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   menuIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   about: { textAlign: 'center', marginTop: Spacing.two },
+  dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderWidth: 1.5 },
+  bannerIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

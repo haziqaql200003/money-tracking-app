@@ -15,6 +15,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { monthKeyFromOffset } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
+import { CategoryIcon } from '@/components/category-icon';
 
 type Mode = 'account' | 'type';
 
@@ -273,9 +274,7 @@ export default function AssetsScreen() {
                         pressed && { opacity: 0.6 },
                       ]}
                     >
-                      <View style={[styles.avatar, { backgroundColor: `${color}26` }]}>
-                        <ThemedText style={styles.avatarIcon}>{a.icon}</ThemedText>
-                      </View>
+                      <CategoryIcon icon={a.icon} color={color} size={42} />
                       <View style={styles.flex}>
                         <ThemedText numberOfLines={1}>{a.name}</ThemedText>
                         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>

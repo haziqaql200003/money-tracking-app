@@ -9,6 +9,7 @@ import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
+import { useSettings } from '@/context/SettingsContext';
 
 const PERIODS: { key: ChartPeriod; label: string }[] = [
   { key: 'week', label: 'Week' },
@@ -35,6 +36,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
   const colors = useTheme();
   const isDark = useColorScheme() === 'dark';
   const { getWeekChartData, getMonthChartData, getYearChartData } = useTransactions();
+  const { dailyLimit } = useSettings();
 
   const [period, setPeriod] = useState<ChartPeriod>('week');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -126,9 +128,9 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 
         <View style={styles.chartSpacing}>
           {period === 'week' ? (
-            <WeekChartPager onWeekChange={setWeekOffset} accountId={accountId} />
+            <WeekChartPager onWeekChange={setWeekOffset} accountId={accountId} dailyLimit={dailyLimit} />
           ) : (
-            <SpendingChart key={period} data={chartData} period={period} />
+            <SpendingChart key={period} data={chartData} period={period} dailyLimit={dailyLimit} />
           )}
         </View>
 

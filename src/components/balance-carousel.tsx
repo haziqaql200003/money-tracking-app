@@ -9,6 +9,7 @@ import type { Account, AccountType, Transaction } from '@/context/TransactionsCo
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import type { IconName } from '@/constants/categories';
 
 const PEEK = 28; // how much of the next card shows at the right edge
 const GAP = 12;
@@ -22,7 +23,7 @@ type AccountSlide = {
   account: Account | null; // null = the "All accounts" card (not editable)
   title: string;
   subtitle: string;
-  icon: string;
+  icon: IconName;
   balance: number;
   income: number;
   spending: number;
@@ -75,7 +76,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
       account: null,
       title: 'All accounts',
       subtitle: `${accounts.length} account${accounts.length === 1 ? '' : 's'}`,
-      icon: '💼',
+      icon: 'wallet',
       balance,
       ...monthTotals(transactions),
       color: '#3B4A6B',

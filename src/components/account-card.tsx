@@ -1,9 +1,9 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
+import type { IconName } from '@/constants/categories';
 import { isLightColor, shade, type CardDesign } from '@/constants/card-styles';
 import { formatMoney } from '@/utils/currency';
 
@@ -55,19 +55,17 @@ const MASK_BALANCE = 'RM ••••••';
 const MASK_SPLIT = 'RM ••••';
 
 type Props = {
-  width?: number; // omit to stretch to the parent's width
+  width?: number;
   title: string;
   subtitle: string;
-  icon: string;
+  icon: IconName;
   balance: number;
   income: number;
   spending: number;
   color: string;
   design: CardDesign;
   last4?: string;
-  /** Mask the balance, income and spending. */
   hidden?: boolean;
-  /** When provided, an eye button is shown on the card to toggle `hidden`. */
   onToggleHidden?: () => void;
 };
 
@@ -93,7 +91,7 @@ export function AccountCard({
 
       <View style={styles.top}>
         <View style={[styles.iconChip, { backgroundColor: ink.chip }]}>
-          <Text style={styles.iconText}>{icon}</Text>
+          <Ionicons name={icon} size={18} color={ink.main} />
         </View>
         <View style={styles.flex}>
           <Text style={[styles.title, { color: ink.main }]} numberOfLines={1}>
@@ -148,33 +146,12 @@ export function AccountCard({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   right: { alignItems: 'flex-end' },
-  card: {
-    height: 196,
-    borderRadius: 24,
-    padding: 20,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-  },
+  card: { height: 196, borderRadius: 24, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
   stretch: { alignSelf: 'stretch' },
-  circleLarge: {
-    position: 'absolute',
-    width: '62%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    top: '-38%',
-    right: '-16%',
-  },
-  circleSmall: {
-    position: 'absolute',
-    width: '40%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    bottom: '-30%',
-    left: '-8%',
-  },
+  circleLarge: { position: 'absolute', width: '62%', aspectRatio: 1, borderRadius: 999, top: '-38%', right: '-16%' },
+  circleSmall: { position: 'absolute', width: '40%', aspectRatio: 1, borderRadius: 999, bottom: '-30%', left: '-8%' },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
   title: { fontSize: 17, fontWeight: '700' },
   subtitle: { fontSize: 12, fontWeight: '500' },
   last4: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
@@ -182,12 +159,7 @@ const styles = StyleSheet.create({
   eyeButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   balanceLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
   balanceAmount: { fontSize: 34, lineHeight: 40, fontWeight: '700', marginTop: 2 },
-  bottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  bottom: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   splitLabel: { fontSize: 12, fontWeight: '500' },
   splitValue: { fontSize: 15, fontWeight: '700', marginTop: 1 },
 });

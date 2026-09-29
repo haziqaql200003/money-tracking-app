@@ -19,12 +19,12 @@ type Props = {
   onWeekChange?: (offset: number) => void;
   /** Limit the chart to one account (omit for all accounts). */
   accountId?: string;
+  dailyLimit?: number;
 };
 
-export function WeekChartPager({ onWeekChange, accountId }: Props) {
+export function WeekChartPager({ onWeekChange, accountId, dailyLimit }: Props) {
   const { getWeekChartData, transactions } = useTransactions();
-  // FlatList only re-renders its pages when `extraData` changes, so tie it to what the pages read.
-  const extraData = useMemo(() => ({ accountId, transactions }), [accountId, transactions]);
+  const extraData = useMemo(() => ({ accountId, transactions, dailyLimit }), [accountId, transactions, dailyLimit]);
   const [pageWidth, setPageWidth] = useState(0);
   const listRef = useRef<FlatList<number>>(null);
 
@@ -56,7 +56,7 @@ export function WeekChartPager({ onWeekChange, accountId }: Props) {
           onMomentumScrollEnd={handleMomentumEnd}
           renderItem={({ item: offset }) => (
             <View style={{ width: pageWidth }}>
-              <SpendingChart data={getWeekChartData(offset, accountId)} period="week" />
+              <SpendingChart data={getWeekChartData(offset, accountId)} period="week" dailyLimit={dailyLimit} />
             </View>
           )}
         />

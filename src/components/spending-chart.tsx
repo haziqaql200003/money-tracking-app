@@ -20,6 +20,8 @@ export const PERIOD_COLOR: Record<ChartPeriod, { light: string; dark: string }> 
   year: { light: '#1F8A70', dark: '#57C9A6' }, // green
 };
 
+const LIMIT_COLOR = '#D97706';
+
 type Coord = { x: number; y: number };
 
 // Catmull-Rom -> cubic Bezier conversion, so the line curves smoothly through
@@ -58,7 +60,15 @@ function tooltipTitle(point: ChartPoint, period: ChartPeriod) {
   return point.label;
 }
 
-export function SpendingChart({ data, period }: { data: ChartPoint[]; period: ChartPeriod }) {
+export function SpendingChart({
+  data,
+  period,
+  dailyLimit,
+}: { 
+  data: ChartPoint[];
+  period: ChartPeriod;
+  dailyLimit?: number;
+}) {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
@@ -73,13 +83,15 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
   }
 
   const n = data.length;
-  const max = Math.max(...data.map((d) => d.value), 1);
+  const showLimit = period === 'week' && !!dailyLimit && dailyLimit > 0;
+  const max = Math.max(...data.map((d) => d.value), showLimit ? dailyLimit! : 0, 1);
   const hasData = data.some((d) => d.value > 0);
 
   const colWidth = n > 0 ? width / n : 0;
   const baselineY = PADDING_TOP + PLOT_HEIGHT; // the x-axis line
   const dataBottom = baselineY - BASE_GAP; // where a value of 0 is drawn
   const dataHeight = PLOT_HEIGHT - BASE_GAP;
+  const limitY = showLimit ? PADDING_TOP + dataHeight * (1 - Math.min(dailyLimit! / max, 1)) : null;
 
   // Points sit in the middle of their column, so they line up with the labels underneath.
   const coords = data.map((point, i) => ({
@@ -116,6 +128,18 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
 
               {/* x-axis line */}
               <Line x1={0} x2={width} y1={baselineY} y2={baselineY} stroke={colors.divider} strokeWidth={1} />
+              
+              {limitY !== null && (
+                <Line
+                  x1={0}
+                  x2={width}
+                  y1={limitY}
+                  y2={limitY}
+                  stroke={LIMIT_COLOR}
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                />
+              )}
 
               {active && !active.point.isFuture && (
                 <Line
@@ -197,6 +221,16 @@ export function SpendingChart({ data, period }: { data: ChartPoint[]; period: Ch
                 </ThemedText>
               </View>
             )}
+            {limitY !== null && (
+              <View
+                pointerEvents="none"
+                style={[styles.limitLabel, { top: Math.max(limitY - 18, 0), backgroundColor: colors.background }]}
+              >
+                <ThemedText type="small" style={{ color: LIMIT_COLOR, fontWeight: '700' }}>
+                  Limit {formatMoney(dailyLimit!)}
+                </ThemedText>
+              </View>
+            )}
           </>
         )}
       </View>
@@ -256,4 +290,11 @@ const styles = StyleSheet.create({
   labelActive: { fontWeight: '700' },
   labelFuture: { opacity: 0.4 },
   labelDense: { fontSize: 11 },
+  limitLabel: {
+    position: 'absolute',
+    right: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
 });

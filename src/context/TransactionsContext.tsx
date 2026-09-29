@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+
 import type { CardDesign } from '@/constants/card-styles';
+import type { IconName } from '@/constants/categories';
 
 export type TransactionType = 'debit' | 'credit';
 
@@ -9,7 +11,7 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
-  icon: string; // emoji, same pattern as category icons
+  icon: IconName;
   initialBalance: number; // starting balance before any tracked transactions
   // Card look + optional details (all optional so older accounts keep working)
   color?: string; // hex, e.g. '#2563EB'
@@ -18,15 +20,19 @@ export type Account = {
   last4?: string; // last 4 digits only, never a full number
 };
 
+export type TransactionItem = { id: string; label: string; amount: number };
+
 export type Transaction = {
   id: string;
   title: string;
-  date: string; // 'YYYY-MM-DD'
+  date: string;
   categoryId: string;
   subcategory: string;
-  amount: number; // always positive; sign comes from `type`
+  amount: number;
   type: TransactionType;
   accountId: string;
+  /** Optional line items, e.g. Nasi Lemak RM5, Service Charge RM0.50. */
+  items?: TransactionItem[];
 };
 
 export type ChartPeriod = 'week' | 'month' | 'year';
@@ -76,8 +82,8 @@ type TransactionsContextValue = {
 const TransactionsContext = createContext<TransactionsContextValue | undefined>(undefined);
 
 const initialAccounts: Account[] = [
-  { id: 'bank', name: 'Bank', type: 'bank', icon: '🏦', initialBalance: 0 },
-  { id: 'cash', name: 'Cash', type: 'cash', icon: '💵', initialBalance: 0 },
+  { id: 'bank', name: 'Bank', type: 'bank', icon: 'business', initialBalance: 0 },
+  { id: 'cash', name: 'Cash', type: 'cash', icon: 'cash', initialBalance: 0 },
 ];
 
 const initialTransactions: Transaction[] = [

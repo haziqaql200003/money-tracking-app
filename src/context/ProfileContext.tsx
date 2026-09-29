@@ -1,17 +1,29 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
+
+import { CARD_COLORS } from '@/constants/card-styles';
 
 type ProfileContextValue = {
   displayName: string;
   setDisplayName: (name: string) => void;
+  avatarColor: string;
+  setAvatarColor: (color: string) => void;
 };
 
 const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [displayName, setDisplayName] = useState('Aqil');
-  return (
-    <ProfileContext.Provider value={{ displayName, setDisplayName }}>{children}</ProfileContext.Provider>
+  const [avatarColor, setAvatarColor] = useState(CARD_COLORS[0]);
+
+  const setName = useCallback((name: string) => setDisplayName(name), []);
+  const setColor = useCallback((color: string) => setAvatarColor(color), []);
+
+  const value = useMemo(
+    () => ({ displayName, setDisplayName: setName, avatarColor, setAvatarColor: setColor }),
+    [displayName, avatarColor, setName, setColor],
   );
+
+  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
 
 export function useProfile() {
