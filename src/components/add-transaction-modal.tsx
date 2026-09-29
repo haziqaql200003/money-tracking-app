@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -307,23 +308,23 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
-          <View style={styles.sheetHeader}>
-            <Pressable onPress={handleClose} hitSlop={12}>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Cancel
-              </ThemedText>
-            </Pressable>
-            <ThemedText type="smallBold" style={styles.sheetTitle} numberOfLines={1}>
-              {isEditing ? 'Edit transaction' : 'Record transaction'}
-            </ThemedText>
-            {isEditing ? (
-              <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel="Delete transaction">
-                <Ionicons name="trash-outline" size={20} color={colors.negative} />
+          <SheetHeader
+            title={isEditing ? 'Edit transaction' : 'Record transaction'}
+            left={
+              <Pressable onPress={handleClose} hitSlop={12}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  Cancel
+                </ThemedText>
               </Pressable>
-            ) : (
-              <View style={styles.headerSpacer} />
-            )}
-          </View>
+            }
+            right={
+              isEditing ? (
+                <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel="Delete transaction">
+                  <Ionicons name="trash-outline" size={20} color={colors.negative} />
+                </Pressable>
+              ) : null
+            }
+          />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Expense / Income */}
@@ -672,9 +673,6 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
-  sheetTitle: { fontSize: 18, flex: 1, textAlign: 'center' },
-  headerSpacer: { width: 20 },
 
   segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.four },
   segmentButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
@@ -688,6 +686,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '600',
     lineHeight: 34,
+    textAlign: 'center',
   },
   amountReadout: { alignItems: 'center', gap: 2 },
   amountReadoutValue: { fontSize: 28, fontWeight: '700', lineHeight: 34 },
@@ -715,12 +714,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    minWidth: '30%',
-    flexGrow: 1,
+    width: '31.5%',
     alignItems: 'center',
   },
   dateQuickRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.two },
-  dateQuick: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  dateQuick: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

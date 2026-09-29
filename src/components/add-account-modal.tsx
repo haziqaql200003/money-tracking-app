@@ -13,6 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccountCard, CardBackground } from '@/components/account-card';
+import { EvenGrid } from '@/components/even-grid';
+import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -234,16 +236,16 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
-          <View style={styles.sheetHeader}>
-            <ThemedText type="smallBold" style={styles.sheetTitle}>
-              {isEditing ? 'Edit account' : 'New account'}
-            </ThemedText>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Cancel
-              </ThemedText>
-            </Pressable>
-          </View>
+          <SheetHeader
+            title={isEditing ? 'Edit account' : 'New account'}
+            left={
+              <Pressable onPress={onClose} hitSlop={12}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  Cancel
+                </ThemedText>
+              </Pressable>
+            }
+          />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <AccountCard
@@ -293,20 +295,22 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Icon
             </ThemedText>
-            <View style={[styles.iconGrid, { backgroundColor: colors.backgroundElement }]}>
-              {ACCOUNT_ICONS.map((n) => {
-                const active = n === icon;
-                return (
-                  <Pressable
-                    key={n}
-                    onPress={() => pickIcon(n)}
-                    style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
-                    accessibilityLabel={`Icon ${n}`}
-                  >
-                    <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
-                  </Pressable>
-                );
-              })}
+            <View style={[styles.iconBox, { backgroundColor: colors.backgroundElement }]}>
+              <EvenGrid columns={6} rowGap={8}>
+                {ACCOUNT_ICONS.map((n) => {
+                  const active = n === icon;
+                  return (
+                    <Pressable
+                      key={n}
+                      onPress={() => pickIcon(n)}
+                      style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
+                      accessibilityLabel={`Icon ${n}`}
+                    >
+                      <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
+                    </Pressable>
+                  );
+                })}
+              </EvenGrid>
             </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
@@ -381,7 +385,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Design
             </ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.designRow}>
               {CARD_DESIGNS.map((d) => {
                 const active = design === d.id;
                 return (
@@ -403,12 +407,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   </Pressable>
                 );
               })}
-            </ScrollView>
+            </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Colour
             </ThemedText>
-            <View style={styles.swatchRow}>
+            <EvenGrid columns={5} rowGap={12}>
               {CARD_COLORS.map((c) => {
                 const active = color === c;
                 return (
@@ -418,24 +422,25 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                       pickColor(c);
                       setShowCustom(false);
                     }}
-                    style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text, borderWidth: 3 }]}
+                    style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text }]}
                     accessibilityLabel={`Colour ${c}`}
                   />
                 );
               })}
-              <Pressable
-                onPress={() => setShowCustom((v) => !v)}
-                style={[
-                  styles.swatch,
-                  styles.customSwatch,
-                  { backgroundColor: isCustomColor ? color : colors.backgroundElement, borderColor: colors.divider },
-                  (isCustomColor || showCustom) && { borderColor: colors.text, borderWidth: 3 },
-                ]}
-                accessibilityLabel="Custom colour"
-              >
-                <ThemedText style={{ fontSize: 15 }}>🎨</ThemedText>
-              </Pressable>
-            </View>
+            </EvenGrid>
+            <Pressable
+              onPress={() => setShowCustom((v) => !v)}
+              style={[
+                styles.customButton,
+                { backgroundColor: colors.backgroundElement, borderColor: isCustomColor || showCustom ? colors.text : colors.divider },
+              ]}
+              accessibilityLabel="Custom colour"
+            >
+              <Ionicons name="color-palette" size={18} color={isCustomColor ? color : colors.textSecondary} />
+              <ThemedText type="small" style={{ fontWeight: '600' }}>
+                Custom colour
+              </ThemedText>
+            </Pressable>
 
             {showCustom ? (
               <View style={[styles.customPanel, { backgroundColor: colors.backgroundElement }]}>
@@ -520,7 +525,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 18 },
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
-  helper: { marginTop: Spacing.one },
+  helper: { marginTop: Spacing.one, textAlign: 'center' },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
@@ -529,14 +534,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   chipRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  chip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
   infoBox: { borderRadius: 12, padding: Spacing.three, marginTop: Spacing.three, gap: 6 },
   infoLine: { lineHeight: 19 },
-  designItem: { marginRight: Spacing.three, alignItems: 'center', gap: 6 },
-  designThumb: { width: 84, height: 54, borderRadius: 12, overflow: 'hidden' },
+  designRow: { flexDirection: 'row', gap: Spacing.two },
+  designItem: { flex: 1, alignItems: 'center', gap: 6 },
+  designThumb: { width: '100%', aspectRatio: 84 / 54, borderRadius: 12, overflow: 'hidden' },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   swatch: { width: 34, height: 34, borderRadius: 17, borderColor: 'transparent', borderWidth: 3 },
-  customSwatch: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  customButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
   customPanel: { borderRadius: 12, padding: Spacing.three, marginTop: Spacing.three, gap: 8 },
   stripOuter: { height: 28, justifyContent: 'center' },
   strip: { height: 16, borderRadius: 8, overflow: 'hidden', flexDirection: 'row' },
@@ -563,7 +569,7 @@ const styles = StyleSheet.create({
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
-  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, borderRadius: 14, padding: 10, marginBottom: Spacing.one },
+  chipInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  iconBox: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4, marginBottom: Spacing.one },
   iconCell: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
 });

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EvenGrid } from '@/components/even-grid';
+import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CARD_COLORS, isLightColor } from '@/constants/card-styles';
@@ -71,16 +73,16 @@ export function AccountModal({ visible, onClose }: Props) {
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
-          <View style={styles.sheetHeader}>
-            <ThemedText type="smallBold" style={styles.sheetTitle}>
-              Profile
-            </ThemedText>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Done
-              </ThemedText>
-            </Pressable>
-          </View>
+          <SheetHeader
+            title="Profile"
+            right={
+              <Pressable onPress={onClose} hitSlop={12}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  Done
+                </ThemedText>
+              </Pressable>
+            }
+          />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Identity */}
@@ -110,18 +112,20 @@ export function AccountModal({ visible, onClose }: Props) {
             </View>
 
             {/* Avatar colour */}
-            <View style={styles.swatchRow}>
-              {CARD_COLORS.map((c) => {
-                const active = avatarColor === c;
-                return (
-                  <Pressable
-                    key={c}
-                    onPress={() => setAvatarColor(c)}
-                    style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text }]}
-                    accessibilityLabel={`Avatar colour ${c}`}
-                  />
-                );
-              })}
+            <View style={styles.swatchGrid}>
+              <EvenGrid columns={5} rowGap={12}>
+                {CARD_COLORS.map((c) => {
+                  const active = avatarColor === c;
+                  return (
+                    <Pressable
+                      key={c}
+                      onPress={() => setAvatarColor(c)}
+                      style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text }]}
+                      accessibilityLabel={`Avatar colour ${c}`}
+                    />
+                  );
+                })}
+              </EvenGrid>
             </View>
 
             {/* Stats */}
@@ -204,7 +208,7 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize: 32, fontWeight: '700' },
   nameInput: { fontSize: 22, fontWeight: '700', minWidth: 160, paddingVertical: 2 },
 
-  swatchRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginBottom: Spacing.four },
+  swatchGrid: { marginBottom: Spacing.four, paddingHorizontal: Spacing.two },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: 'transparent' },
 
   statsCard: { flexDirection: 'row', borderRadius: 18, paddingVertical: Spacing.three, marginBottom: Spacing.three },

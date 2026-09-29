@@ -4,12 +4,14 @@ import { Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddTransactionModal } from '@/components/add-transaction-modal';
+import { MonthSwitcher } from '@/components/month-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TransactionRow } from '@/components/transaction-row';
 import { CategoryBreakdown, SummaryCard } from '@/components/transactions-summary';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
+import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -145,11 +147,16 @@ export default function TransactionsScreen() {
       (id) => accounts.find((a) => a.id === id)?.name ?? id,
       (id) => getCategory(id)?.name ?? id,
     );
+    try {
+      await Share.share({ message: csv, title: 'transactions.csv' });
+    } catch {
+      // sheet dismissed
+    }
   }
   
-  const accountOptions: { id: string | null; label: string }[] = [
-    { id: null, label: 'All accounts' },
-    ...accounts.map((a) => ({ id: a.id, label: `${a.icon} ${a.name}` })),
+  const accountOptions: { id: string | null; label: string; icon: IconName }[] = [
+    { id: null, label: 'All accounts', icon: 'apps' },
+    ...accounts.map((a) => ({ id: a.id, label: a.name, icon: a.icon })),
   ];
 
   const header = (
@@ -172,36 +179,15 @@ export default function TransactionsScreen() {
       </View>
 
       {/* Month switcher */}
-      <View style={styles.monthRow}>
-        <Pressable
-          onPress={() => goToMonth(monthOffset - 1)}
-          disabled={!canPrev}
-          hitSlop={8}
-          style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: canPrev ? 1 : 0.35 }]}
-          accessibilityLabel="Previous month"
-        >
-          <Ionicons name="chevron-back" size={18} color={colors.text} />
-        </Pressable>
-
-        <Pressable style={styles.monthCenter} onPress={() => goToMonth(0)} disabled={monthOffset === 0}>
-          <ThemedText style={styles.monthLabel}>{monthLabel(monthKey)}</ThemedText>
-          {monthOffset !== 0 ? (
-            <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-              Back to this month
-            </ThemedText>
-          ) : null}
-        </Pressable>
-
-        <Pressable
-          onPress={() => goToMonth(monthOffset + 1)}
-          disabled={!canNext}
-          hitSlop={8}
-          style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: canNext ? 1 : 0.35 }]}
-          accessibilityLabel="Next month"
-        >
-          <Ionicons name="chevron-forward" size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      <MonthSwitcher
+        label={monthLabel(monthKey)}
+        isCurrent={monthOffset === 0}
+        canPrev={canPrev}
+        canNext={canNext}
+        onPrev={() => goToMonth(monthOffset - 1)}
+        onNext={() => goToMonth(monthOffset + 1)}
+        onReset={() => goToMonth(0)}
+      />
 
       <SummaryCard
         income={stats.income}
@@ -280,12 +266,15 @@ export default function TransactionsScreen() {
                   },
                 ]}
               >
-                <ThemedText
-                  type="small"
-                  style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}
-                >
-                  {opt.label}
-                </ThemedText>
+                <View style={styles.chipInner}>
+                  <Ionicons name={opt.icon} size={14} color={active ? '#fff' : colors.textSecondary} />
+                  <ThemedText
+                    type="small"
+                    style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}
+                  >
+                    {opt.label}
+                  </ThemedText>
+                </View>
               </Pressable>
             );
           })}
@@ -412,6 +401,7 @@ const styles = StyleSheet.create({
   chipRow: { paddingHorizontal: Spacing.four, gap: Spacing.two },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
 
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   countRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.two },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three, paddingBottom: 6 },
 

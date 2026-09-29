@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,13 +13,14 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { AccountModal } from '@/components/account-modal';
+import { isLightColor } from '@/constants/card-styles';
 import { useProfile } from '@/context/ProfileContext';
 
 const WHATS_NEW_BODY = `• Budgets with daily pacing and warnings
-- Custom categories and icons
-- New account card designs
-- Hide amounts everywhere
-- Bug fixes and improvements`;
+• Custom categories and icons
+• New account card designs
+• Hide amounts everywhere
+• Bug fixes and improvements`;
 
 export default function HomeScreen() {
   const { accounts } = useTransactions();
@@ -29,7 +31,7 @@ export default function HomeScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
-  const { displayName } = useProfile();
+  const { displayName, avatarColor } = useProfile();
   const [accountModalVisible, setAccountModalVisible] = useState(false);
 
   function showComingSoon() {
@@ -48,8 +50,8 @@ export default function HomeScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
           <View style={styles.headerRow}>
             <Pressable style={styles.headerLeft} onPress={() => setAccountModalVisible(true)}>
-              <View style={[styles.avatar, { backgroundColor: colors.backgroundElement }]}>
-                <ThemedText style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase()}</ThemedText>
+              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
               </View>
               <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
                 Hi, <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
@@ -60,7 +62,7 @@ export default function HomeScreen() {
               style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]}
               onPress={showComingSoon}
             >
-              <ThemedText style={styles.bellIcon}>🔔</ThemedText>
+              <Ionicons name="notifications-outline" size={20} color={colors.text} />
             </Pressable>
           </View>
 
@@ -97,5 +99,5 @@ const styles = StyleSheet.create({
   greetingName: { fontWeight: '700' },
   bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   bellIcon: { fontSize: 18 },
-  chartBlock: { marginBottom: Spacing.five },
+  chartBlock: { marginBottom: Spacing.four },
 });

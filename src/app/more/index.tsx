@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountModal } from '@/components/account-modal';
+import { isLightColor } from '@/constants/card-styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
@@ -29,7 +30,7 @@ type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string;
 export default function MoreScreen() {
   const colors = useTheme();
   const router = useRouter();
-  const { displayName } = useProfile();
+  const { displayName, avatarColor } = useProfile();
   const { transactions } = useTransactions();
   const { categories, expenseCategories } = useCategories();
   const { warnPercent } = useSettings();
@@ -93,8 +94,8 @@ export default function MoreScreen() {
             style={[styles.card, styles.profileRow, { backgroundColor: colors.backgroundElement }]}
             onPress={() => setProfileVisible(true)}
           >
-            <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-              <ThemedText style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase()}</ThemedText>
+            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+              <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
             </View>
             <View style={styles.flex}>
               <ThemedText style={styles.profileName}>{displayName}</ThemedText>

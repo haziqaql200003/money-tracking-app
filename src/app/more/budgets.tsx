@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BudgetLimitModal } from '@/components/budget-limit-modal';
 import { CategoryIcon } from '@/components/category-icon';
+import { MonthSwitcher } from '@/components/month-switcher';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -136,34 +137,15 @@ export default function BudgetsScreen() {
           />
 
           {/* Month switcher */}
-          <View style={styles.monthRow}>
-            <Pressable
-              onPress={() => setMonthOffset(monthOffset - 1)}
-              disabled={!canPrev}
-              hitSlop={8}
-              style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: canPrev ? 1 : 0.35 }]}
-              accessibilityLabel="Previous month"
-            >
-              <Ionicons name="chevron-back" size={18} color={colors.text} />
-            </Pressable>
-            <Pressable style={styles.monthCenter} onPress={() => setMonthOffset(0)} disabled={isCurrent}>
-              <ThemedText style={styles.monthLabel}>{monthLabel(monthKey)}</ThemedText>
-              {!isCurrent ? (
-                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Back to this month
-                </ThemedText>
-              ) : null}
-            </Pressable>
-            <Pressable
-              onPress={() => setMonthOffset(monthOffset + 1)}
-              disabled={isCurrent}
-              hitSlop={8}
-              style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: isCurrent ? 0.35 : 1 }]}
-              accessibilityLabel="Next month"
-            >
-              <Ionicons name="chevron-forward" size={18} color={colors.text} />
-            </Pressable>
-          </View>
+          <MonthSwitcher
+            label={monthLabel(monthKey)}
+            isCurrent={isCurrent}
+            canPrev={canPrev}
+            canNext={!isCurrent}
+            onPrev={() => setMonthOffset(monthOffset - 1)}
+            onNext={() => setMonthOffset(monthOffset + 1)}
+            onReset={() => setMonthOffset(0)}
+          />
 
           {/* Overall */}
           {budgeted.length > 0 ? (

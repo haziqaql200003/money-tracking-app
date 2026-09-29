@@ -11,5 +11,5 @@ export const ACCOUNT_ICONS: IconName[] = [
   'business', 'home', 'cash', 'wallet', 'card', 'phone-portrait', 'globe', 'briefcase',
   'trending-up', 'shield-checkmark', 'gift', 'star', 'diamond', 'rocket', 'school',
   'car', 'airplane', 'boat', 'construct', 'medkit', 'basket', 'storefront', 'people',
-  'lock-closed', 'key', 'ribbon', 'flag', 'planet', 'sparkles', 'flash', 'infinite',
+  'lock-closed', 'key', 'ribbon', 'flag', 'planet', 'sparkles', 'flash',
 ];

@@ -118,30 +118,18 @@ export function RecentTransactions({ accountId, accountName }: Props) {
         {summary.count} transaction{summary.count === 1 ? '' : 's'} · {spentText} spent this month
       </ThemedText>
 
-      <View style={styles.chipRow}>
-        {FILTERS.map((f) => {
-          const active = filter === f.key;
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: active ? colors.accent : colors.backgroundElement,
-                  borderColor: active ? colors.accent : colors.divider,
-                },
-              ]}
-            >
-              <ThemedText
-                type="small"
-                style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}
-              >
-                {f.label}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
+      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
+        {FILTERS.map((f) => (
+          <Pressable
+            key={f.key}
+            style={[styles.segmentButton, filter === f.key && { backgroundColor: colors.background }]}
+            onPress={() => setFilter(f.key)}
+          >
+            <ThemedText type="small" style={filter === f.key ? { fontWeight: '600' } : { color: colors.textSecondary }}>
+              {f.label}
+            </ThemedText>
+          </Pressable>
+        ))}
       </View>
 
       {sections.length === 0 ? (
@@ -202,7 +190,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   heading: { fontSize: 16, flexShrink: 1 },
-  chipRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.two },
+  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.two },
+  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

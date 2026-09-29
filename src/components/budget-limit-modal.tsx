@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/category-icon';
+import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Category } from '@/constants/categories';
@@ -64,19 +65,22 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
 
           {category ? (
             <>
-              <View style={styles.header}>
-                <CategoryIcon icon={category.icon} color={category.color} size={48} />
-                <View style={styles.flex}>
-                  <ThemedText style={styles.title}>{category.name}</ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    Spent {formatMoney(spent)} in {monthName}
-                  </ThemedText>
-                </View>
-                <Pressable onPress={onClose} hitSlop={12}>
-                  <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                    Cancel
-                  </ThemedText>
-                </Pressable>
+              <SheetHeader
+                title="Monthly budget"
+                left={
+              <Pressable onPress={onClose} hitSlop={12}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  Cancel
+                </ThemedText>
+              </Pressable>
+                }
+              />
+              <View style={styles.summary}>
+                <CategoryIcon icon={category.icon} color={category.color} size={56} />
+                <ThemedText style={styles.title}>{category.name}</ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  Spent {formatMoney(spent)} in {monthName}
+                </ThemedText>
               </View>
 
               <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
@@ -105,7 +109,7 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
                 {matchAmount > 0 ? (
                   <Pressable
                     onPress={() => setValue(String(matchAmount))}
-                    style={[styles.quick, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
+                    style={[styles.quick, styles.quickWide, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
                   >
                     <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
                       Match spending · {matchAmount}
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  summary: { alignItems: 'center', gap: 4, marginTop: Spacing.two },
   title: { fontSize: 18, fontWeight: '700' },
   label: { marginTop: Spacing.four, marginBottom: Spacing.one },
   input: {
@@ -163,9 +167,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '600',
     lineHeight: 34,
+    textAlign: 'center',
   },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.three },
-  quick: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  quick: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  quickWide: { flexGrow: 0, flexShrink: 0, flexBasis: '100%' },
   note: { marginTop: Spacing.three, fontSize: 12, lineHeight: 16 },
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
   saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },

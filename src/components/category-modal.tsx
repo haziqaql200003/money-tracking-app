@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/category-icon';
+import { EvenGrid } from '@/components/even-grid';
+import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -154,16 +156,16 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
-          <View style={styles.sheetHeader}>
-            <ThemedText type="smallBold" style={styles.sheetTitle}>
-              {isEditing ? 'Edit category' : 'New category'}
-            </ThemedText>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Cancel
-              </ThemedText>
-            </Pressable>
-          </View>
+          <SheetHeader
+            title={isEditing ? 'Edit category' : 'New category'}
+            left={
+              <Pressable onPress={onClose} hitSlop={12}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  Cancel
+                </ThemedText>
+              </Pressable>
+            }
+          />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Preview */}
@@ -252,6 +254,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
+                <EvenGrid columns={6} rowGap={8}>
                 {filteredIcons.map((n) => {
                   const active = n === icon;
                   return (
@@ -268,6 +271,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                     </Pressable>
                   );
                 })}
+                </EvenGrid>
                 {filteredIcons.length === 0 ? (
                   <ThemedText type="small" style={{ color: colors.textSecondary, padding: 8 }}>
                     No icons match "{iconQuery}"
@@ -280,7 +284,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Colour
             </ThemedText>
-            <View style={styles.swatchRow}>
+            <EvenGrid columns={7} rowGap={12}>
               {CATEGORY_COLORS.map((c) => (
                 <Pressable
                   key={c}
@@ -289,7 +293,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                   accessibilityLabel={`Colour ${c}`}
                 />
               ))}
-            </View>
+            </EvenGrid>
 
             {/* Subcategories */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
@@ -428,7 +432,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   iconBox: { borderRadius: 14, padding: 6 },
   iconScroll: { maxHeight: 216 },
-  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 4 },
+  iconGrid: { paddingVertical: 4 },
   iconCell: {
     width: 44,
     height: 44,

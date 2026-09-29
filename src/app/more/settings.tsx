@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { isLightColor } from '@/constants/card-styles';
 import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
@@ -88,7 +89,7 @@ function Row({ icon, label, subtitle, value, right, onPress, danger, first }: Ro
 
 export default function SettingsScreen() {
   const colors = useTheme();
-  const { displayName, setDisplayName } = useProfile();
+  const { displayName, setDisplayName, avatarColor } = useProfile();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { transactions, accounts, resetAllData } = useTransactions();
@@ -157,8 +158,8 @@ export default function SettingsScreen() {
 
           <Section title="Profile">
             <View style={styles.nameRow}>
-              <View style={[styles.avatar, { backgroundColor: colors.background }]}>
-                <ThemedText style={styles.avatarLetter}>{(name || '?').charAt(0).toUpperCase()}</ThemedText>
+              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{(name || '?').charAt(0).toUpperCase()}</ThemedText>
               </View>
               <View style={styles.flex}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
 
   chipRow: { flexDirection: 'row', gap: Spacing.two },
-  chip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  chip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
     dailyLimitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   dailyLimitInputWrap: {
     flexDirection: 'row',
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
     paddingHorizontal: 12,
-    minWidth: 100,
+    width: '100%',
   },
   dailyLimitInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
 });
