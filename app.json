@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "money-tracker",
-    "slug": "money-tracker",
+    "name": "WaKira",
+    "slug": "wakira",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "moneytracker",
+    "scheme": "wakira",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

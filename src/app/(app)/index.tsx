@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,22 +10,14 @@ import { BalanceCarousel } from '@/components/balance-carousel';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
 import { useTransactions } from '@/context/TransactionsContext';
-import { useSettings } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { AccountModal } from '@/components/account-modal';
 import { isLightColor } from '@/constants/card-styles';
 import { useProfile } from '@/context/ProfileContext';
 
-const WHATS_NEW_BODY = `• Budgets with daily pacing and warnings
-• Custom categories and icons
-• New account card designs
-• Hide amounts everywhere
-• Bug fixes and improvements`;
-
 export default function HomeScreen() {
   const { accounts } = useTransactions();
   const colors = useTheme();
-  const { isReady, showWhatsNew, dismissWhatsNew } = useSettings();
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -37,12 +29,6 @@ export default function HomeScreen() {
   function showComingSoon() {
     Alert.alert('Notifications', 'Coming soon — this will show reminders and budget alerts.');
   }
-
-  useEffect(() => {
-    if (isReady && showWhatsNew) {
-      Alert.alert("What's New", WHATS_NEW_BODY, [{ text: 'Got it', onPress: dismissWhatsNew }]);
-    }
-  }, [isReady, showWhatsNew, dismissWhatsNew]);
 
   return (
     <ThemedView style={styles.container}>
@@ -98,6 +84,5 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 28, lineHeight: 34, fontWeight: '400', flexShrink: 1 },
   greetingName: { fontWeight: '700' },
   bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  bellIcon: { fontSize: 18 },
   chartBlock: { marginBottom: Spacing.four },
 });

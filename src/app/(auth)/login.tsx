@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField } from '@/components/auth-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { APP_NAME, MOTTO, SLOGAN } from '@/constants/brand';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,9 +39,10 @@ export default function LoginScreen() {
             <View style={[styles.logo, { backgroundColor: colors.accent }]}>
               <Ionicons name="wallet" size={30} color="#fff" />
             </View>
-            <ThemedText style={styles.title}>Selamat kembali</ThemedText>
+            <ThemedText style={styles.title}>{APP_NAME}</ThemedText>
+            <ThemedText style={[styles.motto, { color: colors.accent }]}>{MOTTO}</ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.four }}>
-              Log masuk untuk sambung urus kewangan anda.
+              {SLOGAN}
             </ThemedText>
 
             <AuthField
@@ -116,7 +118,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: Spacing.four, paddingTop: Spacing.six },
   logo: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.four },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700', marginBottom: 4 },
+  title: { fontSize: 34, lineHeight: 40, fontWeight: '700' },
+  motto: { fontSize: 16, lineHeight: 22, fontWeight: '700', marginBottom: 4 },
   forgot: { alignSelf: 'flex-end', marginBottom: Spacing.three },
   button: { padding: 16, borderRadius: 14, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },

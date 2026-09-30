@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { APP_NAME, MOTTO, PILLARS } from '@/constants/brand';
 import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useAuth, type Goal } from '@/context/AuthContext';
@@ -25,6 +26,12 @@ const TIPS: { icon: IconName; title: string; body: string }[] = [
   { icon: 'eye-off', title: 'Privasi', body: 'Tekan ikon mata untuk sembunyikan semua jumlah bila di tempat awam.' },
   { icon: 'download', title: 'Data anda', body: 'More > Settings: eksport CSV, ulang tutorial, atau padam akaun dan semua data anda.' },
 ];
+
+const PILLAR_ICON: Record<(typeof PILLARS)[number]['key'], IconName> = {
+  kira: 'create-outline',
+  faham: 'analytics-outline',
+  rancang: 'flag-outline',
+};
 
 export default function OnboardingScreen() {
   const colors = useTheme();
@@ -73,9 +80,24 @@ export default function OnboardingScreen() {
                 <Ionicons name="sparkles" size={40} color={colors.accent} />
               </View>
               <ThemedText style={styles.title}>Hai, {user?.displayName}!</ThemedText>
+              <ThemedText style={[styles.motto, { color: colors.accent }]}>{MOTTO}</ThemedText>
               <ThemedText style={{ color: colors.textSecondary }}>
-                Money Tracker bantu anda catat perbelanjaan, tetapkan bajet dan faham ke mana wang anda pergi. Setup ambil kurang 1 minit.
+                {APP_NAME} bantu anda mencatat, memahami dan merancang wang anda. Setup ambil kurang 1 minit.
               </ThemedText>
+
+              <View style={styles.pillars}>
+                {PILLARS.map((p) => (
+                  <View key={p.key} style={[styles.pillar, { backgroundColor: colors.backgroundElement }]}>
+                    <View style={[styles.tipIcon, { backgroundColor: `${colors.accent}26` }]}>
+                      <Ionicons name={PILLAR_ICON[p.key]} size={20} color={colors.accent} />
+                    </View>
+                    <View style={styles.flex}>
+                      <ThemedText type="smallBold">{p.label}</ThemedText>
+                      <ThemedText type="small" style={{ color: colors.textSecondary }}>{p.hint}</ThemedText>
+                    </View>
+                  </View>
+                ))}
+              </View>
             </>
           ) : null}
 
@@ -160,6 +182,9 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.two },
   hero: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginVertical: Spacing.four },
   title: { fontSize: 24, lineHeight: 30, fontWeight: '700', marginBottom: Spacing.two },
+  motto: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  pillars: { gap: Spacing.two, marginTop: Spacing.three },
+  pillar: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: Spacing.three },
   goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   goal: { width: '48%', borderRadius: 16, padding: Spacing.three, alignItems: 'center', gap: 8 },
   balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.three, marginBottom: Spacing.two },

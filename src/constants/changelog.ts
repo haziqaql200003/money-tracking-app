@@ -8,8 +8,9 @@ export const CHANGELOG: Release[] = [
   {
     version: '1.0.1',
     date: '2026-09-29',
-    title: 'Budgets, custom categories & itemised transactions',
+    title: 'WaKira, budgets, custom categories & itemised transactions',
     changes: [
+      { kind: 'new', text: 'Money Tracker is now WaKira — Kira. Faham. Rancang. (Track, understand, plan.)' },
       { kind: 'new', text: 'Budgeting — set a monthly limit per category and track pace, projections and status under More → Budgets.' },
       { kind: 'new', text: 'Custom categories — add your own expense or income categories with icons, colours and subcategories under More → Categories.' },
       { kind: 'new', text: 'Itemised transactions — break a purchase into line items (food, drinks, service charge, SST, etc.) and the total adds up automatically.' },
@@ -19,6 +20,7 @@ export const CHANGELOG: Release[] = [
       { kind: 'new', text: 'Settings screen — theme (System/Light/Dark), hide-amounts, budget warning threshold, export & reset.' },
       { kind: 'improved', text: 'Transactions screen redesigned with month switching, search, category breakdown and CSV export.' },
       { kind: 'improved', text: 'Home screen groups recent transactions by day with quick filters.' },
+      { kind: 'fixed', text: 'Removed a leftover startup pop-up that referenced settings which no longer exist.' },
     ],
   },
   {
