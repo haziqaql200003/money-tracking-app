@@ -1,0 +1,263 @@
+diff -ruN a/src/components/account-card.tsx b/src/components/account-card.tsx
+--- a/src/components/account-card.tsx	2026-10-01 11:33:34.926117745 +0800
++++ b/src/components/account-card.tsx	2026-10-01 11:33:34.927737944 +0800
+@@ -5,6 +5,7 @@
+ 
+ import type { IconName } from '@/constants/categories';
+ import { AuroraCard, GlassCard, SongketCard } from '@/components/cards';
++import { TiltCard } from '@/components/cards/TiltCard';
+ import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/card-styles';
+ import { formatMoney } from '@/utils/currency';
+ 
+@@ -90,14 +91,16 @@
+     // Premium cards draw everything themselves (own colours, bank name, masked balance, eye button).
+     const Pro = design === 'pro-songket' ? SongketCard : design === 'pro-glass' ? GlassCard : AuroraCard;
+     return (
+-      <Pro
+-        bank={title}
+-        balance={balance}
+-        last4={last4}
+-        hidden={hidden}
+-        onToggleHidden={onToggleHidden}
+-        style={[styles.proCard, width ? { width } : styles.stretch]}
+-      />
++      <TiltCard style={[styles.proCard, width ? { width } : styles.stretch]}>
++        <Pro
++          bank={title}
++          balance={balance}
++          last4={last4}
++          hidden={hidden}
++          onToggleHidden={onToggleHidden}
++          style={styles.proInner}
++        />
++      </TiltCard>
+     );
+   }
+ 
+@@ -164,7 +167,8 @@
+   right: { alignItems: 'flex-end' },
+   card: { height: 196, borderRadius: 24, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
+   stretch: { alignSelf: 'stretch' },
+-  proCard: { height: 196, aspectRatio: undefined },
++  proCard: { height: 196 },
++  proInner: { width: '100%', height: '100%', aspectRatio: undefined },
+   circleLarge: { position: 'absolute', width: '62%', aspectRatio: 1, borderRadius: 999, top: '-38%', right: '-16%' },
+   circleSmall: { position: 'absolute', width: '40%', aspectRatio: 1, borderRadius: 999, bottom: '-30%', left: '-8%' },
+   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+diff -ruN a/src/components/cards/TiltCard.tsx b/src/components/cards/TiltCard.tsx
+--- a/src/components/cards/TiltCard.tsx	1970-01-01 07:30:00.000000000 +0730
++++ b/src/components/cards/TiltCard.tsx	2026-10-01 11:33:34.932536281 +0800
+@@ -0,0 +1,114 @@
++import { useIsFocused } from 'expo-router';
++import { LinearGradient } from 'expo-linear-gradient';
++import { useRef, useState, type ReactNode } from 'react';
++import { Animated, GestureResponderEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
++
++import { CARD_RADIUS } from './shared';
++import { gyroX, gyroY, useGyro, useMotionAllowed } from './motion';
++
++const MAX_TILT_DEG = 14;
++const SPRING = { useNativeDriver: true, speed: 14, bounciness: 9 } as const;
++
++type Props = {
++  style?: StyleProp<ViewStyle>;
++  children: ReactNode;
++};
++
++/**
++ * Makes a card feel physical: it tilts in 3D under your finger and springs back on release,
++ * and it also leans gently with the phone (gyro). Touch is only observed, never claimed, so the
++ * carousel still scrolls and the eye button / card tap still work.
++ */
++export function TiltCard({ style, children }: Props) {
++  const allowed = useMotionAllowed();
++  const focused = useIsFocused();
++  useGyro(allowed && focused);
++
++  const [touchX] = useState(() => new Animated.Value(0));
++  const [touchY] = useState(() => new Animated.Value(0));
++  const [press] = useState(() => new Animated.Value(0));
++  const box = useRef<View>(null);
++  const frame = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
++
++  const measure = () =>
++    box.current?.measureInWindow((x, y, w, h) => {
++      frame.current = { x, y, w, h };
++    });
++
++  const aim = (e: GestureResponderEvent) => {
++    const f = frame.current;
++    if (!f || f.w === 0 || f.h === 0) return;
++    const nx = ((e.nativeEvent.pageX - f.x) / f.w) * 2 - 1;
++    const ny = ((e.nativeEvent.pageY - f.y) / f.h) * 2 - 1;
++    touchX.setValue(Math.max(-1, Math.min(1, nx)));
++    touchY.setValue(Math.max(-1, Math.min(1, ny)));
++  };
++
++  const release = () => {
++    frame.current = null;
++    Animated.parallel([
++      Animated.spring(touchX, { toValue: 0, ...SPRING }),
++      Animated.spring(touchY, { toValue: 0, ...SPRING }),
++      Animated.spring(press, { toValue: 0, ...SPRING }),
++    ]).start();
++  };
++
++  const rotateY = Animated.add(touchX, gyroX).interpolate({
++    inputRange: [-1.6, 1.6],
++    outputRange: [`-${MAX_TILT_DEG * 1.6}deg`, `${MAX_TILT_DEG * 1.6}deg`],
++    extrapolate: 'clamp',
++  });
++  // Touching the top edge pushes the top away from you (positive rotateX), hence the minus on touch.
++  const rotateX = Animated.subtract(gyroY, touchY).interpolate({
++    inputRange: [-1.6, 1.6],
++    outputRange: [`-${MAX_TILT_DEG * 1.6}deg`, `${MAX_TILT_DEG * 1.6}deg`],
++    extrapolate: 'clamp',
++  });
++  const scale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.975] });
++  const glareX = Animated.add(touchX, gyroX).interpolate({ inputRange: [-1.6, 1.6], outputRange: [-120, 120], extrapolate: 'clamp' });
++  const glareOpacity = Animated.add(touchX, gyroX).interpolate({
++    inputRange: [-1.6, 0, 1.6],
++    outputRange: [0.9, 0.35, 0.9],
++    extrapolate: 'clamp',
++  });
++
++  return (
++    <Animated.View
++      ref={box}
++      style={[
++        styles.wrap,
++        style,
++        { transform: [{ perspective: 900 }, { rotateX }, { rotateY }, { scale }] },
++      ]}
++      onTouchStart={(e) => {
++        if (!allowed) return;
++        measure();
++        Animated.spring(press, { toValue: 1, ...SPRING }).start();
++        // measureInWindow answers asynchronously; aim again on the first move.
++        aim(e);
++      }}
++      onTouchMove={(e) => allowed && aim(e)}
++      onTouchEnd={release}
++      onTouchCancel={release}
++    >
++      {children}
++      {allowed ? (
++        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: glareOpacity }]}>
++          <Animated.View style={[styles.glare, { transform: [{ translateX: glareX }] }]}>
++            <LinearGradient
++              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
++              start={{ x: 0, y: 0.3 }}
++              end={{ x: 1, y: 0.7 }}
++              style={StyleSheet.absoluteFill}
++            />
++          </Animated.View>
++        </Animated.View>
++      ) : null}
++    </Animated.View>
++  );
++}
++
++const styles = StyleSheet.create({
++  wrap: { borderRadius: CARD_RADIUS, overflow: 'hidden' },
++  glare: { position: 'absolute', top: 0, bottom: 0, left: '10%', width: '80%' },
++});
+diff -ruN a/src/components/cards/motion.ts b/src/components/cards/motion.ts
+--- a/src/components/cards/motion.ts	1970-01-01 07:30:00.000000000 +0730
++++ b/src/components/cards/motion.ts	2026-10-01 11:33:34.937287858 +0800
+@@ -0,0 +1,95 @@
++import { DeviceMotion } from 'expo-sensors';
++import { useEffect, useState } from 'react';
++import { AccessibilityInfo, Animated, AppState } from 'react-native';
++
++/**
++ * One shared gyro feed for every premium card on screen (-1..1 on each axis, 0 = neutral).
++ * It is reference counted: the sensor only runs while at least one card asks for it, and stops
++ * when the app goes to the background.
++ */
++const FULL_TILT_DEG = 22; // phone tilt (degrees) that gives full card tilt
++const RECENTER = 0.03; // how fast "neutral" follows the phone, so any resting angle becomes flat
++
++export const gyroX = new Animated.Value(0);
++export const gyroY = new Animated.Value(0);
++
++let users = 0;
++let sensor: { remove: () => void } | null = null;
++let appStateSub: { remove: () => void } | null = null;
++let base: { beta: number; gamma: number } | null = null;
++let smooth = { x: 0, y: 0 };
++
++const clamp = (n: number) => Math.max(-1, Math.min(1, n));
++
++function stopSensor() {
++  sensor?.remove();
++  sensor = null;
++  base = null;
++  smooth = { x: 0, y: 0 };
++  gyroX.setValue(0);
++  gyroY.setValue(0);
++}
++
++async function startSensor() {
++  if (sensor) return;
++  try {
++    if (!(await DeviceMotion.isAvailableAsync()) || users === 0 || sensor) return;
++    DeviceMotion.setUpdateInterval(33);
++    sensor = DeviceMotion.addListener(({ rotation }) => {
++      if (!rotation) return;
++      const deg = 180 / Math.PI;
++      const beta = rotation.beta * deg;
++      const gamma = rotation.gamma * deg;
++      if (!base) base = { beta, gamma };
++      base.beta += (beta - base.beta) * RECENTER;
++      base.gamma += (gamma - base.gamma) * RECENTER;
++      // The card counter-rotates, so it feels like it floats while the phone moves around it.
++      const x = clamp(-(gamma - base.gamma) / FULL_TILT_DEG);
++      const y = clamp(-(beta - base.beta) / FULL_TILT_DEG);
++      smooth = { x: smooth.x + (x - smooth.x) * 0.35, y: smooth.y + (y - smooth.y) * 0.35 };
++      gyroX.setValue(smooth.x);
++      gyroY.setValue(smooth.y);
++    });
++  } catch {
++    // No sensor (simulator, web, permission refused): the cards still react to touch.
++  }
++}
++
++function acquire() {
++  users += 1;
++  if (users === 1) {
++    startSensor();
++    appStateSub = AppState.addEventListener('change', (s) => {
++      if (s === 'active') startSensor();
++      else stopSensor();
++    });
++  }
++  return () => {
++    users -= 1;
++    if (users === 0) {
++      appStateSub?.remove();
++      appStateSub = null;
++      stopSensor();
++    }
++  };
++}
++
++/** True unless the person turned on "Reduce Motion" in their phone settings. */
++export function useMotionAllowed() {
++  const [allowed, setAllowed] = useState(true);
++  useEffect(() => {
++    let alive = true;
++    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => alive && setAllowed(!reduce));
++    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (reduce) => setAllowed(!reduce));
++    return () => {
++      alive = false;
++      sub.remove();
++    };
++  }, []);
++  return allowed;
++}
++
++/** Keeps the shared gyro running while `active` is true. */
++export function useGyro(active: boolean) {
++  useEffect(() => (active ? acquire() : undefined), [active]);
++}
