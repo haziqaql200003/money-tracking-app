@@ -286,7 +286,7 @@ export default function AssetsScreen() {
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                 {accounts.map((a, i) => {
                   const color = colorOf(a);
-                  const subtitle = [TYPE_LABEL[a.type], a.provider, a.last4 ? `•••• ${a.last4}` : null]
+                  const subtitle = [a.typeLabel ?? TYPE_LABEL[a.type], a.provider, a.last4 ? `•••• ${a.last4}` : null]
                     .filter(Boolean)
                     .join(' · ');
                   const negative = a.balance < 0;

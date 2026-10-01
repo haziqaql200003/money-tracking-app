@@ -16,6 +16,8 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
+  /** Name of a user-made type (stored with type 'other'); shown instead of the built-in label. */
+  typeLabel?: string;
   icon: IconName;
   initialBalance: number; // starting balance before any tracked transactions
   // Card look + optional details (all optional so older accounts keep working)
@@ -104,6 +106,7 @@ export type ChartPoint = {
 };
 
 type TransactionsContextValue = {
+  /** True once transactions, recurring rules and pending entries are all loaded from storage. */
   ready: boolean;
   transactions: Transaction[];
   addTransaction: (t: Omit<Transaction, 'id'>) => void;

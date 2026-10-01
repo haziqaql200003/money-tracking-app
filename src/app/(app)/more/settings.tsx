@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { setGyroEnabled, useGyroEnabled } from '@/components/cards/motion';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -93,6 +94,7 @@ export default function SettingsScreen() {
   const colors = useTheme();
   const { displayName, setDisplayName, avatarColor } = useProfile();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
+  const gyroEnabled = useGyroEnabled();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { transactions, accounts, resetAllData } = useTransactions();
   const { getCategory, resetCategories } = useCategories();
@@ -218,6 +220,15 @@ export default function SettingsScreen() {
                 ))}
               </View>
             </View>
+          </Section>
+
+          <Section title="Card motion" footer="Premium cards always tilt when you touch them. This also lets them lean as you move your phone.">
+            <Row
+              first
+              icon="phone-portrait-outline"
+              label="Tilt with phone"
+              right={<Switch value={gyroEnabled} onValueChange={setGyroEnabled} trackColor={{ true: colors.accent }} />}
+            />
           </Section>
 
           <Section title="Privacy" footer="Masks balances and amounts on Home, Transactions, Assets and Budgets.">

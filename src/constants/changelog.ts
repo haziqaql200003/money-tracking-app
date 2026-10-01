@@ -14,6 +14,11 @@ export const CHANGELOG: Release[] = [
       { kind: 'new', text: 'Glass card — frosted glass with soft, slowly moving colours behind it.' },
       { kind: 'new', text: 'Aurora card — a dark card with slow-moving northern lights.' },
       { kind: 'improved', text: 'The new cards follow the hide-amounts setting, just like your other account cards.' },
+      { kind: 'new', text: 'Premium cards tilt in 3D under your finger, with a light sheen that follows. Turn on “Tilt with phone” in Settings to let them lean as you move your phone.' },
+      { kind: 'new', text: 'Pick a premium design when you add or edit an account — it shows on your Home cards.' },
+      { kind: 'new', text: 'Add your own account types with the + button, e.g. Savings, ASB or Crypto.' },
+      { kind: 'improved', text: 'Add/edit account: the design picker now sits right under the card preview.' },
+      { kind: 'improved', text: 'Add/edit account: pick the card design right under the preview, and add your own account types with +.' },
     ],
   },
   {

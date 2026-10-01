@@ -88,7 +88,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         id: a.id,
         account: a,
         title: a.name,
-        subtitle: [a.provider, TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
+        subtitle: [a.provider, a.typeLabel ?? TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
         icon: a.icon,
         balance: accountBalance(a.id),
         ...monthTotals(transactions, a.id),

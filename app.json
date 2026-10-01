@@ -2,7 +2,7 @@
   "expo": {
     "name": "WaKira",
     "slug": "wakira",
-    "version": "1.0.1",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wakira",
@@ -38,6 +38,12 @@
         "expo-notifications",
         {
           "color": "#208AEF"
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "WaKira uses motion so your premium cards can tilt as you move your phone."
         }
       ]
     ],

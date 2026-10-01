@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Animated, GestureResponderEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { CARD_RADIUS } from './shared';
-import { gyroX, gyroY, useGyro, useMotionAllowed } from './motion';
+import { gyroX, gyroY, useGyro, useGyroEnabled, useMotionAllowed } from './motion';
 
 const MAX_TILT_DEG = 14;
 const SPRING = { useNativeDriver: true, speed: 14, bounciness: 9 } as const;
@@ -22,7 +22,8 @@ type Props = {
 export function TiltCard({ style, children }: Props) {
   const allowed = useMotionAllowed();
   const focused = useIsFocused();
-  useGyro(allowed && focused);
+  const gyroEnabled = useGyroEnabled();
+  useGyro(allowed && focused && gyroEnabled);
 
   const [touchX] = useState(() => new Animated.Value(0));
   const [touchY] = useState(() => new Animated.Value(0));
@@ -65,12 +66,9 @@ export function TiltCard({ style, children }: Props) {
     extrapolate: 'clamp',
   });
   const scale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.975] });
-  const glareX = Animated.add(touchX, gyroX).interpolate({ inputRange: [-1.6, 1.6], outputRange: [-120, 120], extrapolate: 'clamp' });
-  const glareOpacity = Animated.add(touchX, gyroX).interpolate({
-    inputRange: [-1.6, 0, 1.6],
-    outputRange: [0.9, 0.35, 0.9],
-    extrapolate: 'clamp',
-  });
+  // A bright diagonal band that slides across the card as it tilts. Brighter while pressed.
+  const glareX = Animated.add(touchX, gyroX).interpolate({ inputRange: [-1.6, 1.6], outputRange: [-170, 170], extrapolate: 'clamp' });
+  const glareOpacity = press.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
 
   return (
     <Animated.View
@@ -94,11 +92,11 @@ export function TiltCard({ style, children }: Props) {
       {children}
       {allowed ? (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: glareOpacity }]}>
-          <Animated.View style={[styles.glare, { transform: [{ translateX: glareX }] }]}>
+          <Animated.View style={[styles.glare, { transform: [{ translateX: glareX }, { rotate: '18deg' }] }]}>
             <LinearGradient
-              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
-              start={{ x: 0, y: 0.3 }}
-              end={{ x: 1, y: 0.7 }}
+              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.42)', 'rgba(255,255,255,0)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
               style={StyleSheet.absoluteFill}
             />
           </Animated.View>
@@ -110,5 +108,5 @@ export function TiltCard({ style, children }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { borderRadius: CARD_RADIUS, overflow: 'hidden' },
-  glare: { position: 'absolute', top: 0, bottom: 0, left: '10%', width: '80%' },
+  glare: { position: 'absolute', top: '-30%', bottom: '-30%', left: '22%', width: '56%' },
 });

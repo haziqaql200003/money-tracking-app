@@ -33,6 +33,8 @@ import {
 import { Spacing } from '@/constants/theme';
 import type { Account, AccountType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useAuth } from '@/context/AuthContext';
+import { usePersistedState } from '@/hooks/use-persisted-state';
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ACCOUNT_ICONS, DEFAULT_ACCOUNT_ICON } from '@/constants/accounts';
@@ -50,6 +52,9 @@ const TYPE_OPTIONS: { type: AccountType; label: string; hint: string }[] = [
   { type: 'cash', label: 'Cash', hint: 'Physical money in your wallet or at home.' },
   { type: 'other', label: 'Other', hint: 'E-wallets (TNG, Boost), investments or anything else.' },
 ];
+
+type CustomType = { id: string; label: string };
+const MAX_CUSTOM_TYPES = 12;
 
 const HUE_STOPS = Array.from({ length: 24 }, (_, i) => hslToHex(i * 15, 72, 50));
 const LIGHT_MIN = 25;
@@ -102,7 +107,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const isEditing = !!editingAccount;
 
   const [name, setName] = useState('');
+  const { user } = useAuth();
+  const [customTypes, setCustomTypes] = usePersistedState<CustomType[]>('account-custom-types', [], user?.id ?? null);
   const [type, setType] = useState<AccountType>('bank');
+  const [typeLabel, setTypeLabel] = useState<string | null>(null);
+  const [addingType, setAddingType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
   const [provider, setProvider] = useState('');
   const [last4, setLast4] = useState('');
   const [initialBalance, setInitialBalance] = useState('0');
@@ -123,6 +133,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       const c = editingAccount.color ?? DEFAULT_COLOR[editingAccount.type] ?? DEFAULT_COLOR.other;
       setName(editingAccount.name);
       setType(editingAccount.type);
+      setTypeLabel(editingAccount.typeLabel ?? null);
       setProvider(editingAccount.provider ?? '');
       setLast4(editingAccount.last4 ?? '');
       setInitialBalance(String(editingAccount.initialBalance));
@@ -135,6 +146,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
     } else {
       setName('');
       setType('bank');
+      setTypeLabel(null);
       setProvider('');
       setLast4('');
       setInitialBalance('0');
@@ -145,6 +157,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setIcon(DEFAULT_ACCOUNT_ICON.bank);
       setIconTouched(false);
     }
+    setAddingType(false);
+    setNewTypeName('');
     setHue(220);
     setLight(50);
   }, [visible, editingAccount]);
@@ -163,12 +177,49 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const canSave = trimmedName.length > 0 && balanceValid && last4Valid;
   const isCustomColor = !CARD_COLORS.includes(color);
 
-  const previewSubtitle = [showBankFields ? provider.trim() : '', typeOption.label].filter(Boolean).join(' · ');
+  const previewSubtitle = [showBankFields ? provider.trim() : '', typeLabel ?? typeOption.label].filter(Boolean).join(' · ');
 
   function selectType(next: AccountType) {
     setType(next);
+    setTypeLabel(null);
     if (!colorTouched) setColor(DEFAULT_COLOR[next]);
     if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[next]);
+  }
+
+  function selectCustomType(label: string) {
+    setType('other');
+    setTypeLabel(label);
+    if (!colorTouched) setColor(DEFAULT_COLOR.other);
+    if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON.other);
+  }
+
+  const newTypeTrimmed = newTypeName.trim();
+  const newTypeClash =
+    newTypeTrimmed.length > 0 &&
+    ([...TYPE_OPTIONS.map((t) => t.label), ...customTypes.map((c) => c.label)] as string[]).some(
+      (l) => l.toLowerCase() === newTypeTrimmed.toLowerCase(),
+    );
+
+  function addCustomType() {
+    if (!newTypeTrimmed || newTypeClash || customTypes.length >= MAX_CUSTOM_TYPES) return;
+    setCustomTypes((prev) => [...prev, { id: Date.now().toString(), label: newTypeTrimmed }]);
+    selectCustomType(newTypeTrimmed);
+    setNewTypeName('');
+    setAddingType(false);
+  }
+
+  function removeCustomType(c: CustomType) {
+    Alert.alert('Remove type?', `"${c.label}" is removed from this list. Accounts already using it keep their label.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          setCustomTypes((prev) => prev.filter((x) => x.id !== c.id));
+          if (typeLabel === c.label) selectType('other');
+        },
+      },
+    ]);
   }
 
   function pickColor(hex: string) {
@@ -192,6 +243,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
     const payload = {
       name: trimmedName,
       type,
+      typeLabel: typeLabel ?? undefined,
       icon,
       initialBalance: parsedBalance,
       color,
@@ -263,128 +315,6 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               design={design}
               last4={showBankFields && last4.length === 4 ? last4 : undefined}
             />
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Type
-            </ThemedText>
-            <View style={styles.chipRow}>
-              {TYPE_OPTIONS.map((opt) => {
-                const active = type === opt.type;
-                return (
-                  <Pressable
-                    key={opt.type}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.accent : colors.backgroundElement,
-                        borderColor: active ? colors.accent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => selectType(opt.type)}
-                  >
-                    <View style={styles.chipInner}>
-                      <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
-                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
-                        {opt.label}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-              {typeOption.hint}
-            </ThemedText>
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Icon
-            </ThemedText>
-            <View style={[styles.iconBox, { backgroundColor: colors.backgroundElement }]}>
-              <EvenGrid columns={6} rowGap={8}>
-                {ACCOUNT_ICONS.map((n) => {
-                  const active = n === icon;
-                  return (
-                    <Pressable
-                      key={n}
-                      onPress={() => pickIcon(n)}
-                      style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
-                      accessibilityLabel={`Icon ${n}`}
-                    >
-                      <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
-                    </Pressable>
-                  );
-                })}
-              </EvenGrid>
-            </View>
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Name
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="e.g. Maybank Savings, Wallet"
-              placeholderTextColor={colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-            />
-
-            {showBankFields ? (
-              <>
-                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Provider (optional)
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="e.g. Maybank, CIMB, TNG eWallet"
-                  placeholderTextColor={colors.textSecondary}
-                  value={provider}
-                  onChangeText={setProvider}
-                />
-
-                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Last 4 digits (optional)
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="1234"
-                  placeholderTextColor={colors.textSecondary}
-                  value={last4}
-                  onChangeText={(t) => setLast4(t.replace(/\D/g, '').slice(0, 4))}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                />
-                {!last4Valid ? (
-                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                    Enter all 4 digits, or leave it empty
-                  </ThemedText>
-                ) : null}
-              </>
-            ) : null}
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Starting balance (RM)
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              value={initialBalance}
-              onChangeText={setInitialBalance}
-              keyboardType="decimal-pad"
-            />
-
-            <View style={[styles.infoBox, { backgroundColor: colors.backgroundElement }]}>
-              <ThemedText type="smallBold">Before you add</ThemedText>
-              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • Starting balance is the amount in this account today. Only transactions you record after this will change it.
-              </ThemedText>
-              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • Only the last 4 digits are kept. Never enter your full account or card number.
-              </ThemedText>
-              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • You can edit the look, or delete the card, any time from the Home screen or More → Assets.
-              </ThemedText>
-            </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Design
@@ -523,6 +453,198 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               </>
             )}
 
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Type
+            </ThemedText>
+            <View style={styles.chipRow}>
+              {TYPE_OPTIONS.map((opt) => {
+                const active = type === opt.type && typeLabel === null;
+                return (
+                  <Pressable
+                    key={opt.type}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.backgroundElement,
+                        borderColor: active ? colors.accent : colors.divider,
+                      },
+                    ]}
+                    onPress={() => selectType(opt.type)}
+                  >
+                    <View style={styles.chipInner}>
+                      <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
+                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
+                        {opt.label}
+                      </ThemedText>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {customTypes.map((c) => {
+                const active = typeLabel === c.label;
+                return (
+                  <Pressable
+                    key={c.id}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.backgroundElement,
+                        borderColor: active ? colors.accent : colors.divider,
+                      },
+                    ]}
+                    onPress={() => selectCustomType(c.label)}
+                    onLongPress={() => removeCustomType(c)}
+                    accessibilityHint="Long press to remove this type"
+                  >
+                    <View style={styles.chipInner}>
+                      <Ionicons name="pricetag" size={16} color={active ? '#fff' : colors.text} />
+                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
+                        {c.label}
+                      </ThemedText>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {customTypes.length < MAX_CUSTOM_TYPES ? (
+                <Pressable
+                  style={[styles.chip, { backgroundColor: colors.backgroundElement, borderColor: addingType ? colors.text : colors.divider }]}
+                  onPress={() => setAddingType((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add your own account type"
+                >
+                  <View style={styles.chipInner}>
+                    <Ionicons name={addingType ? 'close' : 'add'} size={18} color={colors.text} />
+                  </View>
+                </Pressable>
+              ) : null}
+            </View>
+
+            {addingType ? (
+              <View style={styles.addTypeRow}>
+                <TextInput
+                  style={[styles.input, styles.addTypeInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  value={newTypeName}
+                  onChangeText={setNewTypeName}
+                  placeholder="e.g. Savings, ASB, Crypto"
+                  placeholderTextColor={colors.textSecondary}
+                  maxLength={20}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={addCustomType}
+                />
+                <Pressable
+                  onPress={addCustomType}
+                  disabled={!newTypeTrimmed || newTypeClash}
+                  style={[styles.addTypeButton, { backgroundColor: newTypeTrimmed && !newTypeClash ? colors.accent : colors.backgroundSelected }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save new type"
+                >
+                  <ThemedText type="small" style={{ color: newTypeTrimmed && !newTypeClash ? '#fff' : colors.textSecondary, fontWeight: '600' }}>
+                    Add
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
+            {addingType && newTypeClash ? (
+              <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                That type already exists.
+              </ThemedText>
+            ) : null}
+            <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
+              {typeLabel ? 'Your own type. Long-press it to remove it from the list.' : typeOption.hint}
+            </ThemedText>
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Icon
+            </ThemedText>
+            <View style={[styles.iconBox, { backgroundColor: colors.backgroundElement }]}>
+              <EvenGrid columns={6} rowGap={8}>
+                {ACCOUNT_ICONS.map((n) => {
+                  const active = n === icon;
+                  return (
+                    <Pressable
+                      key={n}
+                      onPress={() => pickIcon(n)}
+                      style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
+                      accessibilityLabel={`Icon ${n}`}
+                    >
+                      <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
+                    </Pressable>
+                  );
+                })}
+              </EvenGrid>
+            </View>
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Name
+            </ThemedText>
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+              placeholder="e.g. Maybank Savings, Wallet"
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+            />
+
+            {showBankFields ? (
+              <>
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Provider (optional)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder="e.g. Maybank, CIMB, TNG eWallet"
+                  placeholderTextColor={colors.textSecondary}
+                  value={provider}
+                  onChangeText={setProvider}
+                />
+
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Last 4 digits (optional)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder="1234"
+                  placeholderTextColor={colors.textSecondary}
+                  value={last4}
+                  onChangeText={(t) => setLast4(t.replace(/\D/g, '').slice(0, 4))}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
+                {!last4Valid ? (
+                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                    Enter all 4 digits, or leave it empty
+                  </ThemedText>
+                ) : null}
+              </>
+            ) : null}
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Starting balance (RM)
+            </ThemedText>
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textSecondary}
+              value={initialBalance}
+              onChangeText={setInitialBalance}
+              keyboardType="decimal-pad"
+            />
+
+            <View style={[styles.infoBox, { backgroundColor: colors.backgroundElement }]}>
+              <ThemedText type="smallBold">Before you add</ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • Starting balance is the amount in this account today. Only transactions you record after this will change it.
+              </ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • Only the last 4 digits are kept. Never enter your full account or card number.
+              </ThemedText>
+              <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
+                • You can edit the look, or delete the card, any time from the Home screen or More → Assets.
+              </ThemedText>
+            </View>
+
+
             <Pressable
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
               onPress={handleSave}
@@ -608,6 +730,9 @@ const styles = StyleSheet.create({
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
+  addTypeRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two, alignItems: 'center' },
+  addTypeInput: { flex: 1, marginTop: 0 },
+  addTypeButton: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
   chipInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   iconBox: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4, marginBottom: Spacing.one },
   iconCell: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },

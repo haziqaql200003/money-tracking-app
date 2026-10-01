@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceMotion } from 'expo-sensors';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AccessibilityInfo, Animated, AppState } from 'react-native';
 
 /**
@@ -7,7 +8,7 @@ import { AccessibilityInfo, Animated, AppState } from 'react-native';
  * It is reference counted: the sensor only runs while at least one card asks for it, and stops
  * when the app goes to the background.
  */
-const FULL_TILT_DEG = 22; // phone tilt (degrees) that gives full card tilt
+const FULL_TILT_DEG = 32; // phone tilt (degrees) that gives full card tilt
 const RECENTER = 0.03; // how fast "neutral" follows the phone, so any resting angle becomes flat
 
 export const gyroX = new Animated.Value(0);
@@ -92,4 +93,36 @@ export function useMotionAllowed() {
 /** Keeps the shared gyro running while `active` is true. */
 export function useGyro(active: boolean) {
   useEffect(() => (active ? acquire() : undefined), [active]);
+}
+
+
+// ---- "Phone motion" preference (device-wide, off by default: it is a lot of movement for some people) ----
+const GYRO_KEY = 'wakira:card-gyro';
+let gyroOn = false;
+const listeners = new Set<() => void>();
+
+AsyncStorage.getItem(GYRO_KEY)
+  .then((v) => {
+    if (v === 'on' && !gyroOn) {
+      gyroOn = true;
+      listeners.forEach((l) => l());
+    }
+  })
+  .catch(() => {});
+
+export function setGyroEnabled(next: boolean) {
+  gyroOn = next;
+  AsyncStorage.setItem(GYRO_KEY, next ? 'on' : 'off').catch(() => {});
+  listeners.forEach((l) => l());
+}
+
+export function useGyroEnabled() {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => gyroOn,
+    () => false,
+  );
 }
