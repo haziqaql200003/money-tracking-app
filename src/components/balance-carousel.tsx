@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 
 import { AccountCard } from '@/components/account-card';
 import { AddAccountModal } from '@/components/add-account-modal';
-import { DEFAULT_COLOR, DEFAULT_DESIGN, type CardDesign } from '@/constants/card-styles';
+import { DEFAULT_COLOR, normalizeDesign, type CardDesign } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import type { Account, AccountType, Transaction } from '@/context/TransactionsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -93,7 +93,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         balance: accountBalance(a.id),
         ...monthTotals(transactions, a.id),
         color: a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other,
-        design: a.design ?? DEFAULT_DESIGN,
+        design: normalizeDesign(a.design),
         last4: a.last4,
       }),
     ),

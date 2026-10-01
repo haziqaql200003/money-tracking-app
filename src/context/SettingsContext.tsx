@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance } from 'react-native';
 
@@ -22,9 +21,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [warnPercent, setWarnPercent] = useState(80);
   const [dailyLimit, setDailyLimit] = useState(0);
 
-  // Overrides the OS scheme for the whole app (null = follow the system again).
+  // Overrides the OS scheme for the whole app ('unspecified' = follow the system again).
   useEffect(() => {
-    Appearance.setColorScheme(themePreference === 'system' ? null : themePreference);
+    Appearance.setColorScheme(themePreference === 'system' ? 'unspecified' : themePreference);
   }, [themePreference]);
 
   const value = useMemo(

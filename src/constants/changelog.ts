@@ -2,9 +2,20 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string };
 export type Release = { version: string; date: string; title: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.0.5';
+export const CURRENT_VERSION = '1.0.6';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.0.6',
+    date: '2026-10-01',
+    title: 'Premium card designs: Songket, Glass & Aurora',
+    changes: [
+      { kind: 'new', text: 'Songket card — black and gold with a woven songket pattern, a pucuk rebung border and a gold shimmer that sweeps across the card.' },
+      { kind: 'new', text: 'Glass card — frosted glass with soft, slowly moving colours behind it.' },
+      { kind: 'new', text: 'Aurora card — a dark card with slow-moving northern lights.' },
+      { kind: 'improved', text: 'The new cards follow the hide-amounts setting, just like your other account cards.' },
+    ],
+  },
   {
     version: '1.0.5',
     date: '2026-10-01',

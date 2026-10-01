@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccountCard, CardBackground } from '@/components/account-card';
+import { ProCardThumb } from '@/components/cards/thumbs';
 import { EvenGrid } from '@/components/even-grid';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
@@ -23,7 +24,10 @@ import {
   DEFAULT_COLOR,
   DEFAULT_DESIGN,
   hslToHex,
+  isProDesign,
   isValidHex,
+  normalizeDesign,
+  PRO_DESIGNS,
   type CardDesign,
 } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
@@ -122,7 +126,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setProvider(editingAccount.provider ?? '');
       setLast4(editingAccount.last4 ?? '');
       setInitialBalance(String(editingAccount.initialBalance));
-      setDesign(editingAccount.design ?? DEFAULT_DESIGN);
+      setDesign(normalizeDesign(editingAccount.design));
       setColor(c);
       setColorTouched(true);
       setShowCustom(!CARD_COLORS.includes(c));
@@ -410,6 +414,39 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Premium
+            </ThemedText>
+            <View style={styles.designRow}>
+              {PRO_DESIGNS.map((d) => {
+                const active = design === d.id;
+                return (
+                  <Pressable key={d.id} style={styles.designItem} onPress={() => setDesign(d.id)}>
+                    <View
+                      style={[
+                        styles.designThumb,
+                        { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
+                      ]}
+                    >
+                      <ProCardThumb design={d.id} />
+                    </View>
+                    <ThemedText
+                      type="small"
+                      style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
+                    >
+                      {d.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {isProDesign(design) ? (
+              <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
+                Premium cards use their own colours, so the colour picker is hidden.
+              </ThemedText>
+            ) : (
+              <>
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Colour
             </ThemedText>
             <EvenGrid columns={5} rowGap={12}>
@@ -483,6 +520,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 />
               </View>
             ) : null}
+              </>
+            )}
 
             <Pressable
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}

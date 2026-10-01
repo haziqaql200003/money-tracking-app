@@ -1,6 +1,24 @@
-export type CardDesign = 'aurora' | 'gradient' | 'stripes' | 'solid';
+export type ProCardDesign = 'pro-songket' | 'pro-glass' | 'pro-aurora';
+export type CardDesign = 'aurora' | 'gradient' | 'stripes' | 'solid' | ProCardDesign;
 
-export const CARD_DESIGNS: { id: CardDesign; label: string }[] = [
+/** Premium designs bring their own colours and animation, so the colour picker does not apply to them. */
+export const PRO_DESIGNS: { id: ProCardDesign; label: string }[] = [
+  { id: 'pro-songket', label: 'Songket' },
+  { id: 'pro-glass', label: 'Glass' },
+  { id: 'pro-aurora', label: 'Aurora' },
+];
+
+export function isProDesign(design: CardDesign): design is ProCardDesign {
+  return design.startsWith('pro-');
+}
+
+/** Saved data from older versions or edits may hold anything; fall back to the default look. */
+export function normalizeDesign(value: unknown): CardDesign {
+  const all = [...CARD_DESIGNS.map((d) => d.id), ...PRO_DESIGNS.map((d) => d.id)];
+  return all.includes(value as CardDesign) ? (value as CardDesign) : DEFAULT_DESIGN;
+}
+
+export const CARD_DESIGNS: { id: Exclude<CardDesign, ProCardDesign>; label: string }[] = [
   { id: 'aurora', label: 'Aurora' },
   { id: 'gradient', label: 'Gradient' },
   { id: 'stripes', label: 'Stripes' },

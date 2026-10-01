@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import type { IconName } from '@/constants/categories';
-import { isLightColor, shade, type CardDesign } from '@/constants/card-styles';
+import { AuroraCard, GlassCard, SongketCard } from '@/components/cards';
+import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/card-styles';
 import { formatMoney } from '@/utils/currency';
 
 const STRIPES = Array.from({ length: 17 }, (_, i) => -60 + i * 10);
@@ -85,6 +86,21 @@ export function AccountCard({
 }: Props) {
   const ink = inkFor(color);
 
+  if (isProDesign(design)) {
+    // Premium cards draw everything themselves (own colours, bank name, masked balance, eye button).
+    const Pro = design === 'pro-songket' ? SongketCard : design === 'pro-glass' ? GlassCard : AuroraCard;
+    return (
+      <Pro
+        bank={title}
+        balance={balance}
+        last4={last4}
+        hidden={hidden}
+        onToggleHidden={onToggleHidden}
+        style={[styles.proCard, width ? { width } : styles.stretch]}
+      />
+    );
+  }
+
   return (
     <View style={[styles.card, width ? { width } : styles.stretch]}>
       <CardBackground color={color} design={design} />
@@ -148,6 +164,7 @@ const styles = StyleSheet.create({
   right: { alignItems: 'flex-end' },
   card: { height: 196, borderRadius: 24, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
   stretch: { alignSelf: 'stretch' },
+  proCard: { height: 196, aspectRatio: undefined },
   circleLarge: { position: 'absolute', width: '62%', aspectRatio: 1, borderRadius: 999, top: '-38%', right: '-16%' },
   circleSmall: { position: 'absolute', width: '40%', aspectRatio: 1, borderRadius: 999, bottom: '-30%', left: '-8%' },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
