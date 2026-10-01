@@ -1,19 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountDonutChart, type DonutSlice } from '@/components/account-donut-chart';
 import { AddAccountModal } from '@/components/add-account-modal';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TransferModal } from '@/components/transfer-modal';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
-import type { Account, AccountType } from '@/context/TransactionsContext';
+import type { Account, AccountType, Transfer } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
-import { monthKeyFromOffset } from '@/utils/dates';
+import { dayLabel, monthKeyFromOffset } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { CategoryIcon } from '@/components/category-icon';
 
@@ -31,13 +33,15 @@ const colorOf = (a: Account) => a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLO
 
 export default function AssetsScreen() {
   const colors = useTheme();
-  const { accountBalances, balance, transactions } = useTransactions();
+  const { accountBalances, balance, transactions, transfers } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
 
   const [mode, setMode] = useState<Mode>('account');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [transferVisible, setTransferVisible] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
 
   const accounts = accountBalances();
 
@@ -92,6 +96,18 @@ export default function AssetsScreen() {
     setModalVisible(true);
   }
 
+  function openTransfer(transfer: Transfer | null = null) {
+    if (!transfer && accounts.length < 2) {
+      Alert.alert('Add another account', 'A transfer moves money between two accounts. Add a second account first (for example Cash).');
+      return;
+    }
+    setEditingTransfer(transfer);
+    setTransferVisible(true);
+  }
+
+  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? 'Deleted account';
+  const recentTransfers = [...transfers].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
+
   const flowUp = monthNet > 0;
   const flowColor = monthNet < 0 ? colors.negative : monthNet > 0 ? colors.positive : colors.textSecondary;
 
@@ -99,21 +115,31 @@ export default function AssetsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          {/* Title */}
-          <View style={styles.titleRow}>
-            <ThemedText type="title" style={styles.heading}>
-              Assets
-            </ThemedText>
-            <Pressable
-              onPress={openAdd}
-              hitSlop={8}
-              style={[styles.addButton, { backgroundColor: colors.accent }]}
-              accessibilityRole="button"
-              accessibilityLabel="Add account"
-            >
-              <Ionicons name="add" size={22} color="#fff" />
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title="Assets"
+            right={
+              <View style={styles.titleActions}>
+                <Pressable
+                  onPress={() => openTransfer()}
+                  hitSlop={8}
+                  style={[styles.addButton, { backgroundColor: colors.backgroundElement }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Transfer between accounts"
+                >
+                  <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
+                </Pressable>
+                <Pressable
+                  onPress={openAdd}
+                  hitSlop={8}
+                  style={[styles.addButton, { backgroundColor: colors.accent }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add account"
+                >
+                  <Ionicons name="add" size={22} color="#fff" />
+                </Pressable>
+              </View>
+            }
+          />
 
           {/* Net worth */}
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
@@ -308,6 +334,47 @@ export default function AssetsScreen() {
                   Add account
                 </ThemedText>
               </Pressable>
+
+              {/* Transfers */}
+              {recentTransfers.length > 0 ? (
+                <>
+                  <View style={[styles.rowBetween, styles.transfersHeader]}>
+                    <ThemedText type="smallBold" style={styles.sectionTitle}>
+                      Recent transfers
+                    </ThemedText>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      Tap to edit
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
+                    {recentTransfers.map((t, i) => (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => openTransfer(t)}
+                        style={({ pressed }) => [
+                          styles.accountRow,
+                          i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+                          pressed && { opacity: 0.6 },
+                        ]}
+                      >
+                        <View style={[styles.avatar, { backgroundColor: `${colors.accent}26` }]}>
+                          <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
+                        </View>
+                        <View style={styles.flex}>
+                          <ThemedText numberOfLines={1}>
+                            {accountName(t.fromAccountId)} → {accountName(t.toAccountId)}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                            {dayLabel(t.date)}
+                            {t.note ? ` · ${t.note}` : ''}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={{ fontWeight: '700' }}>{money(t.amount)}</ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
             </>
           )}
         </ScrollView>
@@ -317,6 +384,8 @@ export default function AssetsScreen() {
           onClose={() => setModalVisible(false)}
           editingAccount={editingAccount}
         />
+
+        <TransferModal visible={transferVisible} onClose={() => setTransferVisible(false)} editing={editingTransfer} />
       </SafeAreaView>
     </ThemedView>
   );
@@ -329,9 +398,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.three },
-  heading: { fontSize: 34, lineHeight: 40 },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   addButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  transfersHeader: { marginTop: Spacing.four },
 
   card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
   eye: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

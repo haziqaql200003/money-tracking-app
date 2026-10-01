@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { BalanceCarousel } from '@/components/balance-carousel';
+import { PendingBanner } from '@/components/pending-banner';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -51,6 +52,8 @@ export default function HomeScreen() {
               <Ionicons name="notifications-outline" size={20} color={colors.text} />
             </Pressable>
           </View>
+
+          <PendingBanner />
 
           <BalanceCarousel onSelectAccount={setSelectedAccountId} />
 

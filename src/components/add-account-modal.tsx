@@ -378,7 +378,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 • Only the last 4 digits are kept. Never enter your full account or card number.
               </ThemedText>
               <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • You can edit the look, or delete the card, any time from the Home or Assets tab.
+                • You can edit the look, or delete the card, any time from the Home screen or More → Assets.
               </ThemedText>
             </View>
 

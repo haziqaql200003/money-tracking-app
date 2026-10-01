@@ -12,6 +12,7 @@ import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { usePlan } from '@/context/PlanContext';
 import { useProfile } from '@/context/ProfileContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -25,13 +26,14 @@ import { useUpdates } from '@/context/UpdatesContext';
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/budgets' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
   const router = useRouter();
   const { displayName, avatarColor } = useProfile();
-  const { transactions } = useTransactions();
+  const { transactions, recurringRules, pendingEntries, accountBalances } = useTransactions();
+  const { goals } = usePlan();
   const { categories, expenseCategories } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
@@ -47,13 +49,48 @@ export default function MoreScreen() {
   const statusColor = status === 'over' ? colors.negative : status === 'warn' ? WARN_COLOR : colors.positive;
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
+  const activeRecurring = recurringRules.filter((r) => r.active).length;
+
+  const accountList = accountBalances();
+  const netWorth = accountList.reduce((sum, a) => sum + a.balance, 0);
+
   const menu: MenuItem[] = [
+    {
+      icon: 'flag-outline',
+      label: 'Rancang',
+      subtitle:
+        goals.length > 0
+          ? `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · upcoming bills · reminders`
+          : 'Savings goals, upcoming bills, reminders',
+      tint: '#22C55E',
+      href: '/more/rancang',
+    },
+    {
+      icon: 'wallet-outline',
+      label: 'Assets',
+      subtitle: `${accountList.length} ${accountList.length === 1 ? 'account' : 'accounts'} · ${money(netWorth)}`,
+      tint: '#0EA5E9',
+      href: '/more/assets',
+    },
     {
       icon: 'pie-chart-outline',
       label: 'Budgets',
       subtitle: `${budgeted.length} of ${expenseCategories.length} categories budgeted`,
       tint: colors.accent,
       href: '/more/budgets',
+    },
+    {
+      icon: 'repeat',
+      label: 'Recurring',
+      subtitle:
+        pendingEntries.length > 0
+          ? `${pendingEntries.length} to confirm · tap to enter the amount`
+          : activeRecurring > 0
+            ? `${activeRecurring} active · rent, salary, subscriptions`
+            : 'Rent, salary, subscriptions · recorded automatically',
+      tint: '#8B5CF6',
+      href: '/more/recurring',
+      badge: pendingEntries.length > 0,
     },
     {
       icon: 'pricetags-outline',
@@ -117,7 +154,7 @@ export default function MoreScreen() {
               <View style={styles.flex}>
                 <ThemedText style={{ fontWeight: '700' }}>New in v{CURRENT_VERSION}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Budgets, custom categories, itemised transactions & more
+                  Transfers, recurring transactions, budgets & more
                 </ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -195,7 +232,7 @@ export default function MoreScreen() {
           </View>
 
           <ThemedText type="small" style={[styles.about, { color: colors.textSecondary }]}>
-            Money Tracker · MVP build
+            WaKira · MVP build
           </ThemedText>
         </ScrollView>
 

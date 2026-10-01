@@ -2,9 +2,50 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string };
 export type Release = { version: string; date: string; title: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.0.1';
+export const CURRENT_VERSION = '1.0.5';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.0.5',
+    date: '2026-10-01',
+    title: 'Smarter set-up & refreshed tutorial',
+    changes: [
+      { kind: 'new', text: 'New accounts can now add their net salary (fixed or "confirm each time") and a first savings goal while setting up. Both are optional.' },
+      { kind: 'improved', text: 'The tutorial now covers Analyse, Rancang, Recurring, transfers, Assets under More and reminders.' },
+    ],
+  },
+  {
+    version: '1.0.4',
+    date: '2026-10-01',
+    title: 'Rancang: savings goals, upcoming bills & reminders',
+    changes: [
+      { kind: 'new', text: 'Rancang — a new planning hub under More: savings goals, upcoming bills, your budget at a glance and reminders in one place.' },
+      { kind: 'new', text: 'Savings goals — set a target and an optional deadline, add or take out money, and see how much to set aside each month and whether you are on track. Goals never change your account balances.' },
+      { kind: 'new', text: 'Upcoming bills — what is due in the next 30 days, taken from your Recurring items.' },
+      { kind: 'new', text: 'Reminders — optional notifications before bills are due, a nudge to enter your real pay, and budget alerts when a category nears or passes its limit.' },
+      { kind: 'fixed', text: 'Fixed the menu link type for Assets under More.' },
+    ],
+  },
+  {
+    version: '1.0.3',
+    date: '2026-10-01',
+    title: 'Analyse tab & Assets moved to More',
+    changes: [
+      { kind: 'improved', text: 'The Faham insights now live in the new Analyse tab, right where Assets used to be.' },
+      { kind: 'improved', text: 'Assets moved to More → Assets (accounts, net worth and transfers work exactly as before).' },
+    ],
+  },
+  {
+    version: '1.0.2',
+    date: '2026-09-30',
+    title: 'Faham tab, transfers & recurring',
+    changes: [
+      { kind: 'new', text: 'Faham tab — income vs spending month by month, where your money goes (with subcategories and change vs before), your priciest weekday, biggest expense and a few plain-language insights.' },
+      { kind: 'new', text: 'Transfers — move money between your own accounts (Bank → Cash, top up an e-wallet) from the + button or the Assets tab. Balances update, but transfers never count as income or spending.' },
+      { kind: 'new', text: 'Recurring transactions — schedule rent, salary or subscriptions (daily, weekly, monthly or yearly) under More → Recurring. They are recorded automatically when the date arrives.' },
+      { kind: 'new', text: 'Recurring "Confirm each time" — for pay that changes or bills like electricity. On each date you enter the real amount (e.g. your net pay) and only then is it recorded. A banner on Home reminds you.' },
+    ],
+  },
   {
     version: '1.0.1',
     date: '2026-09-29',

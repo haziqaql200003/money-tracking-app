@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TransferForm } from '@/components/transfer-form';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction, TransactionItem, TransactionType } from '@/context/TransactionsContext';
@@ -94,6 +95,8 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
   const [breakdownOn, setBreakdownOn] = useState(false);
   const [items, setItems] = useState<DraftItem[]>([]);
+  // true = the sheet shows the Transfer form instead of the expense/income form.
+  const [transferMode, setTransferMode] = useState(false);
 
   const visibleCategories = type === 'credit' ? incomeCategories : expenseCategories;
   const selectedCategory = getCategory(categoryId) ?? visibleCategories[0];
@@ -159,9 +162,11 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
     setTouchedAmount(false);
     setBreakdownOn(false);
     setItems([]);
+    setTransferMode(false);
   }
 
   function setTransactionType(next: TransactionType) {
+    setTransferMode(false);
     setType(next);
     const first = (next === 'credit' ? incomeCategories : expenseCategories)[0];
     if (first) {
@@ -309,7 +314,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <SheetHeader
-            title={isEditing ? 'Edit transaction' : 'Record transaction'}
+            title={isEditing ? 'Edit transaction' : transferMode ? 'Transfer' : 'Record transaction'}
             left={
               <Pressable onPress={handleClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
@@ -327,333 +332,352 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
           />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {/* Expense / Income */}
+            {/* Expense / Income / Transfer */}
             <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
               <Pressable
-                style={[styles.segmentButton, type === 'debit' && { backgroundColor: colors.background }]}
+                style={[styles.segmentButton, !transferMode && type === 'debit' && { backgroundColor: colors.background }]}
                 onPress={() => setTransactionType('debit')}
               >
                 <ThemedText
                   type="small"
-                  style={type === 'debit' ? { fontWeight: '600', color: colors.negative } : { color: colors.textSecondary }}
+                  style={!transferMode && type === 'debit' ? { fontWeight: '600', color: colors.negative } : { color: colors.textSecondary }}
                 >
                   Expense
                 </ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.segmentButton, type === 'credit' && { backgroundColor: colors.background }]}
+                style={[styles.segmentButton, !transferMode && type === 'credit' && { backgroundColor: colors.background }]}
                 onPress={() => setTransactionType('credit')}
               >
                 <ThemedText
                   type="small"
-                  style={type === 'credit' ? { fontWeight: '600', color: colors.positive } : { color: colors.textSecondary }}
+                  style={!transferMode && type === 'credit' ? { fontWeight: '600', color: colors.positive } : { color: colors.textSecondary }}
                 >
                   Income
                 </ThemedText>
               </Pressable>
-            </View>
-
-            {/* Amount */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Amount (RM)
-            </ThemedText>
-            {breakdownOn ? (
-              <View style={[styles.amountInput, styles.amountReadout, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
-                <ThemedText style={styles.amountReadoutValue} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatMoney(itemsTotal)}
-                </ThemedText>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Auto total from {items.length} item{items.length === 1 ? '' : 's'}
-                </ThemedText>
-              </View>
-            ) : (
-              <>
-                <TextInput
-                  style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textSecondary}
-                  value={amount}
-                  onChangeText={setAmount}
-                  onBlur={() => setTouchedAmount(true)}
-                  keyboardType="decimal-pad"
-                  accessibilityLabel="Amount in Malaysian Ringgit"
-                />
-                {touchedAmount && !amountValid ? (
-                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                    Enter a valid amount greater than zero
+              {!isEditing ? (
+                <Pressable
+                  style={[styles.segmentButton, transferMode && { backgroundColor: colors.background }]}
+                  onPress={() => setTransferMode(true)}
+                >
+                  <ThemedText
+                    type="small"
+                    style={transferMode ? { fontWeight: '600', color: colors.accent } : { color: colors.textSecondary }}
+                  >
+                    Transfer
                   </ThemedText>
-                ) : null}
-              </>
-            )}
-
-            {/* Breakdown */}
-            <View style={[styles.breakdownCard, { backgroundColor: colors.backgroundElement }]}>
-              <View style={styles.breakdownHeader}>
-                <View style={styles.flex}>
-                  <ThemedText type="smallBold">Itemised breakdown</ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    e.g. Nasi Lemak, Teh Tarik, Service Charge
-                  </ThemedText>
-                </View>
-                <Switch value={breakdownOn} onValueChange={toggleBreakdown} trackColor={{ true: colors.accent }} />
-              </View>
-
-              {breakdownOn ? (
-                <View style={styles.breakdownBody}>
-                  {items.map((it, idx) => (
-                    <View key={it.id} style={styles.itemRow}>
-                      <View style={[styles.itemBullet, { backgroundColor: colors.background }]}>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          {idx + 1}
-                        </ThemedText>
-                      </View>
-                      <TextInput
-                        style={[styles.itemLabelInput, { color: colors.text }]}
-                        placeholder={`Item ${idx + 1}`}
-                        placeholderTextColor={colors.textSecondary}
-                        value={it.label}
-                        onChangeText={(t) => updateItem(it.id, { label: t })}
-                      />
-                      <View style={[styles.itemAmountWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          RM
-                        </ThemedText>
-                        <TextInput
-                          style={[styles.itemAmountInput, { color: colors.text }]}
-                          placeholder="0.00"
-                          placeholderTextColor={colors.textSecondary}
-                          value={it.amountText}
-                          onChangeText={(t) => updateItem(it.id, { amountText: t })}
-                          keyboardType="decimal-pad"
-                        />
-                      </View>
-                      <Pressable onPress={() => removeItem(it.id)} hitSlop={8} accessibilityLabel="Remove item">
-                        <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                      </Pressable>
-                    </View>
-                  ))}
-
-                  <Pressable onPress={() => addItem()} style={[styles.addItemRow, { borderColor: colors.divider }]}>
-                    <Ionicons name="add" size={18} color={colors.accent} />
-                    <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                      Add item
-                    </ThemedText>
-                  </Pressable>
-
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
-                    {QUICK_ITEMS.map((label) => (
-                      <Pressable
-                        key={label}
-                        onPress={() => addItem(label)}
-                        style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.divider }]}
-                      >
-                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          + {label}
-                        </ThemedText>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-
-                  <View style={[styles.itemsTotalRow, { borderTopColor: colors.divider }]}>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Items total
-                    </ThemedText>
-                    <ThemedText type="smallBold">{formatMoney(itemsTotal)}</ThemedText>
-                  </View>
-                </View>
+                </Pressable>
               ) : null}
             </View>
 
-            {/* Title */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Title
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder={`Optional — defaults to ${subcategory || selectedCategory?.name || 'the category'}`}
-              placeholderTextColor={colors.textSecondary}
-              value={title}
-              onChangeText={setTitle}
-            />
-
-            {/* Account */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Account
-            </ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {accounts.map((acc) => {
-                const active = accountId === acc.id;
-                return (
-                  <Pressable
-                    key={acc.id}
-                    style={[
-                      styles.categoryChip,
-                      {
-                        backgroundColor: active ? typeAccent : colors.backgroundElement,
-                        borderColor: active ? typeAccent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => setAccountId(acc.id)}
-                  >
-                    <View style={styles.chipInner}>
-                      <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
-                      <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                        {acc.name}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            {/* Category */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Category
-            </ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {visibleCategories.map((cat) => {
-                const active = categoryId === cat.id;
-                return (
-                  <Pressable
-                    key={cat.id}
-                    style={[
-                      styles.categoryChip,
-                      {
-                        backgroundColor: active ? typeAccent : colors.backgroundElement,
-                        borderColor: active ? typeAccent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => pickCategory(cat.id)}
-                  >
-                    <View style={styles.chipInner}>
-                      <Ionicons name={cat.icon} size={15} color={active ? '#fff' : cat.color} />
-                      <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                        {cat.name}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            {/* Subcategory */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Subcategory
-            </ThemedText>
-            <View style={styles.subGrid}>
-              {selectedCategory?.subcategories.map((sub) => {
-                const active = subcategory === sub;
-                return (
-                  <Pressable
-                    key={sub}
-                    style={[
-                      styles.subChip,
-                      {
-                        backgroundColor: active ? colors.backgroundSelected : colors.backgroundElement,
-                        borderColor: active ? typeAccent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => setSubcategory(sub)}
-                  >
-                    <ThemedText
-                      type="small"
-                      style={active ? { fontWeight: '600', color: colors.text } : { color: colors.textSecondary }}
-                    >
-                      {sub}
+            {transferMode ? (
+              <TransferForm onDone={handleClose} />
+            ) : (
+              <>
+                {/* Amount */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Amount (RM)
+                </ThemedText>
+                {breakdownOn ? (
+                  <View style={[styles.amountInput, styles.amountReadout, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+                    <ThemedText style={styles.amountReadoutValue} numberOfLines={1} adjustsFontSizeToFit>
+                      {formatMoney(itemsTotal)}
                     </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Date */}
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Date
-            </ThemedText>
-            <View style={styles.dateQuickRow}>
-              {([
-                { label: 'Today', offset: 0 },
-                { label: 'Yesterday', offset: -1 },
-              ] as const).map(({ label, offset }) => {
-                const iso = toDateString(new Date(Date.now() + offset * 86400000));
-                const active = date === iso;
-                return (
-                  <Pressable
-                    key={label}
-                    style={[
-                      styles.dateQuick,
-                      {
-                        borderColor: active ? typeAccent : colors.divider,
-                        backgroundColor: active ? colors.backgroundSelected : colors.backgroundElement,
-                      },
-                    ]}
-                    onPress={() => setQuickDate(offset)}
-                  >
-                    <ThemedText type="small" style={active ? { fontWeight: '600' } : undefined}>
-                      {label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Pressable
-              style={[styles.dateRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              onPress={openDatePicker}
-            >
-              <View style={styles.chipInner}>
-                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                <ThemedText>{formatDisplayDate(date)}</ThemedText>
-              </View>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Pick date
-              </ThemedText>
-            </Pressable>
-
-            {showDatePicker && Platform.OS === 'ios' ? (
-              <View style={[styles.iosPickerCard, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
-                <View style={styles.iosPickerToolbar}>
-                  <Pressable onPress={cancelDatePicker} hitSlop={8}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Cancel
+                      Auto total from {items.length} item{items.length === 1 ? '' : 's'}
                     </ThemedText>
-                  </Pressable>
-                  <ThemedText type="smallBold">Select date</ThemedText>
-                  <Pressable onPress={confirmDatePicker} hitSlop={8}>
-                    <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                      Done
-                    </ThemedText>
-                  </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <TextInput
+                      style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textSecondary}
+                      value={amount}
+                      onChangeText={setAmount}
+                      onBlur={() => setTouchedAmount(true)}
+                      keyboardType="decimal-pad"
+                      accessibilityLabel="Amount in Malaysian Ringgit"
+                    />
+                    {touchedAmount && !amountValid ? (
+                      <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                        Enter a valid amount greater than zero
+                      </ThemedText>
+                    ) : null}
+                  </>
+                )}
+
+                {/* Breakdown */}
+                <View style={[styles.breakdownCard, { backgroundColor: colors.backgroundElement }]}>
+                  <View style={styles.breakdownHeader}>
+                    <View style={styles.flex}>
+                      <ThemedText type="smallBold">Itemised breakdown</ThemedText>
+                      <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                        e.g. Nasi Lemak, Teh Tarik, Service Charge
+                      </ThemedText>
+                    </View>
+                    <Switch value={breakdownOn} onValueChange={toggleBreakdown} trackColor={{ true: colors.accent }} />
+                  </View>
+
+                  {breakdownOn ? (
+                    <View style={styles.breakdownBody}>
+                      {items.map((it, idx) => (
+                        <View key={it.id} style={styles.itemRow}>
+                          <View style={[styles.itemBullet, { backgroundColor: colors.background }]}>
+                            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                              {idx + 1}
+                            </ThemedText>
+                          </View>
+                          <TextInput
+                            style={[styles.itemLabelInput, { color: colors.text }]}
+                            placeholder={`Item ${idx + 1}`}
+                            placeholderTextColor={colors.textSecondary}
+                            value={it.label}
+                            onChangeText={(t) => updateItem(it.id, { label: t })}
+                          />
+                          <View style={[styles.itemAmountWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
+                            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                              RM
+                            </ThemedText>
+                            <TextInput
+                              style={[styles.itemAmountInput, { color: colors.text }]}
+                              placeholder="0.00"
+                              placeholderTextColor={colors.textSecondary}
+                              value={it.amountText}
+                              onChangeText={(t) => updateItem(it.id, { amountText: t })}
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                          <Pressable onPress={() => removeItem(it.id)} hitSlop={8} accessibilityLabel="Remove item">
+                            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                          </Pressable>
+                        </View>
+                      ))}
+
+                      <Pressable onPress={() => addItem()} style={[styles.addItemRow, { borderColor: colors.divider }]}>
+                        <Ionicons name="add" size={18} color={colors.accent} />
+                        <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                          Add item
+                        </ThemedText>
+                      </Pressable>
+
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
+                        {QUICK_ITEMS.map((label) => (
+                          <Pressable
+                            key={label}
+                            onPress={() => addItem(label)}
+                            style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.divider }]}
+                          >
+                            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                              + {label}
+                            </ThemedText>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+
+                      <View style={[styles.itemsTotalRow, { borderTopColor: colors.divider }]}>
+                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                          Items total
+                        </ThemedText>
+                        <ThemedText type="smallBold">{formatMoney(itemsTotal)}</ThemedText>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
-                <DateTimePicker
-                  value={pickerDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDateChange}
-                  themeVariant={isDark ? 'dark' : 'light'}
-                  maximumDate={new Date()}
+
+                {/* Title */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Title
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder={`Optional — defaults to ${subcategory || selectedCategory?.name || 'the category'}`}
+                  placeholderTextColor={colors.textSecondary}
+                  value={title}
+                  onChangeText={setTitle}
                 />
-              </View>
-            ) : null}
 
-            {showDatePicker && Platform.OS === 'android' ? (
-              <DateTimePicker
-                value={parseDateString(date)}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
-                maximumDate={new Date()}
-              />
-            ) : null}
+                {/* Account */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Account
+                </ThemedText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                  {accounts.map((acc) => {
+                    const active = accountId === acc.id;
+                    return (
+                      <Pressable
+                        key={acc.id}
+                        style={[
+                          styles.categoryChip,
+                          {
+                            backgroundColor: active ? typeAccent : colors.backgroundElement,
+                            borderColor: active ? typeAccent : colors.divider,
+                          },
+                        ]}
+                        onPress={() => setAccountId(acc.id)}
+                      >
+                        <View style={styles.chipInner}>
+                          <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
+                          <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
+                            {acc.name}
+                          </ThemedText>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
 
-            <Pressable
-              style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
-              onPress={handleSave}
-              disabled={!canSave}
-            >
-              <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
-                {isEditing ? 'Save changes' : 'Save transaction'}
-              </ThemedText>
-            </Pressable>
+                {/* Category */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Category
+                </ThemedText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                  {visibleCategories.map((cat) => {
+                    const active = categoryId === cat.id;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        style={[
+                          styles.categoryChip,
+                          {
+                            backgroundColor: active ? typeAccent : colors.backgroundElement,
+                            borderColor: active ? typeAccent : colors.divider,
+                          },
+                        ]}
+                        onPress={() => pickCategory(cat.id)}
+                      >
+                        <View style={styles.chipInner}>
+                          <Ionicons name={cat.icon} size={15} color={active ? '#fff' : cat.color} />
+                          <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
+                            {cat.name}
+                          </ThemedText>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Subcategory */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Subcategory
+                </ThemedText>
+                <View style={styles.subGrid}>
+                  {selectedCategory?.subcategories.map((sub) => {
+                    const active = subcategory === sub;
+                    return (
+                      <Pressable
+                        key={sub}
+                        style={[
+                          styles.subChip,
+                          {
+                            backgroundColor: active ? colors.backgroundSelected : colors.backgroundElement,
+                            borderColor: active ? typeAccent : colors.divider,
+                          },
+                        ]}
+                        onPress={() => setSubcategory(sub)}
+                      >
+                        <ThemedText
+                          type="small"
+                          style={active ? { fontWeight: '600', color: colors.text } : { color: colors.textSecondary }}
+                        >
+                          {sub}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Date */}
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Date
+                </ThemedText>
+                <View style={styles.dateQuickRow}>
+                  {([
+                    { label: 'Today', offset: 0 },
+                    { label: 'Yesterday', offset: -1 },
+                  ] as const).map(({ label, offset }) => {
+                    const iso = toDateString(new Date(Date.now() + offset * 86400000));
+                    const active = date === iso;
+                    return (
+                      <Pressable
+                        key={label}
+                        style={[
+                          styles.dateQuick,
+                          {
+                            borderColor: active ? typeAccent : colors.divider,
+                            backgroundColor: active ? colors.backgroundSelected : colors.backgroundElement,
+                          },
+                        ]}
+                        onPress={() => setQuickDate(offset)}
+                      >
+                        <ThemedText type="small" style={active ? { fontWeight: '600' } : undefined}>
+                          {label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Pressable
+                  style={[styles.dateRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  onPress={openDatePicker}
+                >
+                  <View style={styles.chipInner}>
+                    <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+                    <ThemedText>{formatDisplayDate(date)}</ThemedText>
+                  </View>
+                  <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                    Pick date
+                  </ThemedText>
+                </Pressable>
+
+                {showDatePicker && Platform.OS === 'ios' ? (
+                  <View style={[styles.iosPickerCard, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+                    <View style={styles.iosPickerToolbar}>
+                      <Pressable onPress={cancelDatePicker} hitSlop={8}>
+                        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                          Cancel
+                        </ThemedText>
+                      </Pressable>
+                      <ThemedText type="smallBold">Select date</ThemedText>
+                      <Pressable onPress={confirmDatePicker} hitSlop={8}>
+                        <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
+                          Done
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+                    <DateTimePicker
+                      value={pickerDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={onDateChange}
+                      themeVariant={isDark ? 'dark' : 'light'}
+                      maximumDate={new Date()}
+                    />
+                  </View>
+                ) : null}
+
+                {showDatePicker && Platform.OS === 'android' ? (
+                  <DateTimePicker
+                    value={parseDateString(date)}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                  />
+                ) : null}
+
+                <Pressable
+                  style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
+                  onPress={handleSave}
+                  disabled={!canSave}
+                >
+                  <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
+                    {isEditing ? 'Save changes' : 'Save transaction'}
+                  </ThemedText>
+                </Pressable>
+              </>
+            )}
           </ScrollView>
         </ThemedView>
       </KeyboardAvoidingView>

@@ -6,6 +6,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AddRecordProvider } from '@/context/AddRecordContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CategoriesProvider } from '@/context/CategoriesContext';
+import { PlanProvider } from '@/context/PlanContext';
 import { PrivacyProvider } from '@/context/PrivacyContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { SettingsProvider } from '@/context/SettingsContext';
@@ -48,10 +49,12 @@ export default function RootLayout() {
               <PrivacyProvider>
                 <CategoriesProvider>
                   <TransactionsProvider>
-                    <AddRecordProvider>
-                      <AnimatedSplashOverlay />
-                      <RootNavigator />
-                    </AddRecordProvider>
+                    <PlanProvider>
+                      <AddRecordProvider>
+                        <AnimatedSplashOverlay />
+                        <RootNavigator />
+                      </AddRecordProvider>
+                    </PlanProvider>
                   </TransactionsProvider>
                 </CategoriesProvider>
               </PrivacyProvider>

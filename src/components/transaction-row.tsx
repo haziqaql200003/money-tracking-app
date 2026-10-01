@@ -40,6 +40,7 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
           {subtitle}
           {showAccount && account ? ` · ${account.name}` : ''}
           {item.items && item.items.length > 0 ? ` · ${item.items.length} items` : ''}
+          {item.recurringId ? ' · Recurring' : ''}
         </ThemedText>
       </View>
 

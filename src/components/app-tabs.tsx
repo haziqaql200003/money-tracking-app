@@ -71,10 +71,10 @@ export default function AppTabs() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="analyse"
         options={{
-          title: 'Assets',
-          tabBarIcon: ({ color, size }) => <Ionicons name="wallet" size={size} color={color} />,
+          title: 'Analyse',
+          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

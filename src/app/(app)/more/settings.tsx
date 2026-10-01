@@ -18,6 +18,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { toCsv } from '@/utils/csv';
 import { useAuth } from '@/context/AuthContext';
+import { usePlan } from '@/context/PlanContext';
 
 const THEMES: { key: ThemePreference; label: string }[] = [
   { key: 'system', label: 'System' },
@@ -95,6 +96,7 @@ export default function SettingsScreen() {
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { transactions, accounts, resetAllData } = useTransactions();
   const { getCategory, resetCategories } = useCategories();
+  const { resetPlan } = usePlan();
 
   const { user, signOut, deleteAccount, updateProfile } = useAuth();
 
@@ -154,6 +156,7 @@ export default function SettingsScreen() {
           onPress: () => {
             resetAllData();
             resetCategories();
+            resetPlan();
           },
         },
       ],
@@ -321,7 +324,7 @@ export default function SettingsScreen() {
             <Row
               first
               icon="information-circle-outline"
-              label="Money Tracker"
+              label="WaKira"
               value={`v${Constants.expoConfig?.version ?? '1.0.0'}`}
             />
           </Section>

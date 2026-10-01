@@ -179,7 +179,7 @@ export function AccountModal({ visible, onClose }: Props) {
             </View>
 
             <ThemedText type="small" style={[styles.footer, { color: colors.textSecondary }]}>
-              Money Tracker · MVP build
+              WaKira · MVP build
             </ThemedText>
           </ScrollView>
         </ThemedView>
