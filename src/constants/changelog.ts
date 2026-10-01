@@ -2,9 +2,18 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string };
 export type Release = { version: string; date: string; title: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.0.6';
+export const CURRENT_VERSION = '1.0.7';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.0.7',
+    date: '2026-10-01',
+    title: 'A fresh look for WaKira',
+    changes: [
+      { kind: 'improved', text: 'New colour palette: ink indigo, pandan green and a touch of songket gold, in both light and dark mode.' },
+      { kind: 'improved', text: 'Cleaner foundations under the hood: shared buttons, chips, forms and sheets so every screen looks and behaves the same.' },
+    ],
+  },
   {
     version: '1.0.6',
     date: '2026-10-01',

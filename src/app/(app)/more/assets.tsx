@@ -9,6 +9,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TransferModal } from '@/components/transfer-modal';
+import { ACCOUNT_TYPE_LABEL } from '@/constants/accounts';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -26,7 +27,6 @@ const MODES: { key: Mode; label: string }[] = [
   { key: 'type', label: 'By type' },
 ];
 
-const TYPE_LABEL: Record<AccountType, string> = { bank: 'Bank', cash: 'Cash', other: 'Other' };
 const MASK = 'RM ••••••';
 
 const colorOf = (a: Account) => a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other;
@@ -68,7 +68,7 @@ export default function AssetsScreen() {
     positive.forEach((a) => byType.set(a.type, (byType.get(a.type) ?? 0) + a.balance));
     slices = Array.from(byType.entries()).map(([t, value]) => ({
       id: t,
-      label: TYPE_LABEL[t],
+      label: ACCOUNT_TYPE_LABEL[t],
       value,
       color: DEFAULT_COLOR[t] ?? DEFAULT_COLOR.other,
     }));
@@ -286,7 +286,7 @@ export default function AssetsScreen() {
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                 {accounts.map((a, i) => {
                   const color = colorOf(a);
-                  const subtitle = [a.typeLabel ?? TYPE_LABEL[a.type], a.provider, a.last4 ? `•••• ${a.last4}` : null]
+                  const subtitle = [a.typeLabel ?? ACCOUNT_TYPE_LABEL[a.type], a.provider, a.last4 ? `•••• ${a.last4}` : null]
                     .filter(Boolean)
                     .join(' · ');
                   const negative = a.balance < 0;

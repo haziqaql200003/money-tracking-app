@@ -1,5 +1,11 @@
 import type { IconName } from './categories';
 
+export const ACCOUNT_TYPE_LABEL: Record<'bank' | 'cash' | 'other', string> = {
+  bank: 'Bank',
+  cash: 'Cash',
+  other: 'Other',
+};
+
 export const DEFAULT_ACCOUNT_ICON: Record<'bank' | 'cash' | 'other', IconName> = {
   bank: 'business',
   cash: 'cash',

@@ -3,9 +3,10 @@ import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 
 import { AccountCard } from '@/components/account-card';
 import { AddAccountModal } from '@/components/add-account-modal';
+import { ACCOUNT_TYPE_LABEL } from '@/constants/accounts';
 import { DEFAULT_COLOR, normalizeDesign, type CardDesign } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
-import type { Account, AccountType, Transaction } from '@/context/TransactionsContext';
+import type { Account, Transaction } from '@/context/TransactionsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -15,7 +16,6 @@ const PEEK = 28; // how much of the next card shows at the right edge
 const GAP = 12;
 const CARD_HEIGHT = 196;
 
-const TYPE_LABEL: Record<AccountType, string> = { bank: 'Bank', cash: 'Cash', other: 'Other' };
 
 type AccountSlide = {
   kind: 'account';
@@ -88,7 +88,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         id: a.id,
         account: a,
         title: a.name,
-        subtitle: [a.provider, a.typeLabel ?? TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
+        subtitle: [a.provider, a.typeLabel ?? ACCOUNT_TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
         icon: a.icon,
         balance: accountBalance(a.id),
         ...monthTotals(transactions, a.id),
