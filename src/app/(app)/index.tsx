@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackground } from '@/components/glass/ambient-background';
+import { Glass } from '@/components/glass/glass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -33,6 +35,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
           <View style={styles.headerRow}>
@@ -45,11 +48,10 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.bellButton, { backgroundColor: colors.backgroundElement }]}
-              onPress={showComingSoon}
-            >
-              <Ionicons name="notifications-outline" size={20} color={colors.text} />
+            <Pressable onPress={showComingSoon} accessibilityRole="button" accessibilityLabel="Notifications">
+              <Glass radius={20} interactive style={styles.bellButton}>
+                <Ionicons name="notifications-outline" size={20} color={colors.text} />
+              </Glass>
             </Pressable>
           </View>
 

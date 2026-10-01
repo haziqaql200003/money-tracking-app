@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { AccountDonutChart, type DonutSlice } from '@/components/account-donut-chart';
 import { AddAccountModal } from '@/components/add-account-modal';
 import { ScreenHeader } from '@/components/screen-header';
@@ -193,21 +194,13 @@ export default function AssetsScreen() {
             <>
               {/* Distribution */}
               <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
-                <View style={[styles.segmentTrack, { backgroundColor: colors.background }]}>
-                  {MODES.map((m) => (
-                    <Pressable
-                      key={m.key}
-                      style={[styles.segmentButton, mode === m.key && { backgroundColor: colors.backgroundElement }]}
-                      onPress={() => changeMode(m.key)}
-                    >
-                      <ThemedText
-                        type="small"
-                        style={mode === m.key ? { fontWeight: '600' } : { color: colors.textSecondary }}
-                      >
-                        {m.label}
-                      </ThemedText>
-                    </Pressable>
-                  ))}
+                <View style={{ marginBottom: Spacing.three }}>
+                  <GlassSegmented
+                    options={MODES}
+                    value={mode}
+                    onChange={changeMode}
+                    trackColor={colors.background}
+                  />
                 </View>
 
                 <AccountDonutChart slices={slices} selectedId={selected?.id ?? null}>
@@ -416,8 +409,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.three },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   centerAmount: { fontSize: 20, lineHeight: 26, fontWeight: '700', textAlign: 'center' },
   centerNote: { textAlign: 'center', marginTop: Spacing.three },
 

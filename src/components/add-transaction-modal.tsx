@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -333,42 +334,16 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Expense / Income / Transfer */}
-            <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-              <Pressable
-                style={[styles.segmentButton, !transferMode && type === 'debit' && { backgroundColor: colors.background }]}
-                onPress={() => setTransactionType('debit')}
-              >
-                <ThemedText
-                  type="small"
-                  style={!transferMode && type === 'debit' ? { fontWeight: '600', color: colors.negative } : { color: colors.textSecondary }}
-                >
-                  Expense
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.segmentButton, !transferMode && type === 'credit' && { backgroundColor: colors.background }]}
-                onPress={() => setTransactionType('credit')}
-              >
-                <ThemedText
-                  type="small"
-                  style={!transferMode && type === 'credit' ? { fontWeight: '600', color: colors.positive } : { color: colors.textSecondary }}
-                >
-                  Income
-                </ThemedText>
-              </Pressable>
-              {!isEditing ? (
-                <Pressable
-                  style={[styles.segmentButton, transferMode && { backgroundColor: colors.background }]}
-                  onPress={() => setTransferMode(true)}
-                >
-                  <ThemedText
-                    type="small"
-                    style={transferMode ? { fontWeight: '600', color: colors.accent } : { color: colors.textSecondary }}
-                  >
-                    Transfer
-                  </ThemedText>
-                </Pressable>
-              ) : null}
+            <View style={{ marginBottom: Spacing.four }}>
+              <GlassSegmented
+                options={[
+                  { key: 'debit', label: 'Expense', color: colors.negative },
+                  { key: 'credit', label: 'Income', color: colors.positive },
+                  ...(isEditing ? [] : [{ key: 'transfer' as const, label: 'Transfer', color: colors.accent }]),
+                ]}
+                value={transferMode ? 'transfer' : type === 'debit' ? 'debit' : 'credit'}
+                onChange={(k) => (k === 'transfer' ? setTransferMode(true) : setTransactionType(k))}
+              />
             </View>
 
             {transferMode ? (
@@ -698,8 +673,6 @@ const styles = StyleSheet.create({
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.four },
-  segmentButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
 
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
   amountInput: {

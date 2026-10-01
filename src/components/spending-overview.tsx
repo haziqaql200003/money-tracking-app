@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { StyleSheet, View, useColorScheme } from 'react-native';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
+import { Glass } from '@/components/glass/glass';
 import { SpendingChart, PERIOD_COLOR } from '@/components/spending-chart';
 import { ThemedText } from '@/components/themed-text';
 import { WeekChartPager } from '@/components/week-chart-pager';
@@ -86,24 +88,15 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 
   return (
     <View>
-      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-        {PERIODS.map((p) => (
-          <Pressable
-            key={p.key}
-            style={[styles.segmentButton, period === p.key && { backgroundColor: colors.background }]}
-            onPress={() => selectPeriod(p.key)}
-          >
-            <ThemedText
-              type="small"
-              style={period === p.key ? styles.segmentActiveText : { color: colors.textSecondary }}
-            >
-              {p.label}
-            </ThemedText>
-          </Pressable>
-        ))}
+      <View style={{ marginBottom: Spacing.three }}>
+        <GlassSegmented
+          options={PERIODS}
+          value={period}
+          onChange={selectPeriod}
+        />
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
+      <Glass radius={20} style={styles.card}>
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
             <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
@@ -151,7 +144,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
             </ThemedText>
           </View>
         </View>
-      </View>
+      </Glass>
 
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
         {period === 'week' ? 'Swipe the chart to see other weeks · tap a day for details' : 'Tap a point for details'}
@@ -161,10 +154,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 }
 
 const styles = StyleSheet.create({
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.three },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  segmentActiveText: { fontWeight: '600' },
-  card: { borderRadius: 20, paddingTop: Spacing.three, paddingBottom: Spacing.three, paddingHorizontal: Spacing.three },
+  card: { paddingTop: Spacing.three, paddingBottom: Spacing.three, paddingHorizontal: Spacing.three },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   headerText: { flexShrink: 1 },
   total: { fontSize: 28, lineHeight: 36, fontWeight: '700' },

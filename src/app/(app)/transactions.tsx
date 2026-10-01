@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { AddTransactionModal } from '@/components/add-transaction-modal';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ThemedText } from '@/components/themed-text';
@@ -226,21 +227,12 @@ export default function TransactionsScreen() {
       </View>
 
       {/* Type filter */}
-      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-        {TYPE_FILTERS.map((f) => (
-          <Pressable
-            key={f.key}
-            style={[styles.segmentButton, type === f.key && { backgroundColor: colors.background }]}
-            onPress={() => setType(f.key)}
-          >
-            <ThemedText
-              type="small"
-              style={type === f.key ? { fontWeight: '600' } : { color: colors.textSecondary }}
-            >
-              {f.label}
-            </ThemedText>
-          </Pressable>
-        ))}
+      <View style={{ marginBottom: Spacing.three }}>
+        <GlassSegmented
+          options={TYPE_FILTERS}
+          value={type}
+          onChange={setType}
+        />
       </View>
 
       {/* Account filter (only useful with 2+ accounts) */}
@@ -394,8 +386,6 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.three },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
 
   chipScroll: { marginHorizontal: -Spacing.four, flexGrow: 0, marginBottom: Spacing.two },
   chipRow: { paddingHorizontal: Spacing.four, gap: Spacing.two },

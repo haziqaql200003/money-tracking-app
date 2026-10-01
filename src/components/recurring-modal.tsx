@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
@@ -175,42 +176,30 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
   return (
     <View>
       {/* Expense / Income */}
-      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-        {([
-          { key: 'debit', label: 'Expense', color: colors.negative },
-          { key: 'credit', label: 'Income', color: colors.positive },
-        ] as const).map((opt) => (
-          <Pressable
-            key={opt.key}
-            style={[styles.segmentButton, type === opt.key && { backgroundColor: colors.background }]}
-            onPress={() => changeType(opt.key)}
-          >
-            <ThemedText type="small" style={type === opt.key ? { fontWeight: '600', color: opt.color } : { color: colors.textSecondary }}>
-              {opt.label}
-            </ThemedText>
-          </Pressable>
-        ))}
+      <View style={{ marginBottom: Spacing.two }}>
+        <GlassSegmented
+          options={[
+            { key: 'debit', label: 'Expense', color: colors.negative },
+            { key: 'credit', label: 'Income', color: colors.positive },
+          ]}
+          value={type}
+          onChange={changeType}
+        />
       </View>
 
       {/* Fixed / Confirm each time */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         Amount
       </ThemedText>
-      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement, marginBottom: Spacing.one }]}>
-        {([
-          { key: 'fixed', label: 'Fixed' },
-          { key: 'ask', label: 'Confirm each time' },
-        ] as const).map((opt) => (
-          <Pressable
-            key={opt.key}
-            style={[styles.segmentButton, mode === opt.key && { backgroundColor: colors.background }]}
-            onPress={() => setMode(opt.key)}
-          >
-            <ThemedText type="small" style={mode === opt.key ? { fontWeight: '600' } : { color: colors.textSecondary }}>
-              {opt.label}
-            </ThemedText>
-          </Pressable>
-        ))}
+      <View style={{ marginBottom: Spacing.one }}>
+        <GlassSegmented
+          options={[
+            { key: 'fixed', label: 'Fixed' },
+            { key: 'ask', label: 'Confirm each time' },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
       </View>
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
         {asking
@@ -420,8 +409,6 @@ const styles = StyleSheet.create({
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.two },
-  segmentButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
 
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
   hint: { fontSize: 12, lineHeight: 16 },

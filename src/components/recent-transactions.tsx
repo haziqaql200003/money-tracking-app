@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
 import { TransactionRow } from '@/components/transaction-row';
 import { Spacing } from '@/constants/theme';
@@ -118,18 +119,12 @@ export function RecentTransactions({ accountId, accountName }: Props) {
         {summary.count} transaction{summary.count === 1 ? '' : 's'} · {spentText} spent this month
       </ThemedText>
 
-      <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-        {FILTERS.map((f) => (
-          <Pressable
-            key={f.key}
-            style={[styles.segmentButton, filter === f.key && { backgroundColor: colors.background }]}
-            onPress={() => setFilter(f.key)}
-          >
-            <ThemedText type="small" style={filter === f.key ? { fontWeight: '600' } : { color: colors.textSecondary }}>
-              {f.label}
-            </ThemedText>
-          </Pressable>
-        ))}
+      <View style={{ marginBottom: Spacing.two }}>
+        <GlassSegmented
+          options={FILTERS}
+          value={filter}
+          onChange={setFilter}
+        />
       </View>
 
       {sections.length === 0 ? (
@@ -190,8 +185,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   heading: { fontSize: 16, flexShrink: 1 },
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.two },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

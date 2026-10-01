@@ -2,9 +2,19 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string };
 export type Release = { version: string; date: string; title: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.0.7';
+export const CURRENT_VERSION = '1.0.8';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.0.8',
+    date: '2026-10-01',
+    title: 'Liquid glass',
+    changes: [
+      { kind: 'new', text: 'Liquid Glass on iPhone with iOS 26 or later: a floating glass tab bar, glass cards and a soft colour glow behind Home.' },
+      { kind: 'new', text: 'A glass lens that swells when you touch it, glides under the tab you pick, stretches with your speed, and follows your finger when you drag. Sideways drags no longer wobble the screen up and down. Same lens on the switches for Expense / Income, periods and filters.' },
+      { kind: 'improved', text: 'Other phones get a frosted-glass look that follows the same design.' },
+    ],
+  },
   {
     version: '1.0.7',
     date: '2026-10-01',

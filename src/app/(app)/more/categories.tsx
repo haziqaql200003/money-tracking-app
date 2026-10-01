@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { CategoryIcon } from '@/components/category-icon';
 import { CategoryModal } from '@/components/category-modal';
 import { ScreenHeader } from '@/components/screen-header';
@@ -58,18 +59,15 @@ export default function CategoriesScreen() {
             }
           />
 
-          <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }]}>
-            {KINDS.map((k) => (
-              <Pressable
-                key={k.key}
-                style={[styles.segmentButton, kind === k.key && { backgroundColor: colors.background }]}
-                onPress={() => setKind(k.key)}
-              >
-                <ThemedText type="small" style={kind === k.key ? { fontWeight: '600' } : { color: colors.textSecondary }}>
-                  {k.label} · {k.key === 'expense' ? expenseCategories.length : incomeCategories.length}
-                </ThemedText>
-              </Pressable>
-            ))}
+          <View style={{ marginBottom: Spacing.three }}>
+            <GlassSegmented
+              options={KINDS.map((k) => ({
+                key: k.key,
+                label: `${k.label} · ${k.key === 'expense' ? expenseCategories.length : incomeCategories.length}`,
+              }))}
+              value={kind}
+              onChange={setKind}
+            />
           </View>
 
           <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
@@ -137,8 +135,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   addButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: Spacing.three },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
 
   listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },

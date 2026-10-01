@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { CategoryIcon } from '@/components/category-icon';
 import { EvenGrid } from '@/components/even-grid';
 import { SheetHeader } from '@/components/sheet-header';
@@ -204,26 +205,18 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Type
             </ThemedText>
-            <View style={[styles.segmentTrack, { backgroundColor: colors.backgroundElement }, isEditing && { opacity: 0.6 }]}>
-              {(['expense', 'income'] as const).map((k) => (
-                <Pressable
-                  key={k}
-                  disabled={isEditing}
-                  style={[styles.segmentButton, kind === k && { backgroundColor: colors.background }]}
-                  onPress={() => {
-                    setKind(k);
-                    if (k === 'income') setLimit('');
-                  }}
-                >
-                  <ThemedText
-                    type="small"
-                    style={kind === k ? { fontWeight: '600' } : { color: colors.textSecondary }}
-                  >
-                    {k === 'expense' ? 'Expense' : 'Income'}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            <GlassSegmented
+              disabled={isEditing}
+              options={[
+                { key: 'expense', label: 'Expense' },
+                { key: 'income', label: 'Income' },
+              ]}
+              value={kind}
+              onChange={(k) => {
+                setKind(k);
+                if (k === 'income') setLimit('');
+              }}
+            />
             {isEditing ? (
               <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
                 Type can't be changed after creating, because existing transactions depend on it.
@@ -417,8 +410,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3 },
-  segmentButton: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
 
   search: {
     flexDirection: 'row',

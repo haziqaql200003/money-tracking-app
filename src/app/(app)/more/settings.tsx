@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { setGyroEnabled, useGyroEnabled } from '@/components/cards/motion';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -203,22 +204,12 @@ export default function SettingsScreen() {
 
           <Section title="Appearance">
             <View style={styles.pad}>
-              <View style={[styles.segmentTrack, { backgroundColor: colors.background }]}>
-                {THEMES.map((t) => (
-                  <Pressable
-                    key={t.key}
-                    style={[styles.segmentButton, themePreference === t.key && { backgroundColor: colors.backgroundElement }]}
-                    onPress={() => setThemePreference(t.key)}
-                  >
-                    <ThemedText
-                      type="small"
-                      style={themePreference === t.key ? { fontWeight: '600' } : { color: colors.textSecondary }}
-                    >
-                      {t.label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
-              </View>
+              <GlassSegmented
+                options={THEMES}
+                value={themePreference}
+                onChange={setThemePreference}
+                trackColor={colors.background}
+              />
             </View>
           </Section>
 
@@ -365,8 +356,6 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize: 20, fontWeight: '700' },
   nameInput: { fontSize: 18, fontWeight: '600', paddingVertical: 2 },
 
-  segmentTrack: { flexDirection: 'row', borderRadius: 10, padding: 3 },
-  segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
 
   chipRow: { flexDirection: 'row', gap: Spacing.two },
   chip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
