@@ -346,26 +346,36 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               Premium
             </ThemedText>
-            <View style={styles.designRow}>
-              {PRO_DESIGNS.map((d) => {
-                const active = design === d.id;
+            <View style={styles.proGrid}>
+              {[0, 3].map((from) => {
+                const row = PRO_DESIGNS.slice(from, from + 3);
                 return (
-                  <Pressable key={d.id} style={styles.designItem} onPress={() => setDesign(d.id)}>
-                    <View
-                      style={[
-                        styles.designThumb,
-                        { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
-                      ]}
-                    >
-                      <ProCardThumb design={d.id} />
-                    </View>
-                    <ThemedText
-                      type="small"
-                      style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
-                    >
-                      {d.label}
-                    </ThemedText>
-                  </Pressable>
+                  <View key={from} style={styles.designRow}>
+                    {row.map((d) => {
+                      const active = design === d.id;
+                      return (
+                        <Pressable key={d.id} style={styles.designItem} onPress={() => setDesign(d.id)}>
+                          <View
+                            style={[
+                              styles.designThumb,
+                              { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
+                            ]}
+                          >
+                            <ProCardThumb design={d.id} />
+                          </View>
+                          <ThemedText
+                            type="small"
+                            style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
+                          >
+                            {d.label}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                    {Array.from({ length: 3 - row.length }, (_, i) => (
+                      <View key={`pad${i}`} style={styles.designItem} />
+                    ))}
+                  </View>
                 );
               })}
             </View>
@@ -699,6 +709,7 @@ const styles = StyleSheet.create({
   infoBox: { borderRadius: 12, padding: Spacing.three, marginTop: Spacing.three, gap: 6 },
   infoLine: { lineHeight: 19 },
   designRow: { flexDirection: 'row', gap: Spacing.two },
+  proGrid: { gap: 12 },
   designItem: { flex: 1, alignItems: 'center', gap: 6 },
   designThumb: { width: '100%', aspectRatio: 84 / 54, borderRadius: 12, overflow: 'hidden' },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

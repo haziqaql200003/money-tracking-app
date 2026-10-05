@@ -1,6 +1,7 @@
 import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
-import type { ReactNode } from 'react';
-import { StyleSheet, View, useColorScheme, type StyleProp, type ViewStyle } from 'react-native';
+import { BlurView } from 'expo-blur';
+import type { ReactNode, RefObject } from 'react';
+import { Platform, StyleSheet, View, useColorScheme, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Radius } from '@/constants/theme';
 
@@ -28,6 +29,11 @@ type Props = {
   tint?: string;
   /** Glass reacts to touch (press shimmer). Use on buttons, not on large cards. */
   interactive?: boolean;
+  /**
+   * Android only: the BlurTargetView holding whatever sits behind this surface. Without it Android shows a plain
+   * translucent surface (a blur needs to know what to blur). iOS older than 26 blurs on its own.
+   */
+  blurTarget?: RefObject<View | null>;
 };
 
 /**
@@ -35,7 +41,7 @@ type Props = {
  * Everywhere else (older iOS, Android, web) it falls back to a translucent frosted surface, so screens
  * never need to know which platform they are on. (1.0.8b upgrades the fallback with a real blur.)
  */
-export function Glass({ children, style, radius = Radius.lg, variant = 'regular', tint, interactive, ...rest }: Props) {
+export function Glass({ children, style, radius = Radius.lg, variant = 'regular', tint, interactive, blurTarget, ...rest }: Props) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
   if (hasNativeGlass()) {
@@ -54,20 +60,39 @@ export function Glass({ children, style, radius = Radius.lg, variant = 'regular'
   }
 
   const dark = scheme === 'dark';
+  // Real blur: always on iOS < 26; on Android only with a target, and only from Android 12 (older phones are too slow).
+  const blurred = Platform.OS === 'ios' || (Platform.OS === 'android' && !!blurTarget && Number(Platform.Version) >= 31);
   return (
     <View
       style={[
         styles.fallback,
         {
           borderRadius: radius,
-          backgroundColor: dark ? 'rgba(34,43,70,0.62)' : 'rgba(255,255,255,0.72)',
-          borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.7)',
+          backgroundColor: blurred
+            ? dark
+              ? 'rgba(28,36,62,0.38)'
+              : 'rgba(255,255,255,0.46)'
+            : dark
+              ? 'rgba(34,43,70,0.62)'
+              : 'rgba(255,255,255,0.72)',
+          borderColor: dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.75)',
         },
         style,
       ]}
       {...rest}
     >
+      {blurred ? (
+        <BlurView
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          tint={dark ? 'systemThinMaterialDark' : 'systemThinMaterialLight'}
+          intensity={variant === 'clear' ? 35 : 70}
+          blurTarget={blurTarget}
+          blurMethod="dimezisBlurViewSdk31Plus"
+        />
+      ) : null}
       {tint ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: tint, opacity: 0.12 }]} /> : null}
+      {blurred ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.rim, { borderRadius: radius }]} /> : null}
       {children}
     </View>
   );
@@ -75,4 +100,6 @@ export function Glass({ children, style, radius = Radius.lg, variant = 'regular'
 
 const styles = StyleSheet.create({
   fallback: { overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  // A thin bright inner edge, like light catching the rim of real glass.
+  rim: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)' },
 });

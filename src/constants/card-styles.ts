@@ -1,4 +1,4 @@
-export type ProCardDesign = 'pro-songket' | 'pro-glass' | 'pro-aurora';
+export type ProCardDesign = 'pro-songket' | 'pro-glass' | 'pro-aurora' | 'pro-titanium' | 'pro-diraja' | 'pro-batik';
 export type CardDesign = 'aurora' | 'gradient' | 'stripes' | 'solid' | ProCardDesign;
 
 /** Premium designs bring their own colours and animation, so the colour picker does not apply to them. */
@@ -6,6 +6,9 @@ export const PRO_DESIGNS: { id: ProCardDesign; label: string }[] = [
   { id: 'pro-songket', label: 'Songket' },
   { id: 'pro-glass', label: 'Glass' },
   { id: 'pro-aurora', label: 'Aurora' },
+  { id: 'pro-titanium', label: 'Titanium' },
+  { id: 'pro-diraja', label: 'Diraja' },
+  { id: 'pro-batik', label: 'Batik' },
 ];
 
 export function isProDesign(design: CardDesign): design is ProCardDesign {

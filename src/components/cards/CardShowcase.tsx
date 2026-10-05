@@ -1,36 +1,89 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CardColorPicker } from './CardColorPicker';
+import { FlipCard } from './FlipCard';
 import { PRO_CARD_DESIGNS } from './index';
+import { DEFAULT_ACCENT } from './palette';
 
-// Temporary test screen: render <CardShowcase /> anywhere to preview the 3 cards.
+type DesignId = (typeof PRO_CARD_DESIGNS)[number]['id'];
+
+// Temporary test screen: render <CardShowcase /> anywhere to try the Pro cards.
+// Pick a design, change its colour, flip it over, and toggle hide/show balance.
 export default function CardShowcase() {
+  const [designId, setDesignId] = useState<DesignId>('songket');
   const [hidden, setHidden] = useState(false);
+  const [accents, setAccents] = useState<Record<DesignId, string>>({ ...DEFAULT_ACCENT });
+
+  const design = PRO_CARD_DESIGNS.find((d) => d.id === designId)!;
+  const accent = accents[designId];
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.wrap}>
-      <Pressable onPress={() => setHidden((h) => !h)} style={styles.btn}>
-        <Text style={styles.btnText}>{hidden ? 'Tunjuk baki' : 'Sembunyi baki'}</Text>
-      </Pressable>
+      <View style={styles.tabs}>
+        {PRO_CARD_DESIGNS.map((d) => (
+          <Pressable
+            key={d.id}
+            onPress={() => setDesignId(d.id)}
+            style={[styles.tab, d.id === designId && styles.tabOn]}
+          >
+            <Text style={[styles.tabText, d.id === designId && styles.tabTextOn]}>{d.name}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-      {PRO_CARD_DESIGNS.map((design) => (
-        <View key={design.id} style={styles.item}>
-          <Text style={styles.label}>
-            {design.name} · {design.description}
-          </Text>
-          <design.Component bank="Maybank" balance={4280.5} last4="2831" hidden={hidden} />
-        </View>
-      ))}
+      <FlipCard key={designId} style={styles.cardWrap}>
+        {(side, flip) => (
+          <design.Component
+            bank="Maybank"
+            balance={4280.5}
+            income={5200}
+            spending={2150.75}
+            last4="2831"
+            hidden={hidden}
+            onToggleHidden={() => setHidden((h) => !h)}
+            side={side}
+            onFlip={flip}
+            accent={accent}
+          />
+        )}
+      </FlipCard>
+      <Text style={styles.desc}>{design.description}</Text>
+
+      <CardColorPicker
+        accent={accent}
+        onChange={(hex) => setAccents((prev) => ({ ...prev, [designId]: hex }))}
+      />
+
+      <View style={styles.actions}>
+        <Pressable
+          onPress={() => setAccents((prev) => ({ ...prev, [designId]: design.defaultAccent }))}
+          style={styles.btn}
+        >
+          <Text style={styles.btnText}>Reset warna</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0b0b10' },
-  wrap: { padding: 20, paddingTop: 60, gap: 24 },
-  item: { gap: 8 },
-  label: { color: '#bbb', fontSize: 13 },
+  wrap: { padding: 20, paddingTop: 60, paddingBottom: 60, gap: 20 },
+  cardWrap: { alignSelf: 'stretch' },
+  tabs: { flexDirection: 'row', gap: 8 },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  tabOn: { backgroundColor: '#ffffff', borderColor: '#ffffff' },
+  tabText: { color: '#ddd', fontSize: 14 },
+  tabTextOn: { color: '#000', fontWeight: '600' },
+  desc: { color: '#999', fontSize: 13, marginTop: -8 },
+  actions: { flexDirection: 'row', gap: 10 },
   btn: {
-    alignSelf: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,

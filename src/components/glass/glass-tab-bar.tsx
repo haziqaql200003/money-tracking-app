@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import type { RefObject } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,7 +17,7 @@ const ADD_ROUTE = 'add';
  * Floating glass tab bar. The lens under the active tab glides between tabs, stretches while it moves,
  * and can be held and dragged. The centre "+" is a button, not a tab, so the lens never rests on it.
  */
-export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function GlassTabBar({ state, descriptors, navigation, blurTarget }: BottomTabBarProps & { blurTarget?: RefObject<View | null> }) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { openAddRecord } = useAddRecord();
@@ -40,7 +41,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
         index={state.index}
         disabled={addIndex >= 0 ? [addIndex] : undefined}
         onSelect={goTo}
-        background={<Glass radius={TAB_BAR_HEIGHT / 2} style={StyleSheet.absoluteFill} />}
+        background={<Glass radius={TAB_BAR_HEIGHT / 2} blurTarget={blurTarget} style={StyleSheet.absoluteFill} />}
         slots={routes.map((route, i) => {
           const { options } = descriptors[route.key];
 

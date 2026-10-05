@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { PlannedReminder } from '@/utils/reminders';
@@ -10,6 +9,25 @@ import type { PlannedReminder } from '@/utils/reminders';
  */
 
 const CHANNEL_ID = 'reminders';
+
+type NotificationsModule = typeof import('expo-notifications');
+
+// expo-notifications throws the moment it is imported on Android inside Expo Go (SDK 53+ removed it there).
+// Loading it lazily inside try/catch keeps the whole app from crashing: reminders then simply do nothing in Expo Go,
+// and work normally in a development build or the real app.
+let loaded: NotificationsModule | null | undefined;
+function lib(): NotificationsModule | null {
+  if (loaded === undefined) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      loaded = require('expo-notifications') as NotificationsModule;
+    } catch {
+      loaded = null;
+    }
+  }
+  return loaded;
+}
+
 const supported = Platform.OS !== 'web';
 
 export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupported';
@@ -21,6 +39,8 @@ export function configureNotifications(): Promise<void> {
   if (!configured) {
     configured = (async () => {
       try {
+        const Notifications = lib();
+        if (!Notifications) return;
         // Show the banner even while the app is open (e.g. a budget alert right after you add an expense).
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
@@ -51,6 +71,8 @@ function toState(status: string): PermissionState {
 export async function getPermission(): Promise<PermissionState> {
   if (!supported) return 'unsupported';
   try {
+    const Notifications = lib();
+    if (!Notifications) return 'unsupported';
     const res = await Notifications.getPermissionsAsync();
     // iOS only asks once: after a "Don't allow" the system will not show the prompt again.
     if (res.status !== 'granted' && res.canAskAgain === false) return 'denied';
@@ -64,6 +86,8 @@ export async function requestPermission(): Promise<PermissionState> {
   if (!supported) return 'unsupported';
   try {
     await configureNotifications();
+    const Notifications = lib();
+    if (!Notifications) return 'unsupported';
     const res = await Notifications.requestPermissionsAsync();
     return toState(res.status);
   } catch {
@@ -83,6 +107,8 @@ export function replaceScheduled(reminders: PlannedReminder[]) {
   if (!supported) return Promise.resolve();
   return enqueue(async () => {
     await configureNotifications();
+    const Notifications = lib();
+    if (!Notifications) return;
     await Notifications.cancelAllScheduledNotificationsAsync();
     for (const r of reminders) {
       await Notifications.scheduleNotificationAsync({
@@ -97,7 +123,7 @@ export function replaceScheduled(reminders: PlannedReminder[]) {
 export function cancelAllReminders() {
   if (!supported) return Promise.resolve();
   return enqueue(async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    await lib()?.cancelAllScheduledNotificationsAsync();
   });
 }
 
@@ -106,6 +132,6 @@ export function notifyNow(title: string, body: string) {
   if (!supported) return Promise.resolve();
   return enqueue(async () => {
     await configureNotifications();
-    await Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null });
+    await lib()?.scheduleNotificationAsync({ content: { title, body }, trigger: null });
   });
 }

@@ -2,9 +2,44 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string };
 export type Release = { version: string; date: string; title: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.0.8';
+export const CURRENT_VERSION = '1.0.11';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '1.0.11',
+    date: '2026-10-05',
+    title: 'Songket Diraja, Batik, Titanium & a new Glass',
+    changes: [
+      { kind: 'new', text: 'Songket Diraja card — royal merah hati songket woven with gold: bunga tabur across the cloth, a kepala kain edged with pucuk rebung, gold threads that glint and a gold shimmer.' },
+      { kind: 'new', text: 'Batik card — a hand-drawn Malaysian batik: a large bunga raya that sways gently, leaves and awan larat outlined in wax, colours that bleed like dye and a silk sheen.' },
+      { kind: 'new', text: 'Titanium card — a black titanium card with brushed-metal grain, a fine engraved wave pattern, a metal chip, a chamfered edge and a soft band of light that glides across. Find it under Premium when you add or edit an account.' },
+      { kind: 'improved', text: 'Aurora card reimagined — northern lights dancing over snowy peaks, a still lake that mirrors them, pines on the shore and a cabin with a warm light on. Stars twinkle and a shooting star crosses the sky now and then.' },
+      { kind: 'improved', text: 'Glass card redesigned — coloured light inside polished glass, a bright reflection across the surface, bevelled edges and a rainbow glint along the bottom edge.' },
+      { kind: 'improved', text: 'The Premium design picker now has six cards in two rows: Songket, Glass, Aurora, Titanium, Diraja and Batik.' },
+      { kind: 'improved', text: 'Fresh look for the free card designs — Aurora gets a soft mesh of light, Gradient gets glowing rings, Stripes gets bold bands and Solid gets a gentle sheen. All of them have a polished edge and work with any colour.' },
+    ],
+  },
+  {
+    version: '1.0.10',
+    date: '2026-10-05',
+    title: 'Your settings are remembered',
+    changes: [
+      { kind: 'fixed', text: 'Light / dark / system theme is now remembered, so the app opens the way you left it.' },
+      { kind: 'fixed', text: 'The warning percentage and daily spending guideline are saved per account instead of resetting every time you open the app.' },
+      { kind: 'fixed', text: 'The "hide amounts" eye stays on or off between visits.' },
+    ],
+  },
+  {
+    version: '1.0.9',
+    date: '2026-10-05',
+    title: 'Flip cards & a clearer Glass design',
+    changes: [
+      { kind: 'new', text: 'Flip your premium card — tap the flip button next to the eye to turn it over and see your income and spending for the month. Tap it again to flip back.' },
+      { kind: 'improved', text: 'Glass card redesigned — a frosted glass plate over soft colour, with light rings that blur where the glass covers them.' },
+      { kind: 'improved', text: 'Aurora card redesigned — northern lights over a starry sky and hills, with slow-moving light curtains and twinkling stars.' },
+      { kind: 'fixed', text: 'Removed a stray horizontal line that cut across the premium cards.' },
+    ],
+  },
   {
     version: '1.0.8',
     date: '2026-10-01',
@@ -12,7 +47,7 @@ export const CHANGELOG: Release[] = [
     changes: [
       { kind: 'new', text: 'Liquid Glass on iPhone with iOS 26 or later: a floating glass tab bar, glass cards and a soft colour glow behind Home.' },
       { kind: 'new', text: 'A glass lens that swells when you touch it, glides under the tab you pick, stretches with your speed, and follows your finger when you drag. Sideways drags no longer wobble the screen up and down. Same lens on the switches for Expense / Income, periods and filters.' },
-      { kind: 'improved', text: 'Other phones get a frosted-glass look that follows the same design.' },
+      { kind: 'improved', text: 'Older iPhones and Android phones get a real frosted-glass blur that follows the same design (the tab bar blurs what scrolls behind it on Android 12 and newer).' },
     ],
   },
   {

@@ -1,29 +1,114 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import type { IconName } from '@/constants/categories';
-import { AuroraCard, GlassCard, SongketCard } from '@/components/cards';
+import { AuroraCard, BatikCard, DirajaCard, GlassCard, SongketCard, TitaniumCard } from '@/components/cards';
+import { FlipCard } from '@/components/cards/FlipCard';
 import { TiltCard } from '@/components/cards/TiltCard';
+import { tone } from '@/components/cards/palette';
 import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/card-styles';
 import { formatMoney } from '@/utils/currency';
 
-const STRIPES = Array.from({ length: 17 }, (_, i) => -60 + i * 10);
+// Bold bands that cut across the bottom-right corner of the Stripes design.
+const BANDS = [
+  { y: 120, h: 34, o: 0.12 },
+  { y: 162, h: 14, o: 0.18 },
+  { y: 184, h: 44, o: 0.08 },
+  { y: 236, h: 4, o: 0.32 },
+];
+
+const PRO_CARDS = {
+  'pro-songket': SongketCard,
+  'pro-glass': GlassCard,
+  'pro-aurora': AuroraCard,
+  'pro-titanium': TitaniumCard,
+  'pro-diraja': DirajaCard,
+  'pro-batik': BatikCard,
+} as const;
 
 function inkFor(color: string) {
   return isLightColor(color)
-    ? { main: '#111827', muted: 'rgba(17,24,39,0.65)', chip: 'rgba(17,24,39,0.12)', line: 'rgba(17,24,39,0.25)', deco: 'rgba(17,24,39,0.07)' }
-    : { main: '#FFFFFF', muted: 'rgba(255,255,255,0.7)', chip: 'rgba(255,255,255,0.2)', line: 'rgba(255,255,255,0.3)', deco: 'rgba(255,255,255,0.08)' };
+    ? { main: '#111827', muted: 'rgba(17,24,39,0.65)', chip: 'rgba(17,24,39,0.12)', line: 'rgba(17,24,39,0.25)', deco: 'rgba(17,24,39,0.07)', rim: 'rgba(17,24,39,0.12)', rimTop: 'rgba(17,24,39,0.22)' }
+    : { main: '#FFFFFF', muted: 'rgba(255,255,255,0.7)', chip: 'rgba(255,255,255,0.2)', line: 'rgba(255,255,255,0.3)', deco: 'rgba(255,255,255,0.08)', rim: 'rgba(255,255,255,0.14)', rimTop: 'rgba(255,255,255,0.35)' };
 }
 
+/**
+ * Backgrounds for the free designs. They stay still (only Premium cards move), but each one has
+ * depth: soft light, a sheen at the top and shapes drawn from the account's own colour.
+ */
 export function CardBackground({ color, design }: { color: string; design: CardDesign }) {
   const ink = inkFor(color);
+  const key = `${design}-${color.replace('#', '')}`;
 
   if (design === 'solid') {
-    return <View style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />;
+    return (
+      <>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.14)']}
+          locations={[0, 0.45, 0.7, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 330 196" preserveAspectRatio="none">
+          <Defs>
+            <RadialGradient id={`sheen-${key}`} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.14" />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Ellipse cx="330" cy="0" rx="220" ry="120" fill={`url(#sheen-${key})`} />
+        </Svg>
+      </>
+    );
   }
 
+  if (design === 'gradient') {
+    return (
+      <>
+        <LinearGradient
+          colors={[tone(color, -12, 0, 10), color, tone(color, 25, 0, -18)]}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 330 196" preserveAspectRatio="xMidYMid slice">
+          <Circle cx={300} cy={40} r={70} fill="none" stroke={ink.main} strokeOpacity={0.1} strokeWidth={18} />
+          <Circle cx={300} cy={40} r={120} fill="none" stroke={ink.main} strokeOpacity={0.07} strokeWidth={14} />
+          <Circle cx={300} cy={40} r={165} fill="none" stroke={ink.main} strokeOpacity={0.05} strokeWidth={10} />
+        </Svg>
+        <LinearGradient
+          colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.45]}
+          style={StyleSheet.absoluteFill}
+        />
+      </>
+    );
+  }
+
+  if (design === 'stripes') {
+    return (
+      <>
+        <LinearGradient
+          colors={[shade(color, 0.06), shade(color, -0.32)]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 330 196" preserveAspectRatio="xMidYMid slice">
+          <G transform="rotate(-35 250 150)">
+            {BANDS.map((b) => (
+              <Rect key={b.y} x={120} y={b.y} width={400} height={b.h} fill={ink.main} fillOpacity={b.o} />
+            ))}
+          </G>
+        </Svg>
+      </>
+    );
+  }
+
+  // 'aurora': a soft mesh of light in nearby shades of the account colour
   return (
     <>
       <LinearGradient
@@ -32,19 +117,25 @@ export function CardBackground({ color, design }: { color: string; design: CardD
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {design === 'aurora' && (
-        <>
-          <View style={[styles.circleLarge, { backgroundColor: ink.deco }]} />
-          <View style={[styles.circleSmall, { backgroundColor: ink.deco }]} />
-        </>
-      )}
-      {design === 'stripes' && (
-        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 60" preserveAspectRatio="none">
-          {STRIPES.map((x) => (
-            <Line key={x} x1={x} y1={60} x2={x + 60} y2={0} stroke={ink.deco} strokeWidth={1.4} />
-          ))}
-        </Svg>
-      )}
+      <Svg style={StyleSheet.absoluteFill} viewBox="0 0 330 196" preserveAspectRatio="none">
+        <Defs>
+          <RadialGradient id={`m1-${key}`} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={tone(color, 40, 10, 10)} stopOpacity="0.75" />
+            <Stop offset="0.7" stopColor={tone(color, 40, 10, 10)} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id={`m2-${key}`} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={tone(color, -35, 10, 8)} stopOpacity="0.55" />
+            <Stop offset="0.7" stopColor={tone(color, -35, 10, 8)} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id={`m3-${key}`} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.22" />
+            <Stop offset="0.7" stopColor="#FFFFFF" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="303" cy="0" rx="190" ry="150" fill={`url(#m1-${key})`} />
+        <Ellipse cx="0" cy="196" rx="200" ry="160" fill={`url(#m2-${key})`} />
+        <Ellipse cx="59" cy="0" rx="160" ry="110" fill={`url(#m3-${key})`} />
+      </Svg>
     </>
   );
 }
@@ -89,18 +180,28 @@ export function AccountCard({
 
   if (isProDesign(design)) {
     // Premium cards draw everything themselves (own colours, bank name, masked balance, eye button).
-    const Pro = design === 'pro-songket' ? SongketCard : design === 'pro-glass' ? GlassCard : AuroraCard;
+    // The flip button turns the card over to show this month's income and spending.
+    const Pro = PRO_CARDS[design];
     return (
-      <TiltCard style={[styles.proCard, width ? { width } : styles.stretch]}>
-        <Pro
-          bank={title}
-          balance={balance}
-          last4={last4}
-          hidden={hidden}
-          onToggleHidden={onToggleHidden}
-          style={styles.proInner}
-        />
-      </TiltCard>
+      <FlipCard style={width ? { width } : styles.stretch}>
+        {(side, flip) => (
+          <TiltCard style={styles.proCard}>
+            <Pro
+              bank={title}
+              icon={icon}
+              balance={balance}
+              last4={last4}
+              hidden={hidden}
+              onToggleHidden={onToggleHidden}
+              income={income}
+              spending={spending}
+              side={side}
+              onFlip={flip}
+              style={styles.proInner}
+            />
+          </TiltCard>
+        )}
+      </FlipCard>
     );
   }
 
@@ -158,6 +259,8 @@ export function AccountCard({
           <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(spending)}</Text>
         </View>
       </View>
+
+      <View pointerEvents="none" style={[styles.rim, { borderColor: ink.rim, borderTopColor: ink.rimTop }]} />
     </View>
   );
 }
@@ -167,10 +270,9 @@ const styles = StyleSheet.create({
   right: { alignItems: 'flex-end' },
   card: { height: 196, borderRadius: 24, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
   stretch: { alignSelf: 'stretch' },
-  proCard: { height: 196 },
+  proCard: { height: 196, alignSelf: 'stretch' },
   proInner: { width: '100%', height: '100%', aspectRatio: undefined },
-  circleLarge: { position: 'absolute', width: '62%', aspectRatio: 1, borderRadius: 999, top: '-38%', right: '-16%' },
-  circleSmall: { position: 'absolute', width: '40%', aspectRatio: 1, borderRadius: 999, bottom: '-30%', left: '-8%' },
+  rim: { ...StyleSheet.absoluteFill, borderRadius: 24, borderWidth: 1 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '700' },
