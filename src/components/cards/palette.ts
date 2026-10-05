@@ -58,13 +58,13 @@ export function withAlpha(hex: string, alpha: number): string {
 
 // Colours the user can pick from (Pro). They can also drag the hue strip for any colour.
 export const ACCENT_PRESETS = [
-  { id: 'emas', name: 'Emas', color: '#D4AF55' },
-  { id: 'rose', name: 'Rose Gold', color: '#E8A98F' },
-  { id: 'perak', name: 'Perak', color: '#B9C3D3' },
-  { id: 'zamrud', name: 'Zamrud', color: '#2FD4A4' },
-  { id: 'nilam', name: 'Nilam', color: '#4F8BFF' },
-  { id: 'delima', name: 'Delima', color: '#FF5C7C' },
-  { id: 'kecubung', name: 'Kecubung', color: '#9B7BFF' },
+  { id: 'emas', nameKey: 'acct.accent.emas' as const, color: '#D4AF55' },
+  { id: 'rose', nameKey: 'acct.accent.rose' as const, color: '#E8A98F' },
+  { id: 'perak', nameKey: 'acct.accent.perak' as const, color: '#B9C3D3' },
+  { id: 'zamrud', nameKey: 'acct.accent.zamrud' as const, color: '#2FD4A4' },
+  { id: 'nilam', nameKey: 'acct.accent.nilam' as const, color: '#4F8BFF' },
+  { id: 'delima', nameKey: 'acct.accent.delima' as const, color: '#FF5C7C' },
+  { id: 'kecubung', nameKey: 'acct.accent.kecubung' as const, color: '#9B7BFF' },
 ] as const;
 
 export const DEFAULT_ACCENT = {
@@ -74,4 +74,4 @@ export const DEFAULT_ACCENT = {
   titanium: '#8E8E96',
   diraja: '#7A1426',
   batik: '#0B4F55',
-};
+};

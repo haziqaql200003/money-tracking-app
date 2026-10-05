@@ -16,43 +16,43 @@ export type { WakiraCardProps } from './shared';
 export const PRO_CARD_DESIGNS = [
   {
     id: 'songket',
-    name: 'Songket',
-    description: 'Corak tenunan emas atas hitam',
+    name: 'Songket', // i18n-ignore: design name
+    descriptionKey: 'acct.design.songketDesc' as const,
     defaultAccent: DEFAULT_ACCENT.songket,
     Component: SongketCard,
   },
   {
     id: 'glass',
-    name: 'Glass',
-    description: 'Kaca berkilat dengan cahaya warna di dalam',
+    name: 'Glass', // i18n-ignore: design name
+    descriptionKey: 'acct.design.glassDesc' as const,
     defaultAccent: DEFAULT_ACCENT.glass,
     Component: GlassCard,
   },
   {
     id: 'aurora',
-    name: 'Aurora',
-    description: 'Aurora atas gunung salji, tasik dan kabin bercahaya',
+    name: 'Aurora', // i18n-ignore: design name
+    descriptionKey: 'acct.design.auroraDesc' as const,
     defaultAccent: DEFAULT_ACCENT.aurora,
     Component: AuroraCard,
   },
   {
     id: 'titanium',
-    name: 'Titanium',
-    description: 'Kad hitam titanium, logam berus dan cip',
+    name: 'Titanium', // i18n-ignore: design name
+    descriptionKey: 'acct.design.titaniumDesc' as const,
     defaultAccent: DEFAULT_ACCENT.titanium,
     Component: TitaniumCard,
   },
   {
     id: 'diraja',
-    name: 'Songket Diraja',
-    description: 'Songket merah hati bertenun emas, dengan kepala kain dan pucuk rebung',
+    name: 'Songket Diraja', // i18n-ignore: design name
+    descriptionKey: 'acct.design.dirajaDesc' as const,
     defaultAccent: DEFAULT_ACCENT.diraja,
     Component: DirajaCard,
   },
   {
     id: 'batik',
-    name: 'Batik',
-    description: 'Bunga raya bercanting, awan larat dan warna celup',
+    name: 'Batik', // i18n-ignore: design name
+    descriptionKey: 'acct.design.batikDesc' as const,
     defaultAccent: DEFAULT_ACCENT.batik,
     Component: BatikCard,
   },

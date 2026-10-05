@@ -9,6 +9,7 @@ import { SlidingGlassTrack } from '@/components/glass/sliding-glass-track';
 import { Type } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 export const TAB_BAR_HEIGHT = 68;
 const ADD_ROUTE = 'add';
@@ -18,6 +19,7 @@ const ADD_ROUTE = 'add';
  * and can be held and dragged. The centre "+" is a button, not a tab, so the lens never rests on it.
  */
 export function GlassTabBar({ state, descriptors, navigation, blurTarget }: BottomTabBarProps & { blurTarget?: RefObject<View | null> }) {
+  const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { openAddRecord } = useAddRecord();
@@ -52,7 +54,7 @@ export function GlassTabBar({ state, descriptors, navigation, blurTarget }: Bott
                   onPress={openAddRecord}
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Add record"
+                  accessibilityLabel={t('home.tabs.addRecord')}
                 >
                   <Ionicons name="add" size={28} color={colors.onAccent} />
                 </Pressable>

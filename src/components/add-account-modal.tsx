@@ -39,6 +39,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ACCOUNT_ICONS, DEFAULT_ACCOUNT_ICON } from '@/constants/accounts';
 import type { IconName } from '@/constants/categories';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
+import type { TKey } from '@/i18n';
 
 type Props = {
   visible: boolean;
@@ -47,10 +50,10 @@ type Props = {
   editingAccount?: Account | null;
 };
 
-const TYPE_OPTIONS: { type: AccountType; label: string; hint: string }[] = [
-  { type: 'bank', label: 'Bank', hint: 'Savings, current or a bank card account.' },
-  { type: 'cash', label: 'Cash', hint: 'Physical money in your wallet or at home.' },
-  { type: 'other', label: 'Other', hint: 'E-wallets (TNG, Boost), investments or anything else.' },
+const TYPE_OPTIONS: { type: AccountType; labelKey: TKey; hintKey: TKey }[] = [
+  { type: 'bank', labelKey: 'acct.type.bank', hintKey: 'acct.type.bankHint' },
+  { type: 'cash', labelKey: 'acct.type.cash', hintKey: 'acct.type.cashHint' },
+  { type: 'other', labelKey: 'acct.type.other', hintKey: 'acct.type.otherHint' },
 ];
 
 type CustomType = { id: string; label: string };
@@ -101,6 +104,7 @@ function Strip({
 }
 
 export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
+  const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { addAccount, updateAccount, deleteAccount } = useTransactions();
@@ -131,7 +135,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
     if (!visible) return;
     if (editingAccount) {
       const c = editingAccount.color ?? DEFAULT_COLOR[editingAccount.type] ?? DEFAULT_COLOR.other;
-      setName(editingAccount.name);
+      setName(accountName(editingAccount));
       setType(editingAccount.type);
       setTypeLabel(editingAccount.typeLabel ?? null);
       setProvider(editingAccount.provider ?? '');
@@ -168,7 +172,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
     setHexInput(color);
   }, [color]);
 
-  const typeOption = TYPE_OPTIONS.find((t) => t.type === type)!;
+  const typeOption = TYPE_OPTIONS.find((o) => o.type === type)!;
   const showBankFields = type !== 'cash';
   const trimmedName = name.trim();
   const parsedBalance = parseFloat(initialBalance.replace(',', '.'));
@@ -177,7 +181,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const canSave = trimmedName.length > 0 && balanceValid && last4Valid;
   const isCustomColor = !CARD_COLORS.includes(color);
 
-  const previewSubtitle = [showBankFields ? provider.trim() : '', typeLabel ?? typeOption.label].filter(Boolean).join(' · ');
+  const previewSubtitle = [showBankFields ? provider.trim() : '', typeLabel ?? t(typeOption.labelKey)].filter(Boolean).join(' · ');
 
   function selectType(next: AccountType) {
     setType(next);
@@ -196,7 +200,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const newTypeTrimmed = newTypeName.trim();
   const newTypeClash =
     newTypeTrimmed.length > 0 &&
-    ([...TYPE_OPTIONS.map((t) => t.label), ...customTypes.map((c) => c.label)] as string[]).some(
+    ([...TYPE_OPTIONS.map((o) => t(o.labelKey)), ...customTypes.map((c) => c.label)] as string[]).some(
       (l) => l.toLowerCase() === newTypeTrimmed.toLowerCase(),
     );
 
@@ -209,10 +213,10 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   }
 
   function removeCustomType(c: CustomType) {
-    Alert.alert('Remove type?', `"${c.label}" is removed from this list. Accounts already using it keep their label.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('acct.add.removeTypeTitle'), t('acct.add.removeTypeMsg', { label: c.label }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: () => {
           setCustomTypes((prev) => prev.filter((x) => x.id !== c.id));
@@ -241,7 +245,8 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   function handleSave() {
     if (!canSave) return;
     const payload = {
-      name: trimmedName,
+      // An untouched default name ('Bank', 'Cash') keeps its stored English form so it follows the language.
+      name: editingAccount && trimmedName === accountName(editingAccount) ? editingAccount.name : trimmedName,
       type,
       typeLabel: typeLabel ?? undefined,
       icon,
@@ -263,12 +268,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   function handleDelete() {
     if (!editingAccount) return;
     Alert.alert(
-      'Delete account?',
-      `This removes "${editingAccount.name}" and every transaction tied to it. This can't be undone.`,
+      t('acct.add.deleteTitle'),
+      t('acct.add.deleteMsg', { name: accountName(editingAccount) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             deleteAccount(editingAccount.id);
@@ -282,7 +287,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[
@@ -293,11 +298,11 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <SheetHeader
-            title={isEditing ? 'Edit account' : 'New account'}
+            title={isEditing ? t('acct.add.titleEdit') : t('acct.add.titleNew')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -305,7 +310,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <AccountCard
-              title={trimmedName || 'Account name'}
+              title={trimmedName || t('acct.add.previewName')}
               subtitle={previewSubtitle}
               icon={icon}
               balance={balanceValid ? parsedBalance : 0}
@@ -317,7 +322,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             />
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Design
+              {t('acct.add.design')}
             </ThemedText>
             <View style={styles.designRow}>
               {CARD_DESIGNS.map((d) => {
@@ -336,7 +341,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                       type="small"
                       style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
                     >
-                      {d.label}
+                      {t(d.labelKey)}
                     </ThemedText>
                   </Pressable>
                 );
@@ -344,7 +349,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Premium
+              {t('acct.add.premium')}
             </ThemedText>
             <View style={styles.proGrid}>
               {[0, 3].map((from) => {
@@ -382,12 +387,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
 
             {isProDesign(design) ? (
               <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-                Premium cards use their own colours, so the colour picker is hidden.
+                {t('acct.add.premiumNote')}
               </ThemedText>
             ) : (
               <>
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Colour
+              {t('acct.add.colour')}
             </ThemedText>
             <EvenGrid columns={5} rowGap={12}>
               {CARD_COLORS.map((c) => {
@@ -400,7 +405,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                       setShowCustom(false);
                     }}
                     style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text }]}
-                    accessibilityLabel={`Colour ${c}`}
+                    accessibilityLabel={t('acct.add.colourA11y', { color: c })}
                   />
                 );
               })}
@@ -411,18 +416,18 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 styles.customButton,
                 { backgroundColor: colors.backgroundElement, borderColor: isCustomColor || showCustom ? colors.text : colors.divider },
               ]}
-              accessibilityLabel="Custom colour"
+              accessibilityLabel={t('acct.add.customColour')}
             >
               <Ionicons name="color-palette" size={18} color={isCustomColor ? color : colors.textSecondary} />
               <ThemedText type="small" style={{ fontWeight: '600' }}>
-                Custom colour
+                {t('acct.add.customColour')}
               </ThemedText>
             </Pressable>
 
             {showCustom ? (
               <View style={[styles.customPanel, { backgroundColor: colors.backgroundElement }]}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Colour
+                  {t('acct.add.colour')}
                 </ThemedText>
                 <Strip
                   segments={HUE_STOPS}
@@ -434,7 +439,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   }}
                 />
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Shade
+                  {t('acct.add.shade')}
                 </ThemedText>
                 <Strip
                   segments={Array.from({ length: 12 }, (_, i) =>
@@ -448,7 +453,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   }}
                 />
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Hex code
+                  {t('acct.add.hex')}
                 </ThemedText>
                 <TextInput
                   style={[styles.hexInput, { color: colors.text, backgroundColor: colors.background, borderColor: colors.divider }]}
@@ -464,7 +469,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             )}
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Type
+              {t('acct.add.type')}
             </ThemedText>
             <View style={styles.chipRow}>
               {TYPE_OPTIONS.map((opt) => {
@@ -484,7 +489,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                     <View style={styles.chipInner}>
                       <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
                       <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </ThemedText>
                     </View>
                   </Pressable>
@@ -504,7 +509,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                     ]}
                     onPress={() => selectCustomType(c.label)}
                     onLongPress={() => removeCustomType(c)}
-                    accessibilityHint="Long press to remove this type"
+                    accessibilityHint={t('acct.add.removeTypeHint')}
                   >
                     <View style={styles.chipInner}>
                       <Ionicons name="pricetag" size={16} color={active ? '#fff' : colors.text} />
@@ -520,7 +525,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   style={[styles.chip, { backgroundColor: colors.backgroundElement, borderColor: addingType ? colors.text : colors.divider }]}
                   onPress={() => setAddingType((v) => !v)}
                   accessibilityRole="button"
-                  accessibilityLabel="Add your own account type"
+                  accessibilityLabel={t('acct.add.addTypeA11y')}
                 >
                   <View style={styles.chipInner}>
                     <Ionicons name={addingType ? 'close' : 'add'} size={18} color={colors.text} />
@@ -535,7 +540,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   style={[styles.input, styles.addTypeInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
                   value={newTypeName}
                   onChangeText={setNewTypeName}
-                  placeholder="e.g. Savings, ASB, Crypto"
+                  placeholder={t('acct.add.typePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   maxLength={20}
                   autoFocus
@@ -547,25 +552,25 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                   disabled={!newTypeTrimmed || newTypeClash}
                   style={[styles.addTypeButton, { backgroundColor: newTypeTrimmed && !newTypeClash ? colors.accent : colors.backgroundSelected }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Save new type"
+                  accessibilityLabel={t('acct.add.saveTypeA11y')}
                 >
                   <ThemedText type="small" style={{ color: newTypeTrimmed && !newTypeClash ? '#fff' : colors.textSecondary, fontWeight: '600' }}>
-                    Add
+                    {t('common.add')}
                   </ThemedText>
                 </Pressable>
               </View>
             ) : null}
             {addingType && newTypeClash ? (
               <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                That type already exists.
+                {t('acct.add.typeExists')}
               </ThemedText>
             ) : null}
             <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-              {typeLabel ? 'Your own type. Long-press it to remove it from the list.' : typeOption.hint}
+              {typeLabel ? t('acct.add.customTypeNote') : t(typeOption.hintKey)}
             </ThemedText>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Icon
+              {t('acct.add.icon')}
             </ThemedText>
             <View style={[styles.iconBox, { backgroundColor: colors.backgroundElement }]}>
               <EvenGrid columns={6} rowGap={8}>
@@ -576,7 +581,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                       key={n}
                       onPress={() => pickIcon(n)}
                       style={[styles.iconCell, active && { backgroundColor: `${color}26`, borderColor: color }]}
-                      accessibilityLabel={`Icon ${n}`}
+                      accessibilityLabel={t('acct.add.iconA11y', { name: n })}
                     >
                       <Ionicons name={n} size={20} color={active ? color : colors.textSecondary} />
                     </Pressable>
@@ -586,11 +591,11 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             </View>
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Name
+              {t('common.name')}
             </ThemedText>
             <TextInput
               style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="e.g. Maybank Savings, Wallet"
+              placeholder={t('acct.add.namePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
@@ -599,38 +604,38 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             {showBankFields ? (
               <>
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Provider (optional)
+                  {t('acct.add.provider')}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="e.g. Maybank, CIMB, TNG eWallet"
+                  placeholder={t('acct.add.providerPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   value={provider}
                   onChangeText={setProvider}
                 />
 
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Last 4 digits (optional)
+                  {t('acct.add.last4')}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
                   placeholder="1234"
                   placeholderTextColor={colors.textSecondary}
                   value={last4}
-                  onChangeText={(t) => setLast4(t.replace(/\D/g, '').slice(0, 4))}
+                  onChangeText={(v) => setLast4(v.replace(/\D/g, '').slice(0, 4))}
                   keyboardType="number-pad"
                   maxLength={4}
                 />
                 {!last4Valid ? (
                   <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                    Enter all 4 digits, or leave it empty
+                    {t('acct.add.last4Error')}
                   </ThemedText>
                 ) : null}
               </>
             ) : null}
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Starting balance (RM)
+              {t('acct.add.startBalance')}
             </ThemedText>
             <TextInput
               style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -642,15 +647,15 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             />
 
             <View style={[styles.infoBox, { backgroundColor: colors.backgroundElement }]}>
-              <ThemedText type="smallBold">Before you add</ThemedText>
+              <ThemedText type="smallBold">{t('acct.add.infoTitle')}</ThemedText>
               <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • Starting balance is the amount in this account today. Only transactions you record after this will change it.
+                • {t('acct.add.info1')}
               </ThemedText>
               <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • Only the last 4 digits are kept. Never enter your full account or card number.
+                • {t('acct.add.info2')}
               </ThemedText>
               <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
-                • You can edit the look, or delete the card, any time from the Home screen or More → Assets.
+                • {t('acct.add.info3')}
               </ThemedText>
             </View>
 
@@ -661,13 +666,13 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               disabled={!canSave}
             >
               <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
-                {isEditing ? 'Save changes' : 'Add account'}
+                {isEditing ? t('acct.add.saveChanges') : t('acct.add.submit')}
               </ThemedText>
             </Pressable>
 
             {isEditing ? (
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete account</ThemedText>
+                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('acct.add.delete')}</ThemedText>
               </Pressable>
             ) : null}
           </ScrollView>

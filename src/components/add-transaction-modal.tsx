@@ -26,6 +26,9 @@ import type { Transaction, TransactionItem, TransactionType } from '@/context/Tr
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useT, type TKey } from '@/i18n';
+import { categoryName, subcategoryName, accountName } from '@/i18n/data';
+import { formatDate, mondayIndex, weekdayShort } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
 
 type Props = {
@@ -45,7 +48,13 @@ function newItemId() {
   return `item_${Date.now()}_${itemCounter}`;
 }
 
-const QUICK_ITEMS = ['Service charge', 'SST / Tax', 'Tip', 'Delivery fee', 'Discount'];
+const QUICK_ITEMS: TKey[] = [
+  'tx.add.quickServiceCharge',
+  'tx.add.quickTax',
+  'tx.add.quickTip',
+  'tx.add.quickDelivery',
+  'tx.add.quickDiscount',
+];
 
 function toDateString(d: Date) {
   const y = d.getFullYear();
@@ -60,12 +69,8 @@ function parseDateString(iso: string) {
 }
 
 function formatDisplayDate(iso: string) {
-  return parseDateString(iso).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const d = parseDateString(iso);
+  return `${weekdayShort(mondayIndex(d))}, ${formatDate(d)}`;
 }
 
 function isValidAmount(raw: string) {
@@ -76,6 +81,7 @@ function isValidAmount(raw: string) {
 
 export function AddTransactionModal({ visible, onClose, onSave, editingTransaction }: Props) {
   const colors = useTheme();
+  const { t, tp } = useT();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -246,7 +252,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
       ? items
           .map((it, idx) => ({
             id: it.id,
-            label: it.label.trim() || `Item ${idx + 1}`,
+            label: it.label.trim() || t('tx.add.itemN', { n: idx + 1 }),
             amount: Math.round((parseFloat(it.amountText.replace(',', '.')) || 0) * 100) / 100,
           }))
           .filter((it) => it.label.trim().length > 0 || it.amount !== 0)
@@ -255,7 +261,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
     const finalAmount = breakdownOn ? itemsTotal : Math.abs(parseFloat(amount.replace(',', '.')));
 
     const payload: Omit<Transaction, 'id'> = {
-      title: title.trim() || subcategory || selectedCategory.name,
+      title: title.trim() || (subcategory ? subcategoryName(subcategory) : categoryName(selectedCategory)),
       amount: Math.round(finalAmount * 100) / 100,
       type,
       date,
@@ -277,12 +283,12 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
   function handleDelete() {
     if (!editingTransaction) return;
     Alert.alert(
-      'Delete transaction?',
-      `"${editingTransaction.title}" will be deleted. This can't be undone.`,
+      t('tx.add.deleteTitle'),
+      t('tx.add.deleteMessage', { title: editingTransaction.title }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             deleteTransaction(editingTransaction.id);
@@ -304,7 +310,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[
@@ -315,17 +321,17 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <SheetHeader
-            title={isEditing ? 'Edit transaction' : transferMode ? 'Transfer' : 'Record transaction'}
+            title={isEditing ? t('tx.add.editTitle') : transferMode ? t('common.transfer') : t('tx.add.newTitle')}
             left={
               <Pressable onPress={handleClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
             right={
               isEditing ? (
-                <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel="Delete transaction">
+                <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel={t('tx.add.deleteA11y')}>
                   <Ionicons name="trash-outline" size={20} color={colors.negative} />
                 </Pressable>
               ) : null
@@ -337,9 +343,9 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
             <View style={{ marginBottom: Spacing.four }}>
               <GlassSegmented
                 options={[
-                  { key: 'debit', label: 'Expense', color: colors.negative },
-                  { key: 'credit', label: 'Income', color: colors.positive },
-                  ...(isEditing ? [] : [{ key: 'transfer' as const, label: 'Transfer', color: colors.accent }]),
+                  { key: 'debit', label: t('common.expense'), color: colors.negative },
+                  { key: 'credit', label: t('common.income'), color: colors.positive },
+                  ...(isEditing ? [] : [{ key: 'transfer' as const, label: t('common.transfer'), color: colors.accent }]),
                 ]}
                 value={transferMode ? 'transfer' : type === 'debit' ? 'debit' : 'credit'}
                 onChange={(k) => (k === 'transfer' ? setTransferMode(true) : setTransactionType(k))}
@@ -352,7 +358,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
               <>
                 {/* Amount */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Amount (RM)
+                  {t('tx.add.amountRm')}
                 </ThemedText>
                 {breakdownOn ? (
                   <View style={[styles.amountInput, styles.amountReadout, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
@@ -360,7 +366,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                       {formatMoney(itemsTotal)}
                     </ThemedText>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Auto total from {items.length} item{items.length === 1 ? '' : 's'}
+                      {tp('tx.add.autoTotal', items.length)}
                     </ThemedText>
                   </View>
                 ) : (
@@ -373,11 +379,11 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                       onChangeText={setAmount}
                       onBlur={() => setTouchedAmount(true)}
                       keyboardType="decimal-pad"
-                      accessibilityLabel="Amount in Malaysian Ringgit"
+                      accessibilityLabel={t('tx.add.amountA11y')}
                     />
                     {touchedAmount && !amountValid ? (
                       <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                        Enter a valid amount greater than zero
+                        {t('tx.add.amountInvalid')}
                       </ThemedText>
                     ) : null}
                   </>
@@ -387,9 +393,9 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                 <View style={[styles.breakdownCard, { backgroundColor: colors.backgroundElement }]}>
                   <View style={styles.breakdownHeader}>
                     <View style={styles.flex}>
-                      <ThemedText type="smallBold">Itemised breakdown</ThemedText>
+                      <ThemedText type="smallBold">{t('tx.add.breakdown')}</ThemedText>
                       <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                        e.g. Nasi Lemak, Teh Tarik, Service Charge
+                        {t('tx.add.breakdownHint')}
                       </ThemedText>
                     </View>
                     <Switch value={breakdownOn} onValueChange={toggleBreakdown} trackColor={{ true: colors.accent }} />
@@ -406,13 +412,14 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                           </View>
                           <TextInput
                             style={[styles.itemLabelInput, { color: colors.text }]}
-                            placeholder={`Item ${idx + 1}`}
+                            placeholder={t('tx.add.itemN', { n: idx + 1 })}
                             placeholderTextColor={colors.textSecondary}
                             value={it.label}
-                            onChangeText={(t) => updateItem(it.id, { label: t })}
+                            onChangeText={(v) => updateItem(it.id, { label: v })}
                           />
                           <View style={[styles.itemAmountWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
                             <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                              {/* i18n-ignore: currency */}
                               RM
                             </ThemedText>
                             <TextInput
@@ -420,11 +427,11 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                               placeholder="0.00"
                               placeholderTextColor={colors.textSecondary}
                               value={it.amountText}
-                              onChangeText={(t) => updateItem(it.id, { amountText: t })}
+                              onChangeText={(v) => updateItem(it.id, { amountText: v })}
                               keyboardType="decimal-pad"
                             />
                           </View>
-                          <Pressable onPress={() => removeItem(it.id)} hitSlop={8} accessibilityLabel="Remove item">
+                          <Pressable onPress={() => removeItem(it.id)} hitSlop={8} accessibilityLabel={t('tx.add.removeItemA11y')}>
                             <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                           </Pressable>
                         </View>
@@ -433,19 +440,19 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                       <Pressable onPress={() => addItem()} style={[styles.addItemRow, { borderColor: colors.divider }]}>
                         <Ionicons name="add" size={18} color={colors.accent} />
                         <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                          Add item
+                          {t('tx.add.addItem')}
                         </ThemedText>
                       </Pressable>
 
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
-                        {QUICK_ITEMS.map((label) => (
+                        {QUICK_ITEMS.map((labelKey) => (
                           <Pressable
-                            key={label}
-                            onPress={() => addItem(label)}
+                            key={labelKey}
+                            onPress={() => addItem(t(labelKey))}
                             style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.divider }]}
                           >
                             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                              + {label}
+                              + {t(labelKey)}
                             </ThemedText>
                           </Pressable>
                         ))}
@@ -453,7 +460,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                       <View style={[styles.itemsTotalRow, { borderTopColor: colors.divider }]}>
                         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          Items total
+                          {t('tx.add.itemsTotal')}
                         </ThemedText>
                         <ThemedText type="smallBold">{formatMoney(itemsTotal)}</ThemedText>
                       </View>
@@ -463,11 +470,17 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                 {/* Title */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Title
+                  {t('common.title')}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder={`Optional — defaults to ${subcategory || selectedCategory?.name || 'the category'}`}
+                  placeholder={t('tx.add.titlePlaceholder', {
+                    name: subcategory
+                      ? subcategoryName(subcategory)
+                      : selectedCategory
+                        ? categoryName(selectedCategory)
+                        : t('tx.add.theCategory'),
+                  })}
                   placeholderTextColor={colors.textSecondary}
                   value={title}
                   onChangeText={setTitle}
@@ -475,7 +488,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                 {/* Account */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Account
+                  {t('common.account')}
                 </ThemedText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                   {accounts.map((acc) => {
@@ -495,7 +508,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                         <View style={styles.chipInner}>
                           <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
                           <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                            {acc.name}
+                            {accountName(acc)}
                           </ThemedText>
                         </View>
                       </Pressable>
@@ -505,7 +518,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                 {/* Category */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Category
+                  {t('common.category')}
                 </ThemedText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                   {visibleCategories.map((cat) => {
@@ -525,7 +538,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                         <View style={styles.chipInner}>
                           <Ionicons name={cat.icon} size={15} color={active ? '#fff' : cat.color} />
                           <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                            {cat.name}
+                            {categoryName(cat)}
                           </ThemedText>
                         </View>
                       </Pressable>
@@ -535,7 +548,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                 {/* Subcategory */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Subcategory
+                  {t('tx.add.subcategory')}
                 </ThemedText>
                 <View style={styles.subGrid}>
                   {selectedCategory?.subcategories.map((sub) => {
@@ -556,7 +569,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                           type="small"
                           style={active ? { fontWeight: '600', color: colors.text } : { color: colors.textSecondary }}
                         >
-                          {sub}
+                          {subcategoryName(sub)}
                         </ThemedText>
                       </Pressable>
                     );
@@ -565,18 +578,18 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
 
                 {/* Date */}
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Date
+                  {t('common.date')}
                 </ThemedText>
                 <View style={styles.dateQuickRow}>
                   {([
-                    { label: 'Today', offset: 0 },
-                    { label: 'Yesterday', offset: -1 },
-                  ] as const).map(({ label, offset }) => {
+                    { key: 'today', label: t('common.today'), offset: 0 },
+                    { key: 'yesterday', label: t('common.yesterday'), offset: -1 },
+                  ] as const).map(({ key, label, offset }) => {
                     const iso = toDateString(new Date(Date.now() + offset * 86400000));
                     const active = date === iso;
                     return (
                       <Pressable
-                        key={label}
+                        key={key}
                         style={[
                           styles.dateQuick,
                           {
@@ -602,7 +615,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                     <ThemedText>{formatDisplayDate(date)}</ThemedText>
                   </View>
                   <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                    Pick date
+                    {t('tx.add.pickDate')}
                   </ThemedText>
                 </Pressable>
 
@@ -611,13 +624,13 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                     <View style={styles.iosPickerToolbar}>
                       <Pressable onPress={cancelDatePicker} hitSlop={8}>
                         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          Cancel
+                          {t('common.cancel')}
                         </ThemedText>
                       </Pressable>
-                      <ThemedText type="smallBold">Select date</ThemedText>
+                      <ThemedText type="smallBold">{t('tx.add.selectDate')}</ThemedText>
                       <Pressable onPress={confirmDatePicker} hitSlop={8}>
                         <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                          Done
+                          {t('common.done')}
                         </ThemedText>
                       </Pressable>
                     </View>
@@ -648,7 +661,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
                   disabled={!canSave}
                 >
                   <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
-                    {isEditing ? 'Save changes' : 'Save transaction'}
+                    {isEditing ? t('tx.add.saveChanges') : t('tx.add.saveTransaction')}
                   </ThemedText>
                 </Pressable>
               </>

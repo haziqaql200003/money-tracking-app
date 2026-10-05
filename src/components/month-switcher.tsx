@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 type Props = {
   label: string;
@@ -18,6 +19,7 @@ type Props = {
 // Fixed row height: the "Back to this month" caption appearing/disappearing
 // no longer nudges the chevrons or the content underneath.
 export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNext, onReset }: Props) {
+  const { t } = useT();
   const colors = useTheme();
   return (
     <View style={styles.row}>
@@ -26,7 +28,7 @@ export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNe
         disabled={!canPrev}
         hitSlop={8}
         style={[styles.button, { backgroundColor: colors.backgroundElement, opacity: canPrev ? 1 : 0.35 }]}
-        accessibilityLabel="Previous month"
+        accessibilityLabel={t('home.month.previous')}
       >
         <Ionicons name="chevron-back" size={18} color={colors.text} />
       </Pressable>
@@ -35,7 +37,7 @@ export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNe
         <ThemedText style={styles.label}>{label}</ThemedText>
         {!isCurrent ? (
           <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-            Back to this month
+            {t('home.month.backToCurrent')}
           </ThemedText>
         ) : null}
       </Pressable>
@@ -45,7 +47,7 @@ export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNe
         disabled={!canNext}
         hitSlop={8}
         style={[styles.button, { backgroundColor: colors.backgroundElement, opacity: canNext ? 1 : 0.35 }]}
-        accessibilityLabel="Next month"
+        accessibilityLabel={t('home.month.next')}
       >
         <Ionicons name="chevron-forward" size={18} color={colors.text} />
       </Pressable>

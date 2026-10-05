@@ -1,0 +1,93 @@
+import type { enHome } from '../en/home';
+
+// Malay wording: every key in en/home.ts must exist here (TypeScript enforces it).
+export const msHome: Record<keyof typeof enHome, string> = {
+  // Home screen
+  'home.index.notifications': 'Pemberitahuan',
+  'home.index.comingSoon': 'Akan datang — ini akan memaparkan peringatan dan amaran bajet.',
+  'home.index.greeting': 'Hai, ',
+  // Balance carousel
+  'home.carousel.allAccounts': 'Semua akaun',
+  'home.carousel.accountCount.one': '{count} akaun',
+  'home.carousel.accountCount.other': '{count} akaun',
+  'home.carousel.type.bank': 'Bank',
+  'home.carousel.type.cash': 'Tunai',
+  'home.carousel.type.other': 'Lain-lain',
+  'home.carousel.addTitle': 'Tambah akaun baharu',
+  'home.carousel.addHint': 'Bank, tunai, e-dompet atau simpanan. Jejaki setiap satu secara berasingan.',
+  // Spending overview
+  'home.overview.period.week': 'Minggu',
+  'home.overview.period.month': 'Bulan',
+  'home.overview.period.year': 'Tahun',
+  'home.overview.stat.week.average': 'Purata harian',
+  'home.overview.stat.week.peak': 'Hari tertinggi',
+  'home.overview.stat.month.average': 'Purata bulanan',
+  'home.overview.stat.month.peak': 'Bulan tertinggi',
+  'home.overview.stat.year.average': 'Purata tahunan',
+  'home.overview.stat.year.peak': 'Tahun tertinggi',
+  'home.overview.thisWeek': 'Minggu ini',
+  'home.overview.lastWeek': 'Minggu lalu',
+  'home.overview.weeksAgo.one': '{count} minggu lalu',
+  'home.overview.weeksAgo.other': '{count} minggu lalu',
+  'home.overview.spentIn': 'Dibelanjakan pada {year}',
+  'home.overview.vsPriorWeek': 'berbanding minggu sebelumnya',
+  'home.overview.hintWeek': 'Leret carta untuk melihat minggu lain · ketik satu hari untuk butiran',
+  'home.overview.hintPoint': 'Ketik satu titik untuk butiran',
+  // Charts
+  'home.chart.noSpending': 'Tiada perbelanjaan dalam tempoh ini',
+  'home.chart.limit': 'Had {amount}',
+  'home.chart.spending': 'Perbelanjaan',
+  'home.chart.net': 'Bersih',
+  'home.chart.a11yMonth': '{month}. Pendapatan {income}. Perbelanjaan {spending}.',
+  // Recent transactions
+  'home.recent.heading': 'Transaksi terkini',
+  'home.recent.headingAccount': 'Terkini · {name}',
+  'home.recent.summary.one': '{count} transaksi · {spent} dibelanjakan bulan ini',
+  'home.recent.summary.other': '{count} transaksi · {spent} dibelanjakan bulan ini',
+  'home.recent.filterSpending': 'Perbelanjaan',
+  'home.recent.empty': 'Belum ada transaksi.',
+  'home.recent.emptyAccount': 'Belum ada transaksi dalam {name}.',
+  'home.recent.emptySpending': 'Tiada perbelanjaan untuk dipaparkan.',
+  'home.recent.emptyIncome': 'Tiada pendapatan untuk dipaparkan.',
+  'home.recent.addTransaction': 'Tambah transaksi',
+  // Pending recurring banner
+  'home.pending.a11y': 'Semak entri berulang yang perlu disahkan',
+  'home.pending.title.one': '{count} entri berulang perlu disahkan',
+  'home.pending.title.other': '{count} entri berulang perlu disahkan',
+  'home.pending.hint.one': 'Masukkan jumlah sebenar untuk merekodkannya',
+  'home.pending.hint.other': 'Masukkan jumlah sebenar untuk merekodkannya',
+  // Month switcher
+  'home.month.previous': 'Bulan sebelumnya',
+  'home.month.next': 'Bulan seterusnya',
+  'home.month.backToCurrent': 'Kembali ke bulan ini',
+  // Transaction row
+  'home.row.uncategorized': 'Tanpa kategori',
+  'home.row.items.one': '{count} item',
+  'home.row.items.other': '{count} item',
+  'home.row.recurring': 'Berulang',
+  // Transactions summary and breakdown
+  'home.summary.netThisMonth': 'Bersih bulan ini',
+  'home.summary.showAmounts': 'Tunjukkan jumlah',
+  'home.summary.hideAmounts': 'Sembunyikan jumlah',
+  'home.summary.spendingVs': 'perbelanjaan berbanding {label}',
+  'home.summary.saved': 'Menyimpan {rate}% daripada pendapatan',
+  'home.summary.overspent': 'Berbelanja melebihi pendapatan',
+  'home.summary.spending': 'Perbelanjaan',
+  'home.summary.whereItWent': 'Ke mana perginya',
+  'home.summary.spentTotal': '{amount} dibelanjakan',
+  'home.summary.filterBy': 'Tapis mengikut {name}',
+  'home.summary.overBudget': 'Melebihi bajet',
+  'home.summary.tip': 'Ketik kategori untuk menapis senarai',
+  // Tabs
+  'home.tabs.home': 'Utama',
+  'home.tabs.transactions': 'Transaksi',
+  'home.tabs.analyse': 'Faham',
+  'home.tabs.more': 'Lagi',
+  'home.tabs.addRecord': 'Tambah rekod',
+  'home.tabs.docs': 'Dokumen',
+  // Date field
+  'home.date.pick': 'Pilih tarikh',
+  'home.date.select': 'Pilih tarikh',
+  // Shared UI primitives
+  'home.ui.amountHidden': 'Jumlah disembunyikan',
+};

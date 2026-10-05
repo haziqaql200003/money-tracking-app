@@ -7,6 +7,8 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { usePersistedState } from '@/hooks/use-persisted-state';
+import { useT } from '@/i18n';
+import { categoryName } from '@/i18n/data';
 import {
   cancelAllReminders,
   configureNotifications,
@@ -68,6 +70,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const { expenseCategories } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
+  // `lang` is a dependency below: notification text is generated in the language current when it is planned.
+  const { lang } = useT();
 
   const [goals, setGoals, goalsReady] = usePersistedState<SavingsGoal[]>('plan_goals', NO_GOALS, userId);
   const [goalEntries, setGoalEntries, entriesReady] = usePersistedState<GoalEntry[]>('plan_goal_entries', NO_ENTRIES, userId);
@@ -83,8 +87,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const money = useCallback((n: number) => (hideAmounts ? 'RM ••••' : formatMoney(n)), [hideAmounts]);
   const budgets = useMemo(
-    () => expenseCategories.map((c) => ({ id: c.id, name: c.name, limit: c.monthlyLimit })),
-    [expenseCategories],
+    () => expenseCategories.map((c) => ({ id: c.id, name: categoryName(c), limit: c.monthlyLimit })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [expenseCategories, lang],
   );
 
   // --- permission: check at start and every time the app is reopened (the user may change it in Settings) ---
@@ -126,7 +131,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, recurringRules, todayKey, money, foregroundTick]);
+  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, recurringRules, todayKey, money, foregroundTick, lang]);
 
   // --- budget alerts: when a category reaches its warning level or goes over, tell the user once ---
   const monthKey = monthKeyFromOffset(0);

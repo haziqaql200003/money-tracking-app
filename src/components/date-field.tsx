@@ -7,6 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { formatDate, mondayIndex, weekdayShort } from '@/i18n/format';
 import { toDateKey } from '@/utils/dates';
 
 type Props = {
@@ -27,10 +29,12 @@ function parse(iso: string) {
 }
 
 function display(iso: string) {
-  return parse(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const d = parse(iso);
+  return `${weekdayShort(mondayIndex(d))}, ${formatDate(d)}`;
 }
 
 export function DateField({ value, onChange, accent, showQuick = false, maxToday = false }: Props) {
+  const { t, lang } = useT();
   const colors = useTheme();
   const isDark = useColorScheme() === 'dark';
   const [open, setOpen] = useState(false);
@@ -64,15 +68,15 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
       {showQuick ? (
         <View style={styles.quickRow}>
           {([
-            { label: 'Today', offset: 0 },
-            { label: 'Yesterday', offset: -1 },
-          ] as const).map(({ label, offset }) => {
+            { id: 'today', label: t('common.today'), offset: 0 },
+            { id: 'yesterday', label: t('common.yesterday'), offset: -1 },
+          ] as const).map(({ id, label, offset }) => {
             const d = new Date();
             d.setDate(d.getDate() + offset);
             const active = value === toDateKey(d);
             return (
               <Pressable
-                key={label}
+                key={id}
                 style={[
                   styles.quick,
                   {
@@ -100,7 +104,7 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
           <ThemedText>{display(value)}</ThemedText>
         </View>
         <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-          Pick date
+          {t('home.date.pick')}
         </ThemedText>
       </Pressable>
 
@@ -109,10 +113,10 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
           <View style={styles.iosToolbar}>
             <Pressable onPress={() => setOpen(false)} hitSlop={8}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Cancel
+                {t('common.cancel')}
               </ThemedText>
             </Pressable>
-            <ThemedText type="smallBold">Select date</ThemedText>
+            <ThemedText type="smallBold">{t('home.date.select')}</ThemedText>
             <Pressable
               onPress={() => {
                 onChange(toDateKey(pickerDate));
@@ -121,7 +125,7 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
               hitSlop={8}
             >
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                Done
+                {t('common.done')}
               </ThemedText>
             </Pressable>
           </View>
@@ -131,6 +135,7 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
             display="spinner"
             onChange={onPickerChange}
             themeVariant={isDark ? 'dark' : 'light'}
+            locale={lang === 'ms' ? 'ms-MY' : 'en-GB'}
             maximumDate={maximumDate}
           />
         </View>
@@ -164,4 +169,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-});
+});

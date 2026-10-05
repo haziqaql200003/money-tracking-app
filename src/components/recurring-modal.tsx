@@ -13,6 +13,8 @@ import { useCategories } from '@/context/CategoriesContext';
 import type { RecurringAmountMode, RecurringFrequency, RecurringRule, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { accountName, categoryName, subcategoryName } from '@/i18n/data';
 import { toDateKey } from '@/utils/dates';
 import { FREQUENCIES, materializeRecurring } from '@/utils/recurring';
 
@@ -25,23 +27,24 @@ type Props = {
 
 export function RecurringModal({ visible, onClose, editing }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title={editing ? 'Edit recurring' : 'New recurring'}
+            title={editing ? t('tx.rec.editTitle') : t('tx.rec.newTitle')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -58,6 +61,7 @@ export function RecurringModal({ visible, onClose, editing }: Props) {
 
 function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; onDone: () => void }) {
   const colors = useTheme();
+  const { t, tp } = useT();
   const { accounts, addRecurring, updateRecurring, deleteRecurring, setRecurringActive } = useTransactions();
   const { expenseCategories, incomeCategories, getCategory } = useCategories();
 
@@ -136,7 +140,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
     if (!canSave || !selectedCategory) return;
     const rounded = Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
     const base = {
-      title: title.trim() || subcategory || selectedCategory.name,
+      title: title.trim() || (subcategory ? subcategoryName(subcategory) : categoryName(selectedCategory)),
       amount: rounded,
       amountMode: mode,
       type,
@@ -160,10 +164,10 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
   function remove() {
     if (!editing) return;
-    Alert.alert('Delete recurring?', `"${editing.title}" will stop repeating. Transactions it already created stay in your history.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('tx.rec.deleteTitle'), t('tx.rec.deleteMessage', { title: editing.title }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
           deleteRecurring(editing.id);
@@ -179,8 +183,8 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       <View style={{ marginBottom: Spacing.two }}>
         <GlassSegmented
           options={[
-            { key: 'debit', label: 'Expense', color: colors.negative },
-            { key: 'credit', label: 'Income', color: colors.positive },
+            { key: 'debit', label: t('common.expense'), color: colors.negative },
+            { key: 'credit', label: t('common.income'), color: colors.positive },
           ]}
           value={type}
           onChange={changeType}
@@ -189,13 +193,13 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
       {/* Fixed / Confirm each time */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Amount
+        {t('common.amount')}
       </ThemedText>
       <View style={{ marginBottom: Spacing.one }}>
         <GlassSegmented
           options={[
-            { key: 'fixed', label: 'Fixed' },
-            { key: 'ask', label: 'Confirm each time' },
+            { key: 'fixed', label: t('tx.rec.modeFixed') },
+            { key: 'ask', label: t('tx.rec.modeAsk') },
           ]}
           value={mode}
           onChange={setMode}
@@ -203,29 +207,29 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       </View>
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
         {asking
-          ? 'Nothing is recorded on its own. On each date you are asked for the real amount, then it is recorded. Good for pay that changes or bills like electricity.'
-          : 'The same amount is recorded automatically on each date.'}
+          ? t('tx.rec.hintAsk')
+          : t('tx.rec.hintFixed')}
       </ThemedText>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {asking ? 'Expected amount (RM), optional' : 'Amount (RM)'}
+        {asking ? t('tx.rec.expectedAmount') : t('tx.add.amountRm')}
       </ThemedText>
       <TextInput
         style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-        placeholder={asking ? 'Leave empty if it varies' : '0.00'}
+        placeholder={asking ? t('tx.rec.expectedPlaceholder') : '0.00'}
         placeholderTextColor={colors.textSecondary}
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        accessibilityLabel="Amount in Malaysian Ringgit"
+        accessibilityLabel={t('tx.add.amountA11y')}
       />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Title
+        {t('common.title')}
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-        placeholder={`Optional, e.g. Rent, Salary, Netflix`}
+        placeholder={t('tx.rec.titlePlaceholder')}
         placeholderTextColor={colors.textSecondary}
         value={title}
         onChangeText={setTitle}
@@ -233,7 +237,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
       {/* Frequency */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Repeats
+        {t('tx.rec.repeats')}
       </ThemedText>
       <View style={styles.freqRow}>
         {FREQUENCIES.map((f) => {
@@ -248,7 +252,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
               ]}
             >
               <ThemedText type="small" style={on ? { fontWeight: '700' } : { color: colors.textSecondary }}>
-                {f.label}
+                {t(f.labelKey)}
               </ThemedText>
             </Pressable>
           );
@@ -256,27 +260,21 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       </View>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {editing ? 'Next date' : 'Starts on'}
+        {editing ? t('tx.rec.nextDate') : t('tx.rec.startsOn')}
       </ThemedText>
       <DateField value={date} onChange={setDate} accent={typeAccent} />
       {backfill > 0 ? (
         <ThemedText type="small" style={{ color: backfill > 12 ? colors.negative : colors.textSecondary, marginTop: Spacing.one }}>
-          {asking
-            ? backfill === 1
-              ? '1 entry will be waiting for your confirmation right away.'
-              : `${backfill} entries will be waiting for your confirmation right away, one for each date up to today.`
-            : backfill === 1
-              ? '1 entry will be recorded right away (today or earlier).'
-              : `${backfill} entries will be recorded right away, one for each date up to today.`}
+          {asking ? tp('tx.rec.backfillAsk', backfill) : tp('tx.rec.backfillRecord', backfill)}
         </ThemedText>
       ) : null}
 
       {/* End date */}
       <View style={[styles.switchCard, { backgroundColor: colors.backgroundElement }]}>
         <View style={styles.flex}>
-          <ThemedText type="smallBold">Ends on a date</ThemedText>
+          <ThemedText type="smallBold">{t('tx.rec.endsOn')}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            e.g. the last instalment of a loan
+            {t('tx.rec.endsOnHint')}
           </ThemedText>
         </View>
         <Switch value={hasEnd} onValueChange={toggleEnd} trackColor={{ true: colors.accent }} />
@@ -286,7 +284,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
           <DateField value={endDate} onChange={setEndDate} accent={typeAccent} />
           {!endValid ? (
             <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-              The end date must not be before the start.
+              {t('tx.rec.endInvalid')}
             </ThemedText>
           ) : null}
         </View>
@@ -294,7 +292,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
       {/* Account */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Account
+        {t('common.account')}
       </ThemedText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
         {accounts.map((acc) => {
@@ -308,7 +306,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
               <View style={styles.chipInner}>
                 <Ionicons name={acc.icon} size={15} color={on ? '#fff' : colors.text} />
                 <ThemedText type="small" style={on ? styles.chipTextActive : { color: colors.text }}>
-                  {acc.name}
+                  {accountName(acc)}
                 </ThemedText>
               </View>
             </Pressable>
@@ -318,7 +316,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
       {/* Category */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Category
+        {t('common.category')}
       </ThemedText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
         {visibleCategories.map((cat) => {
@@ -332,7 +330,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
               <View style={styles.chipInner}>
                 <Ionicons name={cat.icon} size={15} color={on ? '#fff' : cat.color} />
                 <ThemedText type="small" style={on ? styles.chipTextActive : { color: colors.text }}>
-                  {cat.name}
+                  {categoryName(cat)}
                 </ThemedText>
               </View>
             </Pressable>
@@ -343,7 +341,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       {selectedCategory && selectedCategory.subcategories.length > 0 ? (
         <>
           <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-            Subcategory
+            {t('tx.add.subcategory')}
           </ThemedText>
           <View style={styles.subGrid}>
             {selectedCategory.subcategories.map((sub) => {
@@ -355,7 +353,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
                   onPress={() => setSubcategory(sub)}
                 >
                   <ThemedText type="small" style={on ? { fontWeight: '600', color: colors.text } : { color: colors.textSecondary }}>
-                    {sub}
+                    {subcategoryName(sub)}
                   </ThemedText>
                 </Pressable>
               );
@@ -368,9 +366,9 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       {editing ? (
         <View style={[styles.switchCard, { backgroundColor: colors.backgroundElement }]}>
           <View style={styles.flex}>
-            <ThemedText type="smallBold">Active</ThemedText>
+            <ThemedText type="smallBold">{t('tx.rec.active')}</ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              Turn off to pause. Resuming skips the paused dates.
+              {t('tx.rec.activeHint')}
             </ThemedText>
           </View>
           <Switch value={active} onValueChange={setActive} trackColor={{ true: colors.accent }} />
@@ -383,13 +381,13 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
         disabled={!canSave}
       >
         <ThemedText style={[styles.saveText, !canSave && { color: colors.textSecondary }]}>
-          {editing ? 'Save changes' : 'Save recurring'}
+          {editing ? t('tx.add.saveChanges') : t('tx.rec.save')}
         </ThemedText>
       </Pressable>
 
       {editing ? (
         <Pressable style={styles.removeButton} onPress={remove}>
-          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete recurring</ThemedText>
+          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('tx.rec.delete')}</ThemedText>
         </Pressable>
       ) : null}
     </View>

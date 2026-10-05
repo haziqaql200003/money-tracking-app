@@ -14,18 +14,20 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useT } from '@/i18n';
 
 export default function AppTabs() {
+  const { t } = useT();
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
-            <TabButton>Home</TabButton>
+            <TabButton>{t('home.tabs.home')}</TabButton>
           </TabTrigger>
-+          <TabTrigger name="analyse" href="/analyse" asChild>
-+            <TabButton>Analyse</TabButton>
+          <TabTrigger name="analyse" href="/analyse" asChild>
+            <TabButton>{t('home.tabs.analyse')}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -48,6 +50,7 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
+  const { t } = useT();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
 
@@ -55,14 +58,14 @@ export function CustomTabList(props: TabListProps) {
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          WaKira
+          {/* i18n-ignore */}WaKira
         </ThemedText>
 
         {props.children}
 
         <ExternalLink href="https://docs.expo.dev" asChild>
           <Pressable style={styles.externalPressable}>
-            <ThemedText type="link">Docs</ThemedText>
+            <ThemedText type="link">{t('home.tabs.docs')}</ThemedText>
             <SymbolView
               tintColor={colors.text}
               name={{ ios: 'arrow.up.right.square', web: 'link' }}

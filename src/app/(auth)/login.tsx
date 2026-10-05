@@ -7,15 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField } from '@/components/auth-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { APP_NAME, MOTTO, SLOGAN } from '@/constants/brand';
+import { APP_NAME, MOTTO, SLOGAN_KEY } from '@/constants/brand';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 export default function LoginScreen() {
   const colors = useTheme();
+  const { t } = useT();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, cloud } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function LoginScreen() {
     const res = await signIn(email, password);
     setBusy(false);
     if (!res.ok) setError(res.error);
+    else if (res.needsCode) router.push({ pathname: '/verify', params: { email: email.trim(), mode: 'signup' } }); // address not confirmed yet
     // Kalau berjaya, Stack.Protected di _layout akan alihkan skrin secara automatik.
   }
 
@@ -42,27 +45,27 @@ export default function LoginScreen() {
             <ThemedText style={styles.title}>{APP_NAME}</ThemedText>
             <ThemedText style={[styles.motto, { color: colors.accent }]}>{MOTTO}</ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.four }}>
-              {SLOGAN}
+              {t(SLOGAN_KEY)}
             </ThemedText>
 
             <AuthField
-              label="Email"
+              label={t('auth.field.email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
               textContentType="emailAddress"
-              placeholder="nama@contoh.com"
+              placeholder={t('auth.field.emailPlaceholder')}
             />
             <AuthField
-              label="Kata laluan"
+              label={t('auth.field.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
               textContentType="password"
-              placeholder="Kata laluan anda"
+              placeholder={t('auth.login.passwordPlaceholder')}
               onSubmitEditing={submit}
             />
 
@@ -73,12 +76,12 @@ export default function LoginScreen() {
             ) : null}
 
             <Pressable
-              onPress={() => Alert.alert('Lupa kata laluan', 'Ciri ini akan tersedia bila backend disambungkan (Fasa B).')}
+              onPress={() => (cloud ? router.push('/forgot') : Alert.alert(t('auth.login.forgotTitle'), t('auth.login.forgotMessage')))}
               hitSlop={8}
               style={styles.forgot}
             >
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                Lupa kata laluan?
+                {t('auth.login.forgotLink')}
               </ThemedText>
             </Pressable>
 
@@ -88,24 +91,26 @@ export default function LoginScreen() {
               style={[styles.button, { backgroundColor: !busy && email && password ? colors.accent : colors.backgroundSelected }]}
             >
               <ThemedText style={[styles.buttonText, (busy || !email || !password) && { color: colors.textSecondary }]}>
-                {busy ? 'Sila tunggu...' : 'Log masuk'}
+                {busy ? t('auth.login.wait') : t('auth.login.submit')}
               </ThemedText>
             </Pressable>
 
             <View style={styles.footer}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Belum ada akaun?{' '}
+                {t('auth.login.noAccount')}{' '}
               </ThemedText>
               <Pressable onPress={() => router.push('/register')} hitSlop={8}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                  Daftar
+                  {t('auth.login.register')}
                 </ThemedText>
               </Pressable>
             </View>
 
-            <ThemedText type="small" style={[styles.sim, { color: colors.textSecondary }]}>
-              Mod simulasi: akaun disimpan pada peranti ini sahaja.
-            </ThemedText>
+            {cloud ? null : (
+              <ThemedText type="small" style={[styles.sim, { color: colors.textSecondary }]}>
+                {t('auth.login.simulation')}
+              </ThemedText>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -125,4 +130,4 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.four },
   sim: { textAlign: 'center', marginTop: Spacing.four, fontSize: 12, lineHeight: 16 },
-});
+});

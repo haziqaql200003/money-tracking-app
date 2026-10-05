@@ -13,14 +13,17 @@ import type { Category, CategoryKind } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
+import { categoryName, subcategoryName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 
-const KINDS: { key: CategoryKind; label: string }[] = [
-  { key: 'expense', label: 'Expense' },
-  { key: 'income', label: 'Income' },
+const KINDS: { key: CategoryKind; labelKey: TKey }[] = [
+  { key: 'expense', labelKey: 'common.expense' },
+  { key: 'income', labelKey: 'common.income' },
 ];
 
 export default function CategoriesScreen() {
+  const { t } = useT();
   const colors = useTheme();
   const { expenseCategories, incomeCategories } = useCategories();
 
@@ -45,14 +48,14 @@ export default function CategoriesScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <ScreenHeader
-            title="Categories"
+            title={t('acct.categories.title')}
             right={
               <Pressable
                 onPress={openAdd}
                 hitSlop={8}
                 style={[styles.addButton, { backgroundColor: colors.accent }]}
                 accessibilityRole="button"
-                accessibilityLabel="Add category"
+                accessibilityLabel={t('acct.categories.addA11y')}
               >
                 <Ionicons name="add" size={22} color="#fff" />
               </Pressable>
@@ -63,7 +66,7 @@ export default function CategoriesScreen() {
             <GlassSegmented
               options={KINDS.map((k) => ({
                 key: k.key,
-                label: `${k.label} · ${k.key === 'expense' ? expenseCategories.length : incomeCategories.length}`,
+                label: `${t(k.labelKey)} · ${k.key === 'expense' ? expenseCategories.length : incomeCategories.length}`,
               }))}
               value={kind}
               onChange={setKind}
@@ -83,15 +86,15 @@ export default function CategoriesScreen() {
               >
                 <CategoryIcon icon={c.icon} color={c.color} size={44} />
                 <View style={styles.flex}>
-                  <ThemedText numberOfLines={1}>{c.name}</ThemedText>
+                  <ThemedText numberOfLines={1}>{categoryName(c)}</ThemedText>
                   <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                    {c.subcategories.join(', ')}
+                    {c.subcategories.map(subcategoryName).join(', ')}
                   </ThemedText>
                 </View>
                 <View style={styles.right}>
                   {c.kind === 'expense' ? (
                     <ThemedText type="small" style={{ color: c.monthlyLimit > 0 ? colors.text : colors.textSecondary, fontWeight: '600' }}>
-                      {c.monthlyLimit > 0 ? `${formatMoney(c.monthlyLimit)}/mo` : 'No budget'}
+                      {c.monthlyLimit > 0 ? t('acct.categories.perMonth', { amount: formatMoney(c.monthlyLimit) }) : t('acct.categories.noBudget')}
                     </ThemedText>
                   ) : null}
                   <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
@@ -104,16 +107,16 @@ export default function CategoriesScreen() {
             onPress={openAdd}
             style={[styles.addRow, { borderColor: colors.divider }]}
             accessibilityRole="button"
-            accessibilityLabel="Add category"
+            accessibilityLabel={t('acct.categories.addA11y')}
           >
             <Ionicons name="add-circle-outline" size={20} color={colors.accent} />
             <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-              Add {kind} category
+              {kind === 'expense' ? t('acct.categories.addExpense') : t('acct.categories.addIncome')}
             </ThemedText>
           </Pressable>
 
           <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
-            Tap a category to change its icon, colour, subcategories or budget.
+            {t('acct.categories.footnote')}
           </ThemedText>
         </ScrollView>
 

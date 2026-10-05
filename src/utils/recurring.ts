@@ -1,11 +1,13 @@
 import type { PendingEntry, RecurringFrequency, RecurringRule, Transaction } from '@/context/TransactionsContext';
+import { t, tp, type TKey } from '@/i18n';
+import { formatDate } from '@/i18n/format';
 import { toDateKey } from '@/utils/dates';
 
-export const FREQUENCIES: { key: RecurringFrequency; label: string; adverb: string }[] = [
-  { key: 'daily', label: 'Daily', adverb: 'Every day' },
-  { key: 'weekly', label: 'Weekly', adverb: 'Every week' },
-  { key: 'monthly', label: 'Monthly', adverb: 'Every month' },
-  { key: 'yearly', label: 'Yearly', adverb: 'Every year' },
+export const FREQUENCIES: { key: RecurringFrequency; labelKey: TKey; adverbKey: TKey }[] = [
+  { key: 'daily', labelKey: 'tx.freq.daily', adverbKey: 'tx.freq.everyDay' },
+  { key: 'weekly', labelKey: 'tx.freq.weekly', adverbKey: 'tx.freq.everyWeek' },
+  { key: 'monthly', labelKey: 'tx.freq.monthly', adverbKey: 'tx.freq.everyMonth' },
+  { key: 'yearly', labelKey: 'tx.freq.yearly', adverbKey: 'tx.freq.everyYear' },
 ];
 
 /** Hard stop so a very old start date can never generate an endless run in one go. */
@@ -166,14 +168,15 @@ export function monthlyEquivalent(rule: Pick<RecurringRule, 'amount' | 'frequenc
 }
 
 export function frequencyLabel(frequency: RecurringFrequency) {
-  return FREQUENCIES.find((f) => f.key === frequency)?.label ?? frequency;
+  const found = FREQUENCIES.find((f) => f.key === frequency);
+  return found ? t(found.labelKey) : frequency;
 }
 
 /** "Today", "Tomorrow", "in 5 days" or a short date. */
 export function relativeDay(iso: string, todayKey: string) {
   const diff = Math.round((parseKey(iso).getTime() - parseKey(todayKey).getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff > 1 && diff <= 14) return `In ${diff} days`;
-  return parseKey(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (diff === 0) return t('common.today');
+  if (diff === 1) return t('tx.bills.dueTomorrow');
+  if (diff > 1 && diff <= 14) return tp('tx.bills.dueInDays', diff);
+  return formatDate(parseKey(iso));
 }

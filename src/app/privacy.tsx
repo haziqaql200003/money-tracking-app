@@ -6,47 +6,33 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/context/AuthContext';
+import { useT, type TKey } from '@/i18n';
 
 // DRAF sahaja. Sila semak dengan penasihat undang-undang sebelum dilancarkan (PDPA 2010, dipinda 2024).
-const SECTIONS: { title: string; body: string }[] = [
-  {
-    title: 'Data yang kami kumpul',
-    body: 'Email, nama paparan, warna avatar, bahasa, matlamat kewangan (pilihan), serta akaun, kategori, bajet dan transaksi yang anda masukkan sendiri. Kami tidak meminta no. IC, alamat atau nombor kad penuh (hanya 4 digit terakhir jika anda pilih).',
-  },
-  {
-    title: 'Tujuan',
-    body: 'Untuk menjalankan fungsi aplikasi: log masuk, menyimpan rekod kewangan anda dan memaparkan laporan. Data tidak dijual atau digunakan untuk iklan.',
-  },
-  {
-    title: 'Di mana data disimpan',
-    body: 'Dalam mod simulasi ini, data disimpan pada peranti anda sahaja. Apabila pelayan awan digunakan, kami akan menyatakan lokasi pelayan dan pemproses data di sini.',
-  },
-  {
-    title: 'Tempoh simpanan',
-    body: 'Selagi akaun anda aktif. Bila anda padam akaun, semua data anda dipadam.',
-  },
-  {
-    title: 'Hak anda',
-    body: 'Anda boleh mengakses, membetulkan, mengeksport (CSV) dan memadam data anda melalui menu More > Settings.',
-  },
-  {
-    title: 'Hubungi kami',
-    body: '[Masukkan email pegawai perlindungan data / hubungan anda di sini]',
-  },
+const SECTIONS: { titleKey: TKey; bodyKey: TKey }[] = [
+  { titleKey: 'auth.privacy.collect.title', bodyKey: 'auth.privacy.collect.body' },
+  { titleKey: 'auth.privacy.purpose.title', bodyKey: 'auth.privacy.purpose.body' },
+  { titleKey: 'auth.privacy.storage.title', bodyKey: 'auth.privacy.storage.body' },
+  { titleKey: 'auth.privacy.retention.title', bodyKey: 'auth.privacy.retention.body' },
+  { titleKey: 'auth.privacy.rights.title', bodyKey: 'auth.privacy.rights.body' },
+  { titleKey: 'auth.privacy.contact.title', bodyKey: 'auth.privacy.contact.body' },
 ];
 
 export default function PrivacyScreen() {
   const colors = useTheme();
+  const { t } = useT();
+  const { cloud } = useAuth();
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ScreenHeader title="Notis Privasi" />
+          <ScreenHeader title={t('auth.privacy.title')} />
           {SECTIONS.map((s) => (
-            <ThemedText key={s.title} type="small" style={styles.block}>
-              <ThemedText type="smallBold">{s.title + '\n'}</ThemedText>
+            <ThemedText key={s.titleKey} type="small" style={styles.block}>
+              <ThemedText type="smallBold">{t(s.titleKey) + '\n'}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                {s.body}
+                {t(cloud && s.bodyKey === 'auth.privacy.storage.body' ? 'auth.privacy.storage.bodyCloud' : s.bodyKey)}
               </ThemedText>
             </ThemedText>
           ))}

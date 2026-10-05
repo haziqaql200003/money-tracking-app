@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import { useT } from '@/i18n';
+
 export type CardSide = 'front' | 'back';
 
 export type WakiraCardProps = {
@@ -185,9 +187,10 @@ export function CardContent({
   color,
   subColor,
   bottomInset = 0,
-  tier = 'PRO',
+  tier = 'PRO', // i18n-ignore: tier name
   engraved = false,
 }: ContentProps) {
+  const { t } = useT();
   const back = side === 'back';
   const ts = engraved ? styles.engrave : styles.shadow;
   return (
@@ -203,18 +206,19 @@ export function CardContent({
             {bank}
           </Text>
         </View>
+        {/* i18n-ignore: wordmark */}
         <Text style={[styles.brand, ts, { color: subColor }]}>WAKIRA</Text>
       </View>
       <View>
         <View style={styles.labelRow}>
-          <Text style={[styles.label, ts, { color: subColor }]}>{back ? 'Bulan ini' : 'Baki'}</Text>
+          <Text style={[styles.label, ts, { color: subColor }]}>{back ? t('acct.card.thisMonth') : t('acct.card.balance')}</Text>
           {onToggleHidden ? (
             <Pressable
               onPress={onToggleHidden}
               hitSlop={12}
               style={[styles.round, { borderColor: subColor }]}
               accessibilityRole="button"
-              accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+              accessibilityLabel={hidden ? t('acct.card.showAmounts') : t('acct.card.hideAmounts')}
             >
               <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={14} color={color} />
             </Pressable>
@@ -225,7 +229,7 @@ export function CardContent({
               hitSlop={12}
               style={[styles.round, { borderColor: subColor }]}
               accessibilityRole="button"
-              accessibilityLabel={back ? 'Flip card to see balance' : 'Flip card to see income and spending'}
+              accessibilityLabel={back ? t('acct.card.flipToBalance') : t('acct.card.flipToSplit')}
             >
               <Ionicons name="swap-horizontal-outline" size={14} color={color} />
             </Pressable>
@@ -234,7 +238,7 @@ export function CardContent({
         {back ? (
           <View style={styles.split} pointerEvents="none">
             <Stat
-              label="Income"
+              label={t('acct.card.income')}
               icon="arrow-down"
               value={hidden ? MASK_SPLIT : formatMoney(income)}
               color={color}
@@ -243,7 +247,7 @@ export function CardContent({
             />
             <View style={[styles.divider, { backgroundColor: subColor }]} />
             <Stat
-              label="Spending"
+              label={t('acct.card.spending')}
               icon="arrow-up"
               value={hidden ? MASK_SPLIT : formatMoney(spending)}
               color={color}

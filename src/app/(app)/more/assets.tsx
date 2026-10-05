@@ -10,22 +10,24 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TransferModal } from '@/components/transfer-modal';
-import { ACCOUNT_TYPE_LABEL } from '@/constants/accounts';
+import { accountTypeLabel } from '@/constants/accounts';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Account, AccountType, Transfer } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { dayLabel, monthKeyFromOffset } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { CategoryIcon } from '@/components/category-icon';
 
 type Mode = 'account' | 'type';
 
-const MODES: { key: Mode; label: string }[] = [
-  { key: 'account', label: 'By account' },
-  { key: 'type', label: 'By type' },
+const MODES: { key: Mode; labelKey: TKey }[] = [
+  { key: 'account', labelKey: 'acct.assets.byAccount' },
+  { key: 'type', labelKey: 'acct.assets.byType' },
 ];
 
 const MASK = 'RM ••••••';
@@ -33,6 +35,7 @@ const MASK = 'RM ••••••';
 const colorOf = (a: Account) => a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other;
 
 export default function AssetsScreen() {
+  const { t } = useT();
   const colors = useTheme();
   const { accountBalances, balance, transactions, transfers } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
@@ -50,9 +53,9 @@ export default function AssetsScreen() {
   const monthKey = monthKeyFromOffset(0);
   const monthNet = useMemo(() => {
     let net = 0;
-    transactions.forEach((t) => {
-      if (!t.date.startsWith(monthKey)) return;
-      net += t.type === 'credit' ? t.amount : -t.amount;
+    transactions.forEach((tx) => {
+      if (!tx.date.startsWith(monthKey)) return;
+      net += tx.type === 'credit' ? tx.amount : -tx.amount;
     });
     return net;
   }, [transactions, monthKey]);
@@ -63,15 +66,15 @@ export default function AssetsScreen() {
 
   let slices: DonutSlice[];
   if (mode === 'account') {
-    slices = positive.map((a) => ({ id: a.id, label: a.name, value: a.balance, color: colorOf(a) }));
+    slices = positive.map((a) => ({ id: a.id, label: accountName(a), value: a.balance, color: colorOf(a) }));
   } else {
     const byType = new Map<AccountType, number>();
     positive.forEach((a) => byType.set(a.type, (byType.get(a.type) ?? 0) + a.balance));
-    slices = Array.from(byType.entries()).map(([t, value]) => ({
-      id: t,
-      label: ACCOUNT_TYPE_LABEL[t],
+    slices = Array.from(byType.entries()).map(([type, value]) => ({
+      id: type,
+      label: accountTypeLabel(type),
       value,
-      color: DEFAULT_COLOR[t] ?? DEFAULT_COLOR.other,
+      color: DEFAULT_COLOR[type] ?? DEFAULT_COLOR.other,
     }));
   }
   slices.sort((a, b) => b.value - a.value);
@@ -99,14 +102,17 @@ export default function AssetsScreen() {
 
   function openTransfer(transfer: Transfer | null = null) {
     if (!transfer && accounts.length < 2) {
-      Alert.alert('Add another account', 'A transfer moves money between two accounts. Add a second account first (for example Cash).');
+      Alert.alert(t('acct.assets.alertTitle'), t('acct.assets.alertBody'));
       return;
     }
     setEditingTransfer(transfer);
     setTransferVisible(true);
   }
 
-  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? 'Deleted account';
+  const nameOfAccount = (id: string) => {
+    const a = accounts.find((x) => x.id === id);
+    return a ? accountName(a) : t('acct.assets.deletedAccount');
+  };
   const recentTransfers = [...transfers].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
 
   const flowUp = monthNet > 0;
@@ -117,7 +123,7 @@ export default function AssetsScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <ScreenHeader
-            title="Assets"
+            title={t('acct.assets.title')}
             right={
               <View style={styles.titleActions}>
                 <Pressable
@@ -125,7 +131,7 @@ export default function AssetsScreen() {
                   hitSlop={8}
                   style={[styles.addButton, { backgroundColor: colors.backgroundElement }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Transfer between accounts"
+                  accessibilityLabel={t('acct.assets.transferA11y')}
                 >
                   <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
                 </Pressable>
@@ -134,7 +140,7 @@ export default function AssetsScreen() {
                   hitSlop={8}
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Add account"
+                  accessibilityLabel={t('acct.add.submit')}
                 >
                   <Ionicons name="add" size={22} color="#fff" />
                 </Pressable>
@@ -146,14 +152,14 @@ export default function AssetsScreen() {
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
             <View style={styles.rowBetween}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Net worth
+                {t('acct.assets.netWorth')}
               </ThemedText>
               <Pressable
                 onPress={toggleHideAmounts}
                 hitSlop={12}
                 style={[styles.eye, { backgroundColor: colors.background }]}
                 accessibilityRole="button"
-                accessibilityLabel={hideAmounts ? 'Show amounts' : 'Hide amounts'}
+                accessibilityLabel={hideAmounts ? t('acct.card.showAmounts') : t('acct.card.hideAmounts')}
               >
                 <Ionicons name={hideAmounts ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.text} />
               </Pressable>
@@ -173,7 +179,7 @@ export default function AssetsScreen() {
                   {hideAmounts ? MASK : formatMoney(monthNet, { signed: monthNet !== 0, type: flowUp ? 'credit' : 'debit' })}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  this month
+                  {t('acct.assets.thisMonth')}
                 </ThemedText>
               </View>
             ) : null}
@@ -182,12 +188,12 @@ export default function AssetsScreen() {
           {accounts.length === 0 ? (
             <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="wallet-outline" size={32} color={colors.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>No accounts yet</ThemedText>
+              <ThemedText style={styles.emptyTitle}>{t('acct.assets.emptyTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                Add a bank, cash or e-wallet account to start tracking your assets.
+                {t('acct.assets.emptyBody')}
               </ThemedText>
               <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAdd}>
-                <ThemedText style={styles.emptyButtonText}>Add account</ThemedText>
+                <ThemedText style={styles.emptyButtonText}>{t('acct.add.submit')}</ThemedText>
               </Pressable>
             </View>
           ) : (
@@ -196,7 +202,7 @@ export default function AssetsScreen() {
               <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                 <View style={{ marginBottom: Spacing.three }}>
                   <GlassSegmented
-                    options={MODES}
+                    options={MODES.map((m) => ({ key: m.key, label: t(m.labelKey) }))}
                     value={mode}
                     onChange={changeMode}
                     trackColor={colors.background}
@@ -205,7 +211,7 @@ export default function AssetsScreen() {
 
                 <AccountDonutChart slices={slices} selectedId={selected?.id ?? null}>
                   <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                    {selected ? selected.label : 'Assets'}
+                    {selected ? selected.label : t('acct.assets.title')}
                   </ThemedText>
                   <ThemedText
                     style={styles.centerAmount}
@@ -217,7 +223,7 @@ export default function AssetsScreen() {
                   </ThemedText>
                   {selected ? (
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      {percentOf(selected.value)}% of assets
+                      {t('acct.assets.percentOfAssets', { percent: percentOf(selected.value) })}
                     </ThemedText>
                   ) : null}
                 </AccountDonutChart>
@@ -251,7 +257,7 @@ export default function AssetsScreen() {
                   </View>
                 ) : (
                   <ThemedText type="small" style={[styles.centerNote, { color: colors.textSecondary }]}>
-                    No positive balances to chart yet.
+                    {t('acct.assets.noPositive')}
                   </ThemedText>
                 )}
 
@@ -259,8 +265,7 @@ export default function AssetsScreen() {
                   <View style={[styles.warning, { backgroundColor: `${colors.negative}1A` }]}>
                     <Ionicons name="alert-circle" size={16} color={colors.negative} />
                     <ThemedText type="small" style={[styles.flex, { color: colors.negative }]}>
-                      {overdrawn.map((a) => `${a.name} ${money(a.balance)}`).join(', ')} — overdrawn, not shown in the
-                      chart.
+                      {t('acct.assets.overdrawnNote', { list: overdrawn.map((a) => `${accountName(a)} ${money(a.balance)}`).join(', ') })}
                     </ThemedText>
                   </View>
                 ) : null}
@@ -269,17 +274,17 @@ export default function AssetsScreen() {
               {/* Accounts */}
               <View style={styles.rowBetween}>
                 <ThemedText type="smallBold" style={styles.sectionTitle}>
-                  Accounts · {accounts.length}
+                  {t('acct.assets.accountsHeader', { count: accounts.length })}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Tap to edit
+                  {t('acct.assets.tapToEdit')}
                 </ThemedText>
               </View>
 
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                 {accounts.map((a, i) => {
                   const color = colorOf(a);
-                  const subtitle = [a.typeLabel ?? ACCOUNT_TYPE_LABEL[a.type], a.provider, a.last4 ? `•••• ${a.last4}` : null]
+                  const subtitle = [a.typeLabel ?? accountTypeLabel(a.type), a.provider, a.last4 ? `•••• ${a.last4}` : null]
                     .filter(Boolean)
                     .join(' · ');
                   const negative = a.balance < 0;
@@ -295,7 +300,7 @@ export default function AssetsScreen() {
                     >
                       <CategoryIcon icon={a.icon} color={color} size={42} />
                       <View style={styles.flex}>
-                        <ThemedText numberOfLines={1}>{a.name}</ThemedText>
+                        <ThemedText numberOfLines={1}>{accountName(a)}</ThemedText>
                         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
                           {subtitle}
                         </ThemedText>
@@ -308,7 +313,11 @@ export default function AssetsScreen() {
                           type="small"
                           style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: 12, lineHeight: 16 }}
                         >
-                          {negative ? 'Overdrawn' : a.balance > 0 ? `${percentOf(a.balance)}% of assets` : 'Empty'}
+                          {negative
+                            ? t('acct.assets.overdrawn')
+                            : a.balance > 0
+                              ? t('acct.assets.percentOfAssets', { percent: percentOf(a.balance) })
+                              : t('acct.assets.empty')}
                         </ThemedText>
                       </View>
                     </Pressable>
@@ -320,11 +329,11 @@ export default function AssetsScreen() {
                 onPress={openAdd}
                 style={[styles.addRow, { borderColor: colors.divider }]}
                 accessibilityRole="button"
-                accessibilityLabel="Add a new account"
+                accessibilityLabel={t('acct.assets.addNewA11y')}
               >
                 <Ionicons name="add-circle-outline" size={20} color={colors.accent} />
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Add account
+                  {t('acct.add.submit')}
                 </ThemedText>
               </Pressable>
 
@@ -333,17 +342,17 @@ export default function AssetsScreen() {
                 <>
                   <View style={[styles.rowBetween, styles.transfersHeader]}>
                     <ThemedText type="smallBold" style={styles.sectionTitle}>
-                      Recent transfers
+                      {t('acct.assets.recentTransfers')}
                     </ThemedText>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Tap to edit
+                      {t('acct.assets.tapToEdit')}
                     </ThemedText>
                   </View>
                   <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
-                    {recentTransfers.map((t, i) => (
+                    {recentTransfers.map((tr, i) => (
                       <Pressable
-                        key={t.id}
-                        onPress={() => openTransfer(t)}
+                        key={tr.id}
+                        onPress={() => openTransfer(tr)}
                         style={({ pressed }) => [
                           styles.accountRow,
                           i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
@@ -355,14 +364,14 @@ export default function AssetsScreen() {
                         </View>
                         <View style={styles.flex}>
                           <ThemedText numberOfLines={1}>
-                            {accountName(t.fromAccountId)} → {accountName(t.toAccountId)}
+                            {nameOfAccount(tr.fromAccountId)} → {nameOfAccount(tr.toAccountId)}
                           </ThemedText>
                           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                            {dayLabel(t.date)}
-                            {t.note ? ` · ${t.note}` : ''}
+                            {dayLabel(tr.date)}
+                            {tr.note ? ` · ${tr.note}` : ''}
                           </ThemedText>
                         </View>
-                        <ThemedText style={{ fontWeight: '700' }}>{money(t.amount)}</ThemedText>
+                        <ThemedText style={{ fontWeight: '700' }}>{money(tr.amount)}</ThemedText>
                       </Pressable>
                     ))}
                   </View>

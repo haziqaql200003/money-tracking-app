@@ -10,6 +10,8 @@ import type { Category } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { categoryName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 
 type Props = {
@@ -25,6 +27,7 @@ const QUICK = [100, 200, 300, 500, 1000];
 
 export function BudgetLimitModal({ category, spent, monthName, onClose }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const { updateCategory } = useCategories();
   const [value, setValue] = useState('');
@@ -53,7 +56,7 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
   return (
     <Modal visible={!!category} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[
@@ -66,25 +69,25 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
           {category ? (
             <>
               <SheetHeader
-                title="Monthly budget"
+                title={t('plan.budgetLimit.title')}
                 left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
                 }
               />
               <View style={styles.summary}>
                 <CategoryIcon icon={category.icon} color={category.color} size={56} />
-                <ThemedText style={styles.title}>{category.name}</ThemedText>
+                <ThemedText style={styles.title}>{categoryName(category)}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Spent {formatMoney(spent)} in {monthName}
+                  {t('plan.budgetLimit.spentIn', { amount: formatMoney(spent), month: monthName })}
                 </ThemedText>
               </View>
 
               <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-                Monthly budget (RM)
+                {t('plan.budgetLimit.monthlyRm')}
               </ThemedText>
               <TextInput
                 style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -112,14 +115,14 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
                     style={[styles.quick, styles.quickWide, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
                   >
                     <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                      Match spending · {matchAmount}
+                      {t('plan.budgetLimit.match', { amount: matchAmount })}
                     </ThemedText>
                   </Pressable>
                 ) : null}
               </View>
 
               <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
-                This limit repeats every month.
+                {t('plan.budgetLimit.repeats')}
               </ThemedText>
 
               <Pressable
@@ -128,13 +131,13 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
                 disabled={!valid}
               >
                 <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>
-                  {hasBudget ? 'Save budget' : 'Set budget'}
+                  {hasBudget ? t('plan.budgetLimit.save') : t('plan.budgetLimit.set')}
                 </ThemedText>
               </Pressable>
 
               {hasBudget ? (
                 <Pressable style={styles.removeButton} onPress={remove}>
-                  <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Remove budget</ThemedText>
+                  <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('plan.budgetLimit.remove')}</ThemedText>
                 </Pressable>
               ) : null}
             </>
@@ -176,4 +179,4 @@ const styles = StyleSheet.create({
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
   saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   removeButton: { padding: 14, alignItems: 'center' },
-});
+});

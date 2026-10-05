@@ -5,11 +5,18 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCompact, formatMoney } from '@/utils/currency';
-import { monthLabel } from '@/utils/dates';
+import { useT } from '@/i18n';
+import { formatMonthYear, monthShort } from '@/i18n/format';
 import type { MonthTotals } from '@/utils/insights';
 
 const PLOT_HEIGHT = 130;
 const MASK = 'RM ••••';
+
+/** 'YYYY-MM' -> "October 2026" / "Oktober 2026" (long) or "Oct" / "Okt" (short). */
+function monthLabel(key: string, variant: 'long' | 'short' = 'long') {
+  const [y, m] = key.split('-').map(Number);
+  return variant === 'long' ? formatMonthYear(new Date(y, m - 1, 1)) : monthShort(m - 1);
+}
 
 type Props = {
   data: MonthTotals[];
@@ -21,6 +28,7 @@ type Props = {
  * The parent gives it a `key` per range so the selection starts on the latest month after switching 3 / 6 / 12.
  */
 export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
+  const { t } = useT();
   const colors = useTheme();
   const [selected, setSelected] = useState(data.length - 1);
 
@@ -48,7 +56,7 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
               style={[styles.column, isActive && { backgroundColor: colors.backgroundSelected }]}
               onPress={() => setSelected(i)}
               accessibilityRole="button"
-              accessibilityLabel={`${monthLabel(d.key)}. Income ${money(d.income)}. Spending ${money(d.spending)}.`}
+              accessibilityLabel={t('home.chart.a11yMonth', { month: monthLabel(d.key), income: money(d.income), spending: money(d.spending) })}
             >
               <View style={styles.bars}>
                 <View
@@ -82,13 +90,13 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: colors.positive }]} />
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            Income
+            {t('common.income')}
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: colors.negative }]} />
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            Spending
+            {t('home.chart.spending')}
           </ThemedText>
         </View>
       </View>
@@ -99,7 +107,7 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
           <View style={styles.detailRow}>
             <View style={styles.detailCell}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Income
+                {t('common.income')}
               </ThemedText>
               <ThemedText style={[styles.detailValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>
                 {money(active.income)}
@@ -107,7 +115,7 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
             </View>
             <View style={styles.detailCell}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Spending
+                {t('home.chart.spending')}
               </ThemedText>
               <ThemedText style={[styles.detailValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>
                 {money(active.spending)}
@@ -115,7 +123,7 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
             </View>
             <View style={styles.detailCell}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Net
+                {t('home.chart.net')}
               </ThemedText>
               <ThemedText
                 style={[styles.detailValue, { color: active.net < 0 ? colors.negative : colors.text }]}

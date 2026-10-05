@@ -12,6 +12,8 @@ import { useCategories } from '@/context/CategoriesContext';
 import type { PendingEntry } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel } from '@/utils/dates';
 
@@ -23,23 +25,24 @@ type Props = {
 
 export function ConfirmPendingModal({ entry, onClose }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={!!entry} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title="Confirm amount"
+            title={t('tx.confirm.title')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -56,6 +59,7 @@ export function ConfirmPendingModal({ entry, onClose }: Props) {
 
 function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => void }) {
   const colors = useTheme();
+  const { t } = useT();
   const { recurringRules, accounts, confirmPending, dismissPending } = useTransactions();
   const { getCategory } = useCategories();
 
@@ -67,10 +71,10 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
     return (
       <View style={styles.missing}>
         <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          This recurring item no longer exists.
+          {t('tx.confirm.missing')}
         </ThemedText>
         <Pressable style={styles.textButton} onPress={() => { dismissPending(entry.id); onDone(); }}>
-          <ThemedText style={{ color: colors.accent, fontWeight: '600' }}>Remove</ThemedText>
+          <ThemedText style={{ color: colors.accent, fontWeight: '600' }}>{t('common.remove')}</ThemedText>
         </Pressable>
       </View>
     );
@@ -89,10 +93,10 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
   }
 
   function skip() {
-    Alert.alert('Skip this one?', `Nothing will be recorded for ${dayLabel(entry.date)}. Future dates are not affected.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('tx.confirm.skipTitle'), t('tx.confirm.skipMessage', { date: dayLabel(entry.date) }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Skip',
+        text: t('common.skip'),
         style: 'destructive',
         onPress: () => {
           dismissPending(entry.id);
@@ -108,13 +112,13 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
         <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={56} />
         <ThemedText style={styles.title}>{rule.title}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          Due {dayLabel(entry.date)}
-          {account ? ` · ${account.name}` : ''}
+          {t('tx.confirm.due', { date: dayLabel(entry.date) })}
+          {account ? ` · ${accountName(account)}` : ''}
         </ThemedText>
       </View>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {income ? 'Amount received (RM)' : 'Amount paid (RM)'}
+        {income ? t('tx.confirm.amountReceived') : t('tx.confirm.amountPaid')}
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -124,17 +128,17 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
         onChangeText={setAmount}
         keyboardType="decimal-pad"
         autoFocus
-        accessibilityLabel="Real amount in Malaysian Ringgit"
+        accessibilityLabel={t('tx.confirm.amountA11y')}
       />
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
         {income
-          ? 'Enter what actually reached your account (your net pay, after deductions).'
-          : 'Enter the amount on the bill.'}
-        {rule.amount > 0 ? ` Expected ${formatMoney(rule.amount)}.` : ''}
+          ? t('tx.confirm.hintIncome')
+          : t('tx.confirm.hintExpense')}
+        {rule.amount > 0 ? ` ${t('tx.confirm.expected', { amount: formatMoney(rule.amount) })}` : ''}
       </ThemedText>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {income ? 'Date received' : 'Date paid'}
+        {income ? t('tx.confirm.dateReceived') : t('tx.confirm.datePaid')}
       </ThemedText>
       <DateField value={date} onChange={setDate} showQuick maxToday />
 
@@ -143,11 +147,11 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
         onPress={record}
         disabled={!valid}
       >
-        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>Record</ThemedText>
+        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>{t('tx.confirm.record')}</ThemedText>
       </Pressable>
 
       <Pressable style={styles.textButton} onPress={skip}>
-        <ThemedText style={{ color: colors.textSecondary, fontWeight: '600' }}>Skip this one</ThemedText>
+        <ThemedText style={{ color: colors.textSecondary, fontWeight: '600' }}>{t('tx.confirm.skipButton')}</ThemedText>
       </Pressable>
     </View>
   );

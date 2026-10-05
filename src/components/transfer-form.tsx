@@ -8,6 +8,8 @@ import { Spacing } from '@/constants/theme';
 import type { Account, Transfer } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
 
@@ -52,7 +54,7 @@ function AccountChips({
             <View style={styles.chipInner}>
               <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
               <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                {acc.name}
+                {accountName(acc)}
               </ThemedText>
             </View>
           </Pressable>
@@ -64,6 +66,7 @@ function AccountChips({
 
 export function TransferForm({ editing, onDone }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const { accounts, accountBalance, addTransfer, updateTransfer, deleteTransfer } = useTransactions();
 
   const [fromId, setFromId] = useState(editing?.fromAccountId ?? accounts[0]?.id ?? '');
@@ -76,9 +79,9 @@ export function TransferForm({ editing, onDone }: Props) {
     return (
       <View style={[styles.info, { backgroundColor: colors.backgroundElement }]}>
         <Ionicons name="swap-horizontal" size={28} color={colors.textSecondary} />
-        <ThemedText style={styles.infoTitle}>Add another account first</ThemedText>
+        <ThemedText style={styles.infoTitle}>{t('tx.transfer.needAccountTitle')}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          A transfer moves money between two of your accounts, so you need at least two (for example Bank and Cash).
+          {t('tx.transfer.needAccountBody')}
         </ThemedText>
       </View>
     );
@@ -126,10 +129,10 @@ export function TransferForm({ editing, onDone }: Props) {
 
   function remove() {
     if (!editing) return;
-    Alert.alert('Delete transfer?', "Both account balances go back to what they were before this transfer. This can't be undone.", [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('tx.transfer.deleteTitle'), t('tx.transfer.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
           deleteTransfer(editing.id);
@@ -142,12 +145,12 @@ export function TransferForm({ editing, onDone }: Props) {
   return (
     <View>
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        From
+        {t('tx.transfer.from')}
       </ThemedText>
       <AccountChips accounts={accounts} selectedId={fromId} onSelect={pickFrom} />
       {fromAccount ? (
         <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.one }}>
-          Balance {formatMoney(availableBefore)}
+          {t('tx.transfer.balance', { amount: formatMoney(availableBefore) })}
         </ThemedText>
       ) : null}
 
@@ -158,7 +161,7 @@ export function TransferForm({ editing, onDone }: Props) {
           hitSlop={8}
           style={[styles.swapButton, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
           accessibilityRole="button"
-          accessibilityLabel="Swap accounts"
+          accessibilityLabel={t('tx.transfer.swapA11y')}
         >
           <Ionicons name="swap-vertical" size={18} color={colors.accent} />
         </Pressable>
@@ -166,12 +169,12 @@ export function TransferForm({ editing, onDone }: Props) {
       </View>
 
       <ThemedText type="small" style={[styles.labelTight, { color: colors.textSecondary }]}>
-        To
+        {t('tx.transfer.to')}
       </ThemedText>
       <AccountChips accounts={accounts} selectedId={toId} onSelect={pickTo} />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Amount (RM)
+        {t('tx.add.amountRm')}
       </ThemedText>
       <TextInput
         style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -180,32 +183,32 @@ export function TransferForm({ editing, onDone }: Props) {
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        accessibilityLabel="Transfer amount in Malaysian Ringgit"
+        accessibilityLabel={t('tx.transfer.amountA11y')}
       />
       {overdraws ? (
         <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-          This is more than the balance in {fromAccount?.name}. It will go negative.
+          {t('tx.transfer.overdraw', { name: fromAccount ? accountName(fromAccount) : '' })}
         </ThemedText>
       ) : null}
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Date
+        {t('common.date')}
       </ThemedText>
       <DateField value={date} onChange={setDate} showQuick maxToday />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Note
+        {t('common.note')}
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-        placeholder="Optional, e.g. Top up e-wallet"
+        placeholder={t('tx.transfer.notePlaceholder')}
         placeholderTextColor={colors.textSecondary}
         value={note}
         onChangeText={setNote}
       />
 
       <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
-        Transfers only move money between your accounts. They are not counted as income or spending.
+        {t('tx.transfer.explain')}
       </ThemedText>
 
       <Pressable
@@ -214,13 +217,13 @@ export function TransferForm({ editing, onDone }: Props) {
         disabled={!canSave}
       >
         <ThemedText style={[styles.saveText, !canSave && { color: colors.textSecondary }]}>
-          {editing ? 'Save changes' : 'Save transfer'}
+          {editing ? t('tx.add.saveChanges') : t('tx.transfer.save')}
         </ThemedText>
       </Pressable>
 
       {editing ? (
         <Pressable style={styles.removeButton} onPress={remove}>
-          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete transfer</ThemedText>
+          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('tx.transfer.delete')}</ThemedText>
         </Pressable>
       ) : null}
     </View>
@@ -263,4 +266,4 @@ const styles = StyleSheet.create({
 
   info: { borderRadius: 16, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
   infoTitle: { fontSize: 17, fontWeight: '700' },
-});
+});

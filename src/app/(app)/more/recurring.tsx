@@ -15,6 +15,8 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import type { PendingEntry, RecurringRule } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel, toDateKey } from '@/utils/dates';
 import { frequencyLabel, isAsk, isEnded, monthlyEquivalent, relativeDay } from '@/utils/recurring';
@@ -23,6 +25,7 @@ const MASK = 'RM ••••';
 
 export default function RecurringScreen() {
   const colors = useTheme();
+  const { t } = useT();
   const { recurringRules, accounts, pendingEntries } = useTransactions();
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
@@ -56,7 +59,11 @@ export default function RecurringScreen() {
     const category = getCategory(rule.categoryId);
     const account = accounts.find((a) => a.id === rule.accountId);
     const ended = isEnded(rule);
-    const status = ended ? 'Ended' : !rule.active ? 'Paused' : `Next: ${relativeDay(rule.nextDate, today)}`;
+    const status = ended
+      ? t('tx.recurring.ended')
+      : !rule.active
+        ? t('tx.recurring.paused')
+        : t('tx.recurring.next', { when: relativeDay(rule.nextDate, today) });
     const amountColor = rule.type === 'debit' ? colors.negative : colors.positive;
     const ask = isAsk(rule);
 
@@ -75,8 +82,8 @@ export default function RecurringScreen() {
           <ThemedText numberOfLines={1}>{rule.title}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
             {frequencyLabel(rule.frequency)} · {status}
-            {account ? ` · ${account.name}` : ''}
-            {ask ? ' · Confirm each time' : ''}
+            {account ? ` · ${accountName(account)}` : ''}
+            {ask ? ` · ${t('tx.rec.modeAsk')}` : ''}
           </ThemedText>
         </View>
         <ThemedText style={{ color: amountColor, fontWeight: '700' }}>
@@ -85,7 +92,7 @@ export default function RecurringScreen() {
             : ask
               ? rule.amount > 0
                 ? `~${formatMoney(rule.amount)}`
-                : 'Varies'
+                : t('tx.recurring.varies')
               : formatMoney(rule.amount, { signed: true, type: rule.type })}
         </ThemedText>
       </Pressable>
@@ -110,12 +117,13 @@ export default function RecurringScreen() {
         <View style={styles.flex}>
           <ThemedText numberOfLines={1}>{rule.title}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-            Due {dayLabel(entry.date)} · {rule.amount > 0 ? `Expected ${money(rule.amount)}` : 'Enter the amount'}
+            {t('tx.confirm.due', { date: dayLabel(entry.date) })} ·{' '}
+            {rule.amount > 0 ? t('tx.confirm.expected', { amount: money(rule.amount) }) : t('tx.recurring.enterAmount')}
           </ThemedText>
         </View>
         <View style={[styles.pill, { backgroundColor: colors.accent }]}>
           <ThemedText type="small" style={styles.pillText}>
-            Confirm
+            {t('common.confirm')}
           </ThemedText>
         </View>
       </Pressable>
@@ -127,14 +135,14 @@ export default function RecurringScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <ScreenHeader
-            title="Recurring"
+            title={t('tx.recurring.title')}
             right={
               <Pressable
                 onPress={openAdd}
                 hitSlop={8}
                 style={[styles.addButton, { backgroundColor: colors.accent }]}
                 accessibilityRole="button"
-                accessibilityLabel="Add recurring transaction"
+                accessibilityLabel={t('tx.recurring.addA11y')}
               >
                 <Ionicons name="add" size={22} color="#fff" />
               </Pressable>
@@ -144,7 +152,7 @@ export default function RecurringScreen() {
           {waiting.length > 0 ? (
             <>
               <ThemedText type="smallBold" style={styles.sectionTitle}>
-                To confirm · {waiting.length}
+                {t('tx.recurring.toConfirm', { count: waiting.length })}
               </ThemedText>
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement, borderColor: colors.accent, borderWidth: 1.5 }]}>
                 {waiting.map((entry, i) => renderPending(entry, i))}
@@ -155,20 +163,19 @@ export default function RecurringScreen() {
           {recurringRules.length === 0 ? (
             <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="repeat" size={32} color={colors.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>Nothing repeating yet</ThemedText>
+              <ThemedText style={styles.emptyTitle}>{t('tx.recurring.emptyTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                Add things that happen on a schedule, like rent, salary, insurance or a subscription. They are recorded for you
-                on the day.
+                {t('tx.recurring.emptyBody')}
               </ThemedText>
               <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAdd}>
-                <ThemedText style={styles.emptyButtonText}>Add recurring</ThemedText>
+                <ThemedText style={styles.emptyButtonText}>{t('tx.recurring.add')}</ThemedText>
               </Pressable>
             </View>
           ) : (
             <>
               <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Committed each month
+                  {t('tx.recurring.committed')}
                 </ThemedText>
                 <ThemedText style={styles.big} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                   {money(monthlyOut)}
@@ -176,14 +183,14 @@ export default function RecurringScreen() {
                 <View style={[styles.tiles, { borderTopColor: colors.divider }]}>
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Recurring income
+                      {t('tx.recurring.income')}
                     </ThemedText>
                     <ThemedText style={[styles.tileValue, { color: colors.positive }]}>{money(monthlyIn)}</ThemedText>
                   </View>
                   <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Left after
+                      {t('tx.recurring.leftAfter')}
                     </ThemedText>
                     <ThemedText style={[styles.tileValue, monthlyIn - monthlyOut < 0 && { color: colors.negative }]}>
                       {hideAmounts ? MASK : `${monthlyIn - monthlyOut < 0 ? '-' : ''}${formatMoney(monthlyIn - monthlyOut)}`}
@@ -191,7 +198,7 @@ export default function RecurringScreen() {
                   </View>
                 </View>
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
-                  Weekly and daily items are averaged to a month, so this is an estimate.
+                  {t('tx.recurring.estimate')}
                 </ThemedText>
               </View>
 
@@ -199,10 +206,10 @@ export default function RecurringScreen() {
                 <>
                   <View style={styles.rowBetween}>
                     <ThemedText type="smallBold" style={styles.sectionTitle}>
-                      Coming up · {running.length}
+                      {t('tx.recurring.comingUp', { count: running.length })}
                     </ThemedText>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Tap to edit
+                      {t('tx.recurring.tapToEdit')}
                     </ThemedText>
                   </View>
                   <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
@@ -214,7 +221,7 @@ export default function RecurringScreen() {
               {stopped.length > 0 ? (
                 <>
                   <ThemedText type="smallBold" style={styles.sectionTitle}>
-                    Paused or ended · {stopped.length}
+                    {t('tx.recurring.stopped', { count: stopped.length })}
                   </ThemedText>
                   <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                     {stopped.map((r, i) => renderRow(r, i, true))}
@@ -225,7 +232,7 @@ export default function RecurringScreen() {
           )}
 
           <ThemedText type="small" style={[styles.footnote, styles.center, { color: colors.textSecondary }]}>
-            A transaction is created automatically when its date arrives. If the app was closed, it catches up next time you open it.
+            {t('tx.recurring.footer')}
           </ThemedText>
         </ScrollView>
 

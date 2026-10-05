@@ -6,19 +6,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CHANGELOG, type ChangeKind } from '@/constants/changelog';
+import { CHANGELOG, entryText, releaseTitle, type ChangeKind } from '@/constants/changelog';
 import { Spacing } from '@/constants/theme';
 import { useUpdates } from '@/context/UpdatesContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { formatDate } from '@/i18n/format';
 
-const KIND_META: Record<ChangeKind, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
-  new: { icon: 'sparkles', label: 'New' },
-  improved: { icon: 'trending-up', label: 'Improved' },
-  fixed: { icon: 'build', label: 'Fixed' },
+const KIND_ICON: Record<ChangeKind, keyof typeof Ionicons.glyphMap> = {
+  new: 'sparkles',
+  improved: 'trending-up',
+  fixed: 'build',
 };
+
+// 'YYYY-MM-DD' as a local date (new Date(string) would read it as UTC).
+function parseDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 export default function WhatsNewScreen() {
   const colors = useTheme();
+  const { t, lang } = useT();
   const { markUpdateSeen } = useUpdates();
 
   useEffect(() => {
@@ -29,7 +38,7 @@ export default function WhatsNewScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <ScreenHeader title="What's New" />
+          <ScreenHeader title={t('more.whatsNew.title')} />
 
           {CHANGELOG.map((release, idx) => (
             <View key={release.version} style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
@@ -40,20 +49,19 @@ export default function WhatsNewScreen() {
                   </ThemedText>
                 </View>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {new Date(release.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {formatDate(parseDate(release.date), 'long')}
                 </ThemedText>
               </View>
 
-              <ThemedText style={styles.title}>{release.title}</ThemedText>
+              <ThemedText style={styles.title}>{releaseTitle(release, lang)}</ThemedText>
 
               <View style={styles.changes}>
                 {release.changes.map((c, i) => {
-                  const meta = KIND_META[c.kind];
                   return (
                     <View key={i} style={styles.changeRow}>
-                      <Ionicons name={meta.icon} size={15} color={colors.accent} style={styles.changeIcon} />
+                      <Ionicons name={KIND_ICON[c.kind]} size={15} color={colors.accent} style={styles.changeIcon} />
                       <ThemedText type="small" style={styles.flex}>
-                        {c.text}
+                        {entryText(c, lang)}
                       </ThemedText>
                     </View>
                   );
@@ -63,7 +71,7 @@ export default function WhatsNewScreen() {
           ))}
 
           <ThemedText type="small" style={[styles.footer, { color: colors.textSecondary }]}>
-            You're all caught up 🎉
+            {t('more.whatsNew.caughtUp')}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>
@@ -84,4 +92,4 @@ const styles = StyleSheet.create({
   changeRow: { flexDirection: 'row', gap: 8 },
   changeIcon: { marginTop: 2 },
   footer: { textAlign: 'center', marginTop: Spacing.two },
-});
+});

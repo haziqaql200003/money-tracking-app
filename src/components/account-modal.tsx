@@ -15,6 +15,8 @@ import { useCategories } from '@/context/CategoriesContext';
 import { useProfile } from '@/context/ProfileContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { formatDate } from '@/i18n/format';
 
 type Props = {
   visible: boolean;
@@ -25,6 +27,7 @@ type LinkItem = { icon: IconName; label: string; subtitle: string; tint: string;
 
 export function AccountModal({ visible, onClose }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { displayName, setDisplayName, avatarColor, setAvatarColor } = useProfile();
@@ -45,17 +48,17 @@ export function AccountModal({ visible, onClose }: Props) {
 
   const trackingSince = useMemo(() => {
     if (transactions.length === 0) return null;
-    const earliest = transactions.reduce((min, t) => (t.date < min ? t.date : min), transactions[0].date);
+    const earliest = transactions.reduce((min, tx) => (tx.date < min ? tx.date : min), transactions[0].date);
     const [y, m, d] = earliest.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(y, m - 1, d);
   }, [transactions]);
 
   const avatarInk = isLightColor(avatarColor) ? '#111827' : '#FFFFFF';
 
   const links: LinkItem[] = [
-    { icon: 'pie-chart-outline', label: 'Budgets', subtitle: 'Monthly limits per category', tint: colors.accent, href: '/more/budgets' },
-    { icon: 'pricetags-outline', label: 'Categories', subtitle: 'Icons, colours & subcategories', tint: '#F0529C', href: '/more/categories' },
-    { icon: 'settings-outline', label: 'Settings', subtitle: 'Appearance, privacy, data', tint: '#14B8A6', href: '/more/settings' },
+    { icon: 'pie-chart-outline', label: t('acct.profile.budgets'), subtitle: t('acct.profile.budgetsSub'), tint: colors.accent, href: '/more/budgets' },
+    { icon: 'pricetags-outline', label: t('acct.profile.categories'), subtitle: t('acct.profile.categoriesSub'), tint: '#F0529C', href: '/more/categories' },
+    { icon: 'settings-outline', label: t('acct.profile.settings'), subtitle: t('acct.profile.settingsSub'), tint: '#14B8A6', href: '/more/settings' },
   ];
 
   function goTo(href: LinkItem['href']) {
@@ -66,7 +69,7 @@ export function AccountModal({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[styles.modalBox, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
@@ -74,11 +77,11 @@ export function AccountModal({ visible, onClose }: Props) {
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <SheetHeader
-            title="Profile"
+            title={t('acct.profile.title')}
             right={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Done
+                  {t('common.done')}
                 </ThemedText>
               </Pressable>
             }
@@ -98,7 +101,7 @@ export function AccountModal({ visible, onClose }: Props) {
                 value={name}
                 onChangeText={setName}
                 onEndEditing={commitName}
-                placeholder="Your name"
+                placeholder={t('acct.profile.namePlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 textAlign="center"
                 maxLength={24}
@@ -106,7 +109,7 @@ export function AccountModal({ visible, onClose }: Props) {
               />
               {trackingSince ? (
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Tracking money since {trackingSince}
+                  {t('acct.profile.since', { date: formatDate(trackingSince) })}
                 </ThemedText>
               ) : null}
             </View>
@@ -121,7 +124,7 @@ export function AccountModal({ visible, onClose }: Props) {
                       key={c}
                       onPress={() => setAvatarColor(c)}
                       style={[styles.swatch, { backgroundColor: c }, active && { borderColor: colors.text }]}
-                      accessibilityLabel={`Avatar colour ${c}`}
+                      accessibilityLabel={t('acct.profile.avatarColourA11y', { color: c })}
                     />
                   );
                 })}
@@ -133,21 +136,21 @@ export function AccountModal({ visible, onClose }: Props) {
               <View style={styles.statCell}>
                 <ThemedText style={styles.statValue}>{transactions.length}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Transactions
+                  {t('acct.profile.transactions')}
                 </ThemedText>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
               <View style={styles.statCell}>
                 <ThemedText style={styles.statValue}>{accounts.length}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Accounts
+                  {t('acct.profile.accounts')}
                 </ThemedText>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
               <View style={styles.statCell}>
                 <ThemedText style={styles.statValue}>{categories.length}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Categories
+                  {t('acct.profile.categories')}
                 </ThemedText>
               </View>
             </View>
@@ -179,7 +182,7 @@ export function AccountModal({ visible, onClose }: Props) {
             </View>
 
             <ThemedText type="small" style={[styles.footer, { color: colors.textSecondary }]}>
-              WaKira · MVP build
+              {t('acct.profile.footer')}
             </ThemedText>
           </ScrollView>
         </ThemedView>
@@ -221,4 +224,4 @@ const styles = StyleSheet.create({
   linkIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
   footer: { textAlign: 'center', marginBottom: Spacing.three },
-});
+});

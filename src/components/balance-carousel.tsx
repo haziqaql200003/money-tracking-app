@@ -3,7 +3,6 @@ import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 
 import { AccountCard } from '@/components/account-card';
 import { AddAccountModal } from '@/components/add-account-modal';
-import { ACCOUNT_TYPE_LABEL } from '@/constants/accounts';
 import { DEFAULT_COLOR, normalizeDesign, type CardDesign } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import type { Account, Transaction } from '@/context/TransactionsContext';
@@ -11,6 +10,8 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconName } from '@/constants/categories';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 
 const PEEK = 28; // how much of the next card shows at the right edge
 const GAP = 12;
@@ -58,6 +59,7 @@ type Props = {
 };
 
 export function BalanceCarousel({ onSelectAccount }: Props) {
+  const { t, tp } = useT();
   const colors = useTheme();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { width } = useWindowDimensions();
@@ -74,8 +76,8 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
       kind: 'account',
       id: 'total',
       account: null,
-      title: 'All accounts',
-      subtitle: `${accounts.length} account${accounts.length === 1 ? '' : 's'}`,
+      title: t('home.carousel.allAccounts'),
+      subtitle: tp('home.carousel.accountCount', accounts.length),
       icon: 'wallet',
       balance,
       ...monthTotals(transactions),
@@ -87,8 +89,8 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         kind: 'account',
         id: a.id,
         account: a,
-        title: a.name,
-        subtitle: [a.provider, a.typeLabel ?? ACCOUNT_TYPE_LABEL[a.type]].filter(Boolean).join(' · '),
+        title: accountName(a),
+        subtitle: [a.provider, a.typeLabel ?? t(`home.carousel.type.${a.type}`)].filter(Boolean).join(' · '),
         icon: a.icon,
         balance: accountBalance(a.id),
         ...monthTotals(transactions, a.id),
@@ -142,14 +144,14 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
                   { width: cardWidth, borderColor: colors.divider, backgroundColor: colors.backgroundElement },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel="Add a new account"
+                accessibilityLabel={t('home.carousel.addTitle')}
               >
                 <View style={[styles.addCircle, { backgroundColor: colors.background }]}>
                   <Text style={[styles.addPlus, { color: colors.text }]}>+</Text>
                 </View>
-                <Text style={[styles.addTitle, { color: colors.text }]}>Add a new account</Text>
+                <Text style={[styles.addTitle, { color: colors.text }]}>{t('home.carousel.addTitle')}</Text>
                 <Text style={[styles.addHint, { color: colors.textSecondary }]}>
-                  Bank, cash, e-wallet or savings. Track each one separately.
+                  {t('home.carousel.addHint')}
                 </Text>
               </Pressable>
             );

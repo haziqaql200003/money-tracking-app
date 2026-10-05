@@ -3,7 +3,7 @@ import { StyleSheet, View, useColorScheme } from 'react-native';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { Glass } from '@/components/glass/glass';
-import { SpendingChart, PERIOD_COLOR } from '@/components/spending-chart';
+import { SpendingChart, PERIOD_COLOR, pointLabel } from '@/components/spending-chart';
 import { ThemedText } from '@/components/themed-text';
 import { WeekChartPager } from '@/components/week-chart-pager';
 import { Spacing } from '@/constants/theme';
@@ -12,17 +12,18 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
 import { useSettings } from '@/context/SettingsContext';
+import { useT, type TKey } from '@/i18n';
 
-const PERIODS: { key: ChartPeriod; label: string }[] = [
-  { key: 'week', label: 'Week' },
-  { key: 'month', label: 'Month' },
-  { key: 'year', label: 'Year' },
+const PERIODS: { key: ChartPeriod; labelKey: TKey }[] = [
+  { key: 'week', labelKey: 'home.overview.period.week' },
+  { key: 'month', labelKey: 'home.overview.period.month' },
+  { key: 'year', labelKey: 'home.overview.period.year' },
 ];
 
-const STAT_LABELS: Record<ChartPeriod, { average: string; peak: string }> = {
-  week: { average: 'Daily average', peak: 'Highest day' },
-  month: { average: 'Monthly average', peak: 'Highest month' },
-  year: { average: 'Yearly average', peak: 'Highest year' },
+const STAT_LABELS: Record<ChartPeriod, { average: TKey; peak: TKey }> = {
+  week: { average: 'home.overview.stat.week.average', peak: 'home.overview.stat.week.peak' },
+  month: { average: 'home.overview.stat.month.average', peak: 'home.overview.stat.month.peak' },
+  year: { average: 'home.overview.stat.year.average', peak: 'home.overview.stat.year.peak' },
 };
 
 const sum = (points: ChartPoint[]) => points.reduce((total, p) => total + p.value, 0);
@@ -35,6 +36,7 @@ type Props = {
 };
 
 export function SpendingOverview({ accountId, accountName }: Props) {
+  const { t, tp } = useT();
   const colors = useTheme();
   const isDark = useColorScheme() === 'dark';
   const { getWeekChartData, getMonthChartData, getYearChartData } = useTransactions();
@@ -67,12 +69,16 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 
   const currentYear = new Date().getFullYear();
   const weekLabel =
-    weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : `${Math.abs(weekOffset)} weeks ago`;
+    weekOffset === 0
+      ? t('home.overview.thisWeek')
+      : weekOffset === -1
+        ? t('home.overview.lastWeek')
+        : tp('home.overview.weeksAgo', Math.abs(weekOffset));
   const baseCaption =
     period === 'week'
       ? weekLabel
       : period === 'month'
-        ? `Spent in ${currentYear}`
+        ? t('home.overview.spentIn', { year: currentYear })
         : chartData.length > 1
           ? `${chartData[0].label}–${chartData[chartData.length - 1].label}`
           : `${chartData[0]?.label ?? currentYear}`;
@@ -90,7 +96,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
     <View>
       <View style={{ marginBottom: Spacing.three }}>
         <GlassSegmented
-          options={PERIODS}
+          options={PERIODS.map((p) => ({ key: p.key, label: t(p.labelKey) }))}
           value={period}
           onChange={selectPeriod}
         />
@@ -113,7 +119,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
                 {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {Math.abs(Math.round(deltaPercent))}%
               </ThemedText>
               <ThemedText type="small" style={[styles.deltaCaption, { color: colors.textSecondary }]}>
-                vs prior week
+                {t('home.overview.vsPriorWeek')}
               </ThemedText>
             </View>
           )}
@@ -130,24 +136,24 @@ export function SpendingOverview({ accountId, accountName }: Props) {
         <View style={[styles.statsRow, { borderTopColor: colors.divider }]}>
           <View style={styles.stat}>
             <ThemedText type="small" style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {STAT_LABELS[period].average}
+              {t(STAT_LABELS[period].average)}
             </ThemedText>
             <ThemedText type="smallBold">{total > 0 ? formatMoney(average) : '—'}</ThemedText>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
           <View style={styles.stat}>
             <ThemedText type="small" style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {STAT_LABELS[period].peak}
+              {t(STAT_LABELS[period].peak)}
             </ThemedText>
             <ThemedText type="smallBold" style={peak ? { color: accent } : undefined}>
-              {peak ? `${formatMoney(peak.value)} · ${peak.label}` : '—'}
+              {peak ? `${formatMoney(peak.value)} · ${pointLabel(peak, period)}` : '—'}
             </ThemedText>
           </View>
         </View>
       </Glass>
 
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
-        {period === 'week' ? 'Swipe the chart to see other weeks · tap a day for details' : 'Tap a point for details'}
+        {period === 'week' ? t('home.overview.hintWeek') : t('home.overview.hintPoint')}
       </ThemedText>
     </View>
   );

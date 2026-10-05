@@ -16,13 +16,19 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
+import { categoryName } from '@/i18n/data';
 import { budgetStatus, spentByCategory, type BudgetStatus } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
 import { monthKeyFromOffset, monthLabel } from '@/utils/dates';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
-const STATUS_TEXT: Record<BudgetStatus, string> = { ok: 'On track', warn: 'Nearing limit', over: 'Over budget' };
+const STATUS_KEY: Record<BudgetStatus, TKey> = {
+  ok: 'plan.budget.status.ok',
+  warn: 'plan.budget.status.warn',
+  over: 'plan.budget.status.over',
+};
 
 function Bar({ ratio, color, track, height = 8 }: { ratio: number; color: string; track: string; height?: number }) {
   return (
@@ -41,6 +47,7 @@ function Bar({ ratio, color, track, height = 8 }: { ratio: number; color: string
 
 export default function BudgetsScreen() {
   const colors = useTheme();
+  const { t, tp } = useT();
   const { transactions } = useTransactions();
   const { expenseCategories, updateCategory } = useCategories();
   const { warnPercent } = useSettings();
@@ -97,18 +104,18 @@ export default function BudgetsScreen() {
       .filter((s) => s.amount > 0);
 
     if (suggestions.length === 0) {
-      Alert.alert('Not enough history', 'Suggestions need spending from the previous 3 months in categories without a budget.');
+      Alert.alert(t('plan.budget.notEnoughTitle'), t('plan.budget.notEnoughBody'));
       return;
     }
     Alert.alert(
-      'Suggest budgets',
-      `Set budgets from your average monthly spending (last 3 months)?\n\n${suggestions
-        .map((s) => `${s.cat.name}: ${formatMoney(s.amount)}`)
-        .join('\n')}`,
+      t('plan.budget.suggest'),
+      t('plan.budget.suggestBody', {
+        list: suggestions.map((s) => `${categoryName(s.cat)}: ${formatMoney(s.amount)}`).join('\n'),
+      }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Apply',
+          text: t('common.apply'),
           onPress: () => suggestions.forEach((s) => updateCategory(s.cat.id, { monthlyLimit: s.amount })),
         },
       ],
@@ -120,7 +127,7 @@ export default function BudgetsScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <ScreenHeader
-            title="Budgets"
+            title={t('plan.budget.title')}
             right={
               unbudgeted.length > 0 ? (
                 <Pressable
@@ -128,7 +135,7 @@ export default function BudgetsScreen() {
                   hitSlop={8}
                   style={[styles.iconButton, { backgroundColor: colors.backgroundElement }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Suggest budgets"
+                  accessibilityLabel={t('plan.budget.suggest')}
                 >
                   <Ionicons name="sparkles" size={18} color={colors.accent} />
                 </Pressable>
@@ -152,11 +159,11 @@ export default function BudgetsScreen() {
             <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
               <View style={styles.rowBetween}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Total budget
+                  {t('plan.budget.total')}
                 </ThemedText>
                 <View style={[styles.pill, { backgroundColor: `${statusColor(totalStatus)}26` }]}>
                   <ThemedText type="small" style={{ color: statusColor(totalStatus), fontWeight: '700' }}>
-                    {STATUS_TEXT[totalStatus]}
+                    {t(STATUS_KEY[totalStatus])}
                   </ThemedText>
                 </View>
               </View>
@@ -167,35 +174,35 @@ export default function BudgetsScreen() {
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
               >
-                {remaining >= 0 ? `${money(remaining)} left` : `${money(-remaining)} over`}
+                {remaining >= 0 ? t('plan.budget.left', { amount: money(remaining) }) : t('plan.budget.over', { amount: money(-remaining) })}
               </ThemedText>
 
               <Bar ratio={totalRatio} color={statusColor(totalStatus)} track={colors.background} height={10} />
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 8 }}>
-                {money(totalSpent)} of {money(totalLimit)} spent · {Math.round(totalRatio * 100)}%
+                {t('plan.budget.spentOfPct', { spent: money(totalSpent), limit: money(totalLimit), percent: Math.round(totalRatio * 100) })}
               </ThemedText>
 
               {isCurrent ? (
                 <View style={[styles.tiles, { borderTopColor: colors.divider }]}>
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Safe to spend / day
+                      {t('plan.budget.safePerDay')}
                     </ThemedText>
                     <ThemedText style={styles.tileValue}>{remaining > 0 ? money(daily) : '—'}</ThemedText>
                     <ThemedText type="small" style={styles.tileHint}>
-                      {daysLeft} day{daysLeft === 1 ? '' : 's'} left
+                      {tp('plan.budget.daysLeft', daysLeft)}
                     </ThemedText>
                   </View>
                   <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      On pace for
+                      {t('plan.budget.onPace')}
                     </ThemedText>
                     <ThemedText style={[styles.tileValue, projectedOver && { color: colors.negative }]}>
                       {today >= 3 ? money(projected) : '—'}
                     </ThemedText>
                     <ThemedText type="small" style={styles.tileHint}>
-                      {today < 3 ? 'Needs a few days of data' : projectedOver ? 'Above your budget' : 'by month end'}
+                      {today < 3 ? t('plan.budget.needsData') : projectedOver ? t('plan.budget.aboveBudget') : t('plan.budget.byMonthEnd')}
                     </ThemedText>
                   </View>
                 </View>
@@ -203,20 +210,20 @@ export default function BudgetsScreen() {
 
               {unbudgetedSpent > 0 ? (
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
-                  + {money(unbudgetedSpent)} spent in categories without a budget (not counted above)
+                  {t('plan.budget.unbudgetedNote', { amount: money(unbudgetedSpent) })}
                 </ThemedText>
               ) : null}
             </View>
           ) : (
             <View style={[styles.card, styles.intro, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="pie-chart-outline" size={32} color={colors.textSecondary} />
-              <ThemedText style={styles.introTitle}>No budgets yet</ThemedText>
+              <ThemedText style={styles.introTitle}>{t('plan.budget.emptyTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                Tap a category below to give it a monthly limit. Or let the app suggest limits from your past spending.
+                {t('plan.budget.emptyBody')}
               </ThemedText>
               {unbudgeted.length > 0 ? (
                 <Pressable style={[styles.introButton, { backgroundColor: colors.accent }]} onPress={suggest}>
-                  <ThemedText style={styles.introButtonText}>Suggest budgets</ThemedText>
+                  <ThemedText style={styles.introButtonText}>{t('plan.budget.suggest')}</ThemedText>
                 </Pressable>
               ) : null}
             </View>
@@ -227,10 +234,10 @@ export default function BudgetsScreen() {
             <>
               <View style={styles.rowBetween}>
                 <ThemedText type="smallBold" style={styles.sectionTitle}>
-                  Categories · {budgeted.length}
+                  {t('plan.budget.categoriesCount', { count: budgeted.length })}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Tap to edit
+                  {t('plan.budget.tapToEdit')}
                 </ThemedText>
               </View>
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
@@ -253,7 +260,7 @@ export default function BudgetsScreen() {
                       <View style={styles.flex}>
                         <View style={styles.rowBetween}>
                           <ThemedText numberOfLines={1} style={styles.flex}>
-                            {cat.name}
+                            {categoryName(cat)}
                           </ThemedText>
                           <ThemedText type="small" style={{ fontWeight: '700' }}>
                             {money(s)}
@@ -269,7 +276,7 @@ export default function BudgetsScreen() {
                           type="small"
                           style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: st === 'ok' ? '500' : '600' }}
                         >
-                          {left >= 0 ? `${money(left)} left` : `${money(-left)} over`} · {Math.round(ratio * 100)}%
+                          {left >= 0 ? t('plan.budget.left', { amount: money(left) }) : t('plan.budget.over', { amount: money(-left) })} · {Math.round(ratio * 100)}%
                         </ThemedText>
                       </View>
                     </Pressable>
@@ -283,7 +290,7 @@ export default function BudgetsScreen() {
           {unbudgeted.length > 0 ? (
             <>
               <ThemedText type="smallBold" style={styles.sectionTitle}>
-                No budget yet
+                {t('plan.budget.noBudgetYet')}
               </ThemedText>
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                 {unbudgeted.map((cat, i) => {
@@ -300,13 +307,13 @@ export default function BudgetsScreen() {
                     >
                       <CategoryIcon icon={cat.icon} color={cat.color} size={40} />
                       <View style={styles.flex}>
-                        <ThemedText numberOfLines={1}>{cat.name}</ThemedText>
+                        <ThemedText numberOfLines={1}>{categoryName(cat)}</ThemedText>
                         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          {s > 0 ? `${money(s)} spent` : 'Nothing spent'}
+                          {s > 0 ? t('plan.budget.spent', { amount: money(s) }) : t('plan.budget.nothingSpent')}
                         </ThemedText>
                       </View>
                       <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                        Set budget
+                        {t('plan.budget.setBudget')}
                       </ThemedText>
                     </Pressable>
                   );
@@ -316,7 +323,7 @@ export default function BudgetsScreen() {
           ) : null}
 
           <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary, textAlign: 'center' }]}>
-            Budgets repeat every month. You can add or rename categories under More → Categories.
+            {t('plan.budget.footnote')}
           </ThemedText>
         </ScrollView>
 
@@ -368,4 +375,4 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
-});
+});

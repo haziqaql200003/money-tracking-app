@@ -1,14 +1,16 @@
+import type { TKey } from '@/i18n';
+
 export type ProCardDesign = 'pro-songket' | 'pro-glass' | 'pro-aurora' | 'pro-titanium' | 'pro-diraja' | 'pro-batik';
 export type CardDesign = 'aurora' | 'gradient' | 'stripes' | 'solid' | ProCardDesign;
 
 /** Premium designs bring their own colours and animation, so the colour picker does not apply to them. */
 export const PRO_DESIGNS: { id: ProCardDesign; label: string }[] = [
-  { id: 'pro-songket', label: 'Songket' },
-  { id: 'pro-glass', label: 'Glass' },
-  { id: 'pro-aurora', label: 'Aurora' },
-  { id: 'pro-titanium', label: 'Titanium' },
-  { id: 'pro-diraja', label: 'Diraja' },
-  { id: 'pro-batik', label: 'Batik' },
+  { id: 'pro-songket', label: 'Songket' }, // i18n-ignore: design name
+  { id: 'pro-glass', label: 'Glass' }, // i18n-ignore: design name
+  { id: 'pro-aurora', label: 'Aurora' }, // i18n-ignore: design name
+  { id: 'pro-titanium', label: 'Titanium' }, // i18n-ignore: design name
+  { id: 'pro-diraja', label: 'Diraja' }, // i18n-ignore: design name
+  { id: 'pro-batik', label: 'Batik' }, // i18n-ignore: design name
 ];
 
 export function isProDesign(design: CardDesign): design is ProCardDesign {
@@ -21,11 +23,11 @@ export function normalizeDesign(value: unknown): CardDesign {
   return all.includes(value as CardDesign) ? (value as CardDesign) : DEFAULT_DESIGN;
 }
 
-export const CARD_DESIGNS: { id: Exclude<CardDesign, ProCardDesign>; label: string }[] = [
-  { id: 'aurora', label: 'Aurora' },
-  { id: 'gradient', label: 'Gradient' },
-  { id: 'stripes', label: 'Stripes' },
-  { id: 'solid', label: 'Solid' },
+export const CARD_DESIGNS: { id: Exclude<CardDesign, ProCardDesign>; labelKey: TKey }[] = [
+  { id: 'aurora', labelKey: 'acct.design.aurora' },
+  { id: 'gradient', labelKey: 'acct.design.gradient' },
+  { id: 'stripes', labelKey: 'acct.design.stripes' },
+  { id: 'solid', labelKey: 'acct.design.solid' },
 ];
 
 export const CARD_COLORS = [

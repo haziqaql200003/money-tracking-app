@@ -19,15 +19,17 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import type { Transaction, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
+import { categoryName, accountName } from '@/i18n/data';
 import { dayLabel, monthKeyFromOffset, monthLabel } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 
 type TypeFilter = 'all' | TransactionType;
 
-const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'debit', label: 'Spending' },
-  { key: 'credit', label: 'Income' },
+const TYPE_FILTERS: { key: TypeFilter; labelKey: TKey }[] = [
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'debit', labelKey: 'tx.list.spending' },
+  { key: 'credit', labelKey: 'common.income' },
 ];
 
 const MASK = 'RM ••••';
@@ -36,6 +38,7 @@ const byDateDesc = (a: Transaction, b: Transaction) => (a.date < b.date ? 1 : a.
 
 export default function TransactionsScreen() {
   const colors = useTheme();
+  const { t, tp } = useT();
   const { transactions, accounts } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { openAddRecord } = useAddRecord();
@@ -145,19 +148,25 @@ export default function TransactionsScreen() {
     if (monthTxns.length === 0) return;
     const csv = toCsv(
       [...monthTxns].sort(byDateDesc),
-      (id) => accounts.find((a) => a.id === id)?.name ?? id,
-      (id) => getCategory(id)?.name ?? id,
+      (id) => {
+        const acc = accounts.find((a) => a.id === id);
+        return acc ? accountName(acc) : id;
+      },
+      (id) => {
+        const cat = getCategory(id);
+        return cat ? categoryName(cat) : id;
+      },
     );
     try {
-      await Share.share({ message: csv, title: 'transactions.csv' });
+      await Share.share({ message: csv, title: 'transactions.csv' }); // i18n-ignore: file name
     } catch {
       // sheet dismissed
     }
   }
   
   const accountOptions: { id: string | null; label: string; icon: IconName }[] = [
-    { id: null, label: 'All accounts', icon: 'apps' },
-    ...accounts.map((a) => ({ id: a.id, label: a.name, icon: a.icon })),
+    { id: null, label: t('tx.list.allAccounts'), icon: 'apps' },
+    ...accounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon })),
   ];
 
   const header = (
@@ -165,7 +174,7 @@ export default function TransactionsScreen() {
       {/* Title */}
       <View style={styles.titleRow}>
         <ThemedText type="title" style={styles.heading}>
-          Transactions
+          {t('tx.list.title')}
         </ThemedText>
         <Pressable
           onPress={handleExport}
@@ -173,7 +182,7 @@ export default function TransactionsScreen() {
           hitSlop={8}
           style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: monthTxns.length ? 1 : 0.4 }]}
           accessibilityRole="button"
-          accessibilityLabel="Export this month as CSV"
+          accessibilityLabel={t('tx.list.exportA11y')}
         >
           <Ionicons name="share-outline" size={20} color={colors.text} />
         </Pressable>
@@ -212,7 +221,7 @@ export default function TransactionsScreen() {
         <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search title or subcategory"
+          placeholder={t('tx.list.searchPlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
@@ -220,7 +229,7 @@ export default function TransactionsScreen() {
           autoCorrect={false}
         />
         {query.length > 0 ? (
-          <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
+          <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('tx.list.clearSearch')}>
             <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </Pressable>
         ) : null}
@@ -229,7 +238,7 @@ export default function TransactionsScreen() {
       {/* Type filter */}
       <View style={{ marginBottom: Spacing.three }}>
         <GlassSegmented
-          options={TYPE_FILTERS}
+          options={TYPE_FILTERS.map((f) => ({ key: f.key, label: t(f.labelKey) }))}
           value={type}
           onChange={setType}
         />
@@ -276,12 +285,12 @@ export default function TransactionsScreen() {
       {/* Result count */}
       <View style={styles.countRow}>
         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
+          {tp('tx.list.count', filtered.length)}
         </ThemedText>
         {filtersActive ? (
           <Pressable onPress={clearFilters} hitSlop={8}>
             <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-              Clear filters
+              {t('tx.list.clearFilters')}
             </ThemedText>
           </Pressable>
         ) : null}
@@ -293,23 +302,23 @@ export default function TransactionsScreen() {
     monthTxns.length === 0 ? (
       <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
         <Ionicons name="receipt-outline" size={32} color={colors.textSecondary} />
-        <ThemedText style={styles.emptyTitle}>Nothing in {monthLabel(monthKey)}</ThemedText>
+        <ThemedText style={styles.emptyTitle}>{t('tx.list.emptyMonth', { month: monthLabel(monthKey) })}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          {accountId ? 'This account has no transactions this month.' : 'No transactions recorded this month.'}
+          {accountId ? t('tx.list.emptyAccount') : t('tx.list.emptyAll')}
         </ThemedText>
         <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAddRecord}>
-          <ThemedText style={styles.emptyButtonText}>Add transaction</ThemedText>
+          <ThemedText style={styles.emptyButtonText}>{t('tx.list.addTransaction')}</ThemedText>
         </Pressable>
       </View>
     ) : (
       <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
         <Ionicons name="search-outline" size={32} color={colors.textSecondary} />
-        <ThemedText style={styles.emptyTitle}>No matches</ThemedText>
+        <ThemedText style={styles.emptyTitle}>{t('tx.list.noMatches')}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          Try a different search or filter.
+          {t('tx.list.noMatchesHint')}
         </ThemedText>
         <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={clearFilters}>
-          <ThemedText style={styles.emptyButtonText}>Clear filters</ThemedText>
+          <ThemedText style={styles.emptyButtonText}>{t('tx.list.clearFilters')}</ThemedText>
         </Pressable>
       </View>
     );

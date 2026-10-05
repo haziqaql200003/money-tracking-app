@@ -11,21 +11,24 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth, type Language } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
+import { setLanguage, useT } from '@/i18n';
 
+// Each language is shown in its own language.
 const LANGS: { key: Language; label: string }[] = [
-  { key: 'ms', label: 'Bahasa Melayu' },
-  { key: 'en', label: 'English' },
+  { key: 'ms', label: 'Bahasa Melayu' }, // i18n-ignore
+  { key: 'en', label: 'English' }, // i18n-ignore
 ];
 
 export default function RegisterScreen() {
   const colors = useTheme();
+  const { t, lang } = useT();
   const router = useRouter();
   const { signUp } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [language, setLanguage] = useState<Language>('ms');
+  const [language, setChosenLanguage] = useState<Language>(lang);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,6 +43,7 @@ export default function RegisterScreen() {
     const res = await signUp({ email, password, displayName, language, consent });
     setBusy(false);
     if (!res.ok) setError(res.error);
+    else if (res.needsCode) router.push({ pathname: '/verify', params: { email: email.trim(), mode: 'signup' } });
   }
 
   return (
@@ -47,34 +51,34 @@ export default function RegisterScreen() {
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <ScreenHeader title="Daftar akaun" />
+            <ScreenHeader title={t('auth.register.title')} />
 
-            <AuthField label="Nama paparan" value={displayName} onChangeText={setDisplayName} maxLength={24} placeholder="Cth: Aqil" />
+            <AuthField label={t('auth.register.displayName')} value={displayName} onChangeText={setDisplayName} maxLength={24} placeholder={t('auth.register.displayNamePlaceholder')} />
             <AuthField
-              label="Email"
+              label={t('auth.field.email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
-              placeholder="nama@contoh.com"
+              placeholder={t('auth.field.emailPlaceholder')}
             />
             <AuthField
-              label="Kata laluan (min 8 aksara, ada huruf & nombor)"
+              label={t('auth.register.passwordLabel')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
             />
-            <AuthField label="Sahkan kata laluan" value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" />
+            <AuthField label={t('auth.register.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" />
             {mismatch ? (
               <ThemedText type="small" style={{ color: colors.negative, marginTop: -Spacing.two, marginBottom: Spacing.three }}>
-                Kata laluan tidak sepadan
+                {t('auth.register.mismatch')}
               </ThemedText>
             ) : null}
 
             <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.one }}>
-              Bahasa
+              {t('auth.register.language')}
             </ThemedText>
             <View style={styles.chipRow}>
               {LANGS.map((l) => {
@@ -82,7 +86,10 @@ export default function RegisterScreen() {
                 return (
                   <Pressable
                     key={l.key}
-                    onPress={() => setLanguage(l.key)}
+                    onPress={() => {
+                      setChosenLanguage(l.key);
+                      setLanguage(l.key);
+                    }}
                     style={[
                       styles.chip,
                       { backgroundColor: active ? colors.accent : colors.backgroundElement, borderColor: active ? colors.accent : colors.divider },
@@ -103,11 +110,11 @@ export default function RegisterScreen() {
                 color={consent ? colors.accent : colors.textSecondary}
               />
               <ThemedText type="small" style={styles.flex}>
-                Saya telah membaca dan bersetuju dengan{' '}
+                {t('auth.register.consentBefore')}
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }} onPress={() => router.push('/privacy')}>
-                  Notis Privasi
-                </ThemedText>{' '}
-                dan membenarkan data saya diproses seperti dinyatakan.
+                  {t('auth.register.consentLink')}
+                </ThemedText>
+                {t('auth.register.consentAfter')}
               </ThemedText>
             </Pressable>
 
@@ -119,7 +126,7 @@ export default function RegisterScreen() {
 
             <Pressable onPress={submit} disabled={!canSubmit} style={[styles.button, { backgroundColor: canSubmit ? colors.accent : colors.backgroundSelected }]}>
               <ThemedText style={[styles.buttonText, !canSubmit && { color: colors.textSecondary }]}>
-                {busy ? 'Sila tunggu...' : 'Daftar'}
+                {busy ? t('auth.register.wait') : t('auth.register.submit')}
               </ThemedText>
             </Pressable>
           </ScrollView>

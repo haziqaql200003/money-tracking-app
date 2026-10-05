@@ -12,6 +12,9 @@ import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { categoryName as categoryLabel, subcategoryName } from '@/i18n/data';
+import { weekdayLong, weekdayShort } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel, monthLabel, toDateKey } from '@/utils/dates';
 import {
@@ -23,7 +26,6 @@ import {
   monthlyTotals,
   previousWindow,
   topTitles,
-  weekdayName,
   weekdayPattern,
   windowSummary,
 } from '@/utils/insights';
@@ -31,10 +33,10 @@ import {
 const MASK = 'RM ••••';
 const RANGES = [3, 6, 12] as const;
 const COLLAPSED_CATEGORIES = 5;
-const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AnalyseScreen() {
   const colors = useTheme();
+  const { t, tp, lang } = useT();
   const { transactions } = useTransactions();
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
@@ -45,7 +47,10 @@ export default function AnalyseScreen() {
 
   const todayKey = toDateKey(new Date());
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
-  const categoryName = (id: string) => getCategory(id)?.name ?? 'Other';
+  const categoryName = (id: string) => {
+    const c = getCategory(id);
+    return c ? categoryLabel(c) : t('cat.other');
+  };
 
   const data = useMemo(() => {
     const w = currentWindow(todayKey, months);
@@ -65,7 +70,7 @@ export default function AnalyseScreen() {
   const insights = useMemo(
     () => buildInsights({ transactions, todayKey, months, categoryName, money }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, todayKey, months, hideAmounts, getCategory],
+    [transactions, todayKey, months, hideAmounts, getCategory, lang],
   );
 
   const { summary } = data;
@@ -74,7 +79,6 @@ export default function AnalyseScreen() {
   const shownCategories = showAllCategories ? data.categories : data.categories.slice(0, COLLAPSED_CATEGORIES);
   const maxWeekday = Math.max(0, ...data.weekdays.map((d) => d.average));
   const priciestDay = maxWeekday > 0 ? data.weekdays.find((d) => d.average === maxWeekday)?.day : undefined;
-  const rangeText = months === 12 ? 'the last 12 months' : `the last ${months} months`;
 
   return (
     <ThemedView style={styles.container}>
@@ -82,10 +86,10 @@ export default function AnalyseScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.titleBlock}>
             <ThemedText type="title" style={styles.heading}>
-              Analyse
+              {t('plan.analyse.title')}
             </ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              Faham · understand where your money goes
+              {t('plan.analyse.subtitle')}
             </ThemedText>
           </View>
 
@@ -104,10 +108,10 @@ export default function AnalyseScreen() {
                   style={[styles.segmentItem, active && { backgroundColor: colors.accent }]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={`Last ${r} months`}
+                  accessibilityLabel={t('plan.analyse.rangeA11y', { n: r })}
                 >
                   <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
-                    {r} months
+                    {t('plan.analyse.rangeLabel', { n: r })}
                   </ThemedText>
                 </Pressable>
               );
@@ -117,9 +121,9 @@ export default function AnalyseScreen() {
           {!hasData ? (
             <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="bar-chart-outline" size={32} color={colors.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>Nothing to analyse yet</ThemedText>
+              <ThemedText style={styles.emptyTitle}>{t('plan.analyse.emptyTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                Add a few incomes and expenses and Analyse will show your trends, where the money goes and how much you keep.
+                {t('plan.analyse.emptyBody')}
               </ThemedText>
             </View>
           ) : (
@@ -127,20 +131,20 @@ export default function AnalyseScreen() {
               {/* Summary */}
               <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Kept in {rangeText}
+                  {t('plan.analyse.keptIn', { n: months })}
                 </ThemedText>
                 <ThemedText style={[styles.big, { color: netColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                   {hideAmounts ? MASK : `${summary.net < 0 ? '-' : ''}${formatMoney(summary.net)}`}
                 </ThemedText>
                 {summary.savingsRate !== null ? (
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    {summary.savingsRate}% of your income
+                    {t('plan.analyse.ofIncome', { rate: summary.savingsRate })}
                   </ThemedText>
                 ) : null}
                 <View style={[styles.tiles, { borderTopColor: colors.divider }]}>
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Income
+                      {t('common.income')}
                     </ThemedText>
                     <ThemedText style={[styles.tileValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>
                       {money(summary.income)}
@@ -149,7 +153,7 @@ export default function AnalyseScreen() {
                   <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
                   <View style={styles.tile}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Spending
+                      {t('plan.analyse.spending')}
                     </ThemedText>
                     <ThemedText style={[styles.tileValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>
                       {money(summary.spending)}
@@ -162,7 +166,7 @@ export default function AnalyseScreen() {
               {insights.length > 0 ? (
                 <>
                   <ThemedText type="smallBold" style={styles.sectionTitle}>
-                    What stands out
+                    {t('plan.analyse.standsOut')}
                   </ThemedText>
                   <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                     {insights.map((item, i) => {
@@ -186,7 +190,7 @@ export default function AnalyseScreen() {
 
               {/* Income vs spending */}
               <ThemedText type="smallBold" style={styles.sectionTitle}>
-                Income vs spending
+                {t('plan.analyse.incomeVsSpending')}
               </ThemedText>
               <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                 <IncomeSpendingChart key={months} data={data.totals} hideAmounts={hideAmounts} />
@@ -194,12 +198,12 @@ export default function AnalyseScreen() {
 
               {/* Categories */}
               <ThemedText type="smallBold" style={styles.sectionTitle}>
-                Where it goes
+                {t('plan.analyse.whereItGoes')}
               </ThemedText>
               {data.categories.length === 0 ? (
                 <View style={[styles.listCard, styles.emptyList, { backgroundColor: colors.backgroundElement }]}>
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    No spending in this period.
+                    {t('plan.analyse.noSpending')}
                   </ThemedText>
                 </View>
               ) : (
@@ -210,7 +214,7 @@ export default function AnalyseScreen() {
                     const open = openCategory === row.categoryId;
                     // Spending going UP is the bad direction, so up = red, down = green.
                     const changeColor = row.change === null ? colors.textSecondary : row.change > 0 ? colors.negative : row.change < 0 ? colors.positive : colors.textSecondary;
-                    const changeText = row.change === null ? 'New' : row.change === 0 ? '0%' : `${row.change > 0 ? '▲' : '▼'} ${Math.abs(row.change)}%`;
+                    const changeText = row.change === null ? t('plan.analyse.new') : row.change === 0 ? '0%' : `${row.change > 0 ? '▲' : '▼'} ${Math.abs(row.change)}%`;
                     return (
                       <View key={row.categoryId} style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }}>
                         <Pressable
@@ -232,7 +236,7 @@ export default function AnalyseScreen() {
                             </View>
                             <View style={styles.rowBetween}>
                               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                                {row.share}% of spending
+                                {t('plan.analyse.shareOfSpending', { share: row.share })}
                               </ThemedText>
                               <ThemedText type="small" style={{ color: changeColor, fontWeight: '700' }}>
                                 {changeText}
@@ -247,14 +251,14 @@ export default function AnalyseScreen() {
                             {row.subs.map((s) => (
                               <View key={s.name} style={styles.subRow}>
                                 <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                                  {s.name}
+                                  {subcategoryName(s.name)}
                                 </ThemedText>
                                 <ThemedText type="small">{money(s.total)}</ThemedText>
                               </View>
                             ))}
                             {row.previous > 0 ? (
                               <ThemedText type="small" style={[styles.subNote, { color: colors.textSecondary }]}>
-                                Before that: {money(row.previous)}
+                                {t('plan.analyse.before', { amount: money(row.previous) })}
                               </ThemedText>
                             ) : null}
                           </View>
@@ -266,7 +270,7 @@ export default function AnalyseScreen() {
                   {data.categories.length > COLLAPSED_CATEGORIES ? (
                     <Pressable onPress={() => setShowAllCategories((v) => !v)} style={styles.moreButton}>
                       <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                        {showAllCategories ? 'Show less' : `Show all ${data.categories.length}`}
+                        {showAllCategories ? t('plan.analyse.showLess') : t('plan.analyse.showAll', { count: data.categories.length })}
                       </ThemedText>
                     </Pressable>
                   ) : null}
@@ -274,7 +278,7 @@ export default function AnalyseScreen() {
               )}
               {data.categories.length > 0 ? (
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
-                  ▲ ▼ compare with the same stretch of the {months} months before.
+                  {t('plan.analyse.compareNote', { months })}
                 </ThemedText>
               ) : null}
 
@@ -282,11 +286,11 @@ export default function AnalyseScreen() {
               {data.summary.spending > 0 ? (
                 <>
                   <ThemedText type="smallBold" style={styles.sectionTitle}>
-                    Your habits
+                    {t('plan.analyse.habits')}
                   </ThemedText>
                   <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      Average spending by weekday
+                      {t('plan.analyse.avgByWeekday')}
                     </ThemedText>
                     <View style={styles.weekRow}>
                       {data.weekdays.map((d) => {
@@ -305,7 +309,7 @@ export default function AnalyseScreen() {
                               />
                             </View>
                             <ThemedText type="small" style={{ fontSize: 11, color: isTop ? colors.text : colors.textSecondary, fontWeight: isTop ? '700' : '400' }}>
-                              {WEEKDAY_SHORT[d.day]}
+                              {weekdayShort(d.day)}
                             </ThemedText>
                           </View>
                         );
@@ -313,7 +317,7 @@ export default function AnalyseScreen() {
                     </View>
                     {priciestDay !== undefined ? (
                       <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                        {weekdayName(priciestDay)}s cost the most, about {money(maxWeekday)} each.
+                        {t('plan.analyse.priciestDay', { day: weekdayLong(priciestDay), amount: money(maxWeekday) })}
                       </ThemedText>
                     ) : null}
                   </View>
@@ -327,7 +331,7 @@ export default function AnalyseScreen() {
                       />
                       <View style={styles.flex}>
                         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                          Biggest single expense
+                          {t('plan.analyse.biggest')}
                         </ThemedText>
                         <ThemedText numberOfLines={1} style={{ fontWeight: '600' }}>
                           {data.biggest.title}
@@ -343,7 +347,7 @@ export default function AnalyseScreen() {
                   {data.titles.length > 0 ? (
                     <>
                       <ThemedText type="smallBold" style={styles.sectionTitle}>
-                        Most spent on
+                        {t('plan.analyse.mostSpent')}
                       </ThemedText>
                       <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                         {data.titles.map((row, i) => (
@@ -357,7 +361,7 @@ export default function AnalyseScreen() {
                             <View style={styles.flex}>
                               <ThemedText numberOfLines={1}>{row.title}</ThemedText>
                               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                                {row.count} {row.count === 1 ? 'time' : 'times'}
+                                {tp('plan.analyse.times', row.count)}
                               </ThemedText>
                             </View>
                             <ThemedText style={{ fontWeight: '700' }}>{money(row.total)}</ThemedText>
@@ -372,7 +376,7 @@ export default function AnalyseScreen() {
           )}
 
           <ThemedText type="small" style={[styles.footnote, styles.center, { color: colors.textSecondary }]}>
-            Transfers between your own accounts are not counted as income or spending.
+            {t('plan.analyse.transfersNote')}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>

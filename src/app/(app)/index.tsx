@@ -17,8 +17,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { AccountModal } from '@/components/account-modal';
 import { isLightColor } from '@/constants/card-styles';
 import { useProfile } from '@/context/ProfileContext';
+import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 
 export default function HomeScreen() {
+  const { t } = useT();
   const { accounts } = useTransactions();
   const colors = useTheme();
 
@@ -30,7 +33,7 @@ export default function HomeScreen() {
   const [accountModalVisible, setAccountModalVisible] = useState(false);
 
   function showComingSoon() {
-    Alert.alert('Notifications', 'Coming soon — this will show reminders and budget alerts.');
+    Alert.alert(t('home.index.notifications'), t('home.index.comingSoon'));
   }
 
   return (
@@ -44,11 +47,11 @@ export default function HomeScreen() {
                 <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
               </View>
               <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
-                Hi, <Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
+                {t('home.index.greeting')}<Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
               </Text>
             </Pressable>
 
-            <Pressable onPress={showComingSoon} accessibilityRole="button" accessibilityLabel="Notifications">
+            <Pressable onPress={showComingSoon} accessibilityRole="button" accessibilityLabel={t('home.index.notifications')}>
               <Glass radius={20} interactive style={styles.bellButton}>
                 <Ionicons name="notifications-outline" size={20} color={colors.text} />
               </Glass>
@@ -60,10 +63,10 @@ export default function HomeScreen() {
           <BalanceCarousel onSelectAccount={setSelectedAccountId} />
 
           <View style={styles.chartBlock}>
-            <SpendingOverview accountId={selectedAccount?.id} accountName={selectedAccount?.name} />
+            <SpendingOverview accountId={selectedAccount?.id} accountName={selectedAccount ? accountName(selectedAccount) : undefined} />
           </View>
 
-          <RecentTransactions accountId={selectedAccount?.id} accountName={selectedAccount?.name} />
+          <RecentTransactions accountId={selectedAccount?.id} accountName={selectedAccount ? accountName(selectedAccount) : undefined} />
         </ScrollView>
 
         <AccountModal visible={accountModalVisible} onClose={() => setAccountModalVisible(false)} />

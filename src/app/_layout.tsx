@@ -12,26 +12,32 @@ import { ProfileProvider } from '@/context/ProfileContext';
 import { SettingsProvider } from '@/context/SettingsContext';
 import { TransactionsProvider } from '@/context/TransactionsContext';
 import { UpdatesProvider } from '@/context/UpdatesContext';
+import { useT } from '@/i18n';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { user, isReady } = useAuth();
+  const { user, isReady, migrationPending } = useAuth();
+  const { lang } = useT();
   if (!isReady) return null; // splash masih menutup skrin
 
   const loggedIn = !!user;
   const onboarded = !!user?.hasOnboarded;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    // Remounting on a language change redraws every screen in the new language.
+    <Stack key={lang} screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="privacy" />
       </Stack.Protected>
-      <Stack.Protected guard={loggedIn && !onboarded}>
+      <Stack.Protected guard={loggedIn && migrationPending}>
+        <Stack.Screen name="migrate" />
+      </Stack.Protected>
+      <Stack.Protected guard={loggedIn && !migrationPending && !onboarded}>
         <Stack.Screen name="onboarding" />
       </Stack.Protected>
-      <Stack.Protected guard={loggedIn && onboarded}>
+      <Stack.Protected guard={loggedIn && !migrationPending && onboarded}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
     </Stack>

@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel, toDateKey } from '@/utils/dates';
 import { goalProgress, type GoalStatus } from '@/utils/goals';
@@ -19,12 +20,12 @@ import { goalProgress, type GoalStatus } from '@/utils/goals';
 const MASK = 'RM ••••';
 const HISTORY_LIMIT = 8;
 
-export const STATUS_TEXT: Record<GoalStatus, string> = {
-  done: 'Goal reached',
-  overdue: 'Deadline passed',
-  behind: 'Behind schedule',
-  on_track: 'On track',
-  open: 'No deadline',
+export const STATUS_KEY: Record<GoalStatus, TKey> = {
+  done: 'plan.goal.status.done',
+  overdue: 'plan.goal.status.overdue',
+  behind: 'plan.goal.status.behind',
+  on_track: 'plan.goal.status.on_track',
+  open: 'plan.goal.status.open',
 };
 
 type Props = {
@@ -36,22 +37,23 @@ type Props = {
 
 export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={!!goalId} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <ThemedView
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title="Savings goal"
+            title={t('plan.goalDetail.title')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Close
+                  {t('common.close')}
                 </ThemedText>
               </Pressable>
             }
@@ -59,7 +61,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
               goalId ? (
                 <Pressable onPress={() => onEdit(goalId)} hitSlop={12}>
                   <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                    Edit
+                    {t('common.edit')}
                   </ThemedText>
                 </Pressable>
               ) : undefined
@@ -76,6 +78,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
 
 function Detail({ goalId }: { goalId: string }) {
   const colors = useTheme();
+  const { t, tp } = useT();
   const { goals, goalEntries, addGoalEntry, deleteGoalEntry } = usePlan();
   const { hideAmounts } = usePrivacy();
   const [amount, setAmount] = useState('');
@@ -84,7 +87,7 @@ function Detail({ goalId }: { goalId: string }) {
   if (!goal) {
     return (
       <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center', paddingVertical: Spacing.four }}>
-        This goal no longer exists.
+        {t('plan.goalDetail.missing')}
       </ThemedText>
     );
   }
@@ -102,7 +105,7 @@ function Detail({ goalId }: { goalId: string }) {
   function submit(sign: 1 | -1) {
     if (!valid) return;
     if (sign === -1 && parsed > p.saved) {
-      Alert.alert('Too much', `Only ${money(p.saved)} is saved in this goal.`);
+      Alert.alert(t('plan.goalDetail.tooMuchTitle'), t('plan.goalDetail.tooMuchBody', { amount: money(p.saved) }));
       return;
     }
     addGoalEntry(goal!.id, sign * parsed, today);
@@ -110,9 +113,9 @@ function Detail({ goalId }: { goalId: string }) {
   }
 
   function removeEntry(id: string) {
-    Alert.alert('Remove this entry?', 'The saved amount will go back to what it was before.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteGoalEntry(id) },
+    Alert.alert(t('plan.goalDetail.removeTitle'), t('plan.goalDetail.removeBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.remove'), style: 'destructive', onPress: () => deleteGoalEntry(id) },
     ]);
   }
 
@@ -122,7 +125,7 @@ function Detail({ goalId }: { goalId: string }) {
         <CategoryIcon icon={goal.icon as IconName} color={goal.color} size={56} />
         <ThemedText style={styles.title}>{goal.name}</ThemedText>
         <ThemedText type="small" style={{ color: statusColor, fontWeight: '700' }}>
-          {STATUS_TEXT[p.status]}
+          {t(STATUS_KEY[p.status])}
         </ThemedText>
       </View>
 
@@ -130,7 +133,7 @@ function Detail({ goalId }: { goalId: string }) {
         <View style={styles.rowBetween}>
           <ThemedText style={styles.saved}>{money(p.saved)}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            of {money(goal.target)}
+            {t('plan.goalDetail.ofTarget', { amount: money(goal.target) })}
           </ThemedText>
         </View>
         <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
@@ -138,23 +141,23 @@ function Detail({ goalId }: { goalId: string }) {
         </View>
         <View style={styles.rowBetween}>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {p.percent}% saved
+            {t('plan.goalDetail.percentSaved', { percent: p.percent })}
           </ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {p.status === 'done' ? 'All done' : `${money(p.remaining)} to go`}
+            {p.status === 'done' ? t('plan.goalDetail.allDone') : t('plan.goalDetail.toGo', { amount: money(p.remaining) })}
           </ThemedText>
         </View>
         {goal.deadline ? (
           <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
-            Deadline {dayLabel(goal.deadline)}
-            {p.daysLeft !== null && p.daysLeft >= 0 ? ` · ${p.daysLeft} ${p.daysLeft === 1 ? 'day' : 'days'} left` : ''}
-            {p.perMonth !== null ? ` · about ${money(p.perMonth)} a month` : ''}
+            {t('plan.goalDetail.deadline', { date: dayLabel(goal.deadline) })}
+            {p.daysLeft !== null && p.daysLeft >= 0 ? ` · ${tp('plan.goalDetail.daysLeft', p.daysLeft)}` : ''}
+            {p.perMonth !== null ? ` · ${t('plan.goalDetail.perMonth', { amount: money(p.perMonth) })}` : ''}
           </ThemedText>
         ) : null}
       </View>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Amount (RM)
+        {t('plan.goalDetail.amountRm')}
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -171,7 +174,7 @@ function Detail({ goalId }: { goalId: string }) {
           disabled={!valid}
         >
           <Ionicons name="add" size={18} color={valid ? '#fff' : colors.textSecondary} />
-          <ThemedText style={[styles.buttonText, !valid && { color: colors.textSecondary }]}>Add money</ThemedText>
+          <ThemedText style={[styles.buttonText, !valid && { color: colors.textSecondary }]}>{t('plan.goalDetail.addMoney')}</ThemedText>
         </Pressable>
         <Pressable
           style={[styles.button, { backgroundColor: colors.backgroundElement }]}
@@ -179,17 +182,17 @@ function Detail({ goalId }: { goalId: string }) {
           disabled={!valid || p.saved <= 0}
         >
           <Ionicons name="remove" size={18} color={valid && p.saved > 0 ? colors.text : colors.textSecondary} />
-          <ThemedText style={[styles.buttonText, { color: valid && p.saved > 0 ? colors.text : colors.textSecondary }]}>Take out</ThemedText>
+          <ThemedText style={[styles.buttonText, { color: valid && p.saved > 0 ? colors.text : colors.textSecondary }]}>{t('plan.goalDetail.takeOut')}</ThemedText>
         </Pressable>
       </View>
       <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
-        This only tracks money you have set aside. It does not move money between accounts or count as spending.
+        {t('plan.goalDetail.trackNote')}
       </ThemedText>
 
       {history.length > 0 ? (
         <>
           <ThemedText type="smallBold" style={styles.historyTitle}>
-            History
+            {t('plan.goalDetail.history')}
           </ThemedText>
           <View style={[styles.card, styles.historyCard, { backgroundColor: colors.backgroundElement }]}>
             {history.slice(0, HISTORY_LIMIT).map((e, i) => (
@@ -198,10 +201,10 @@ function Detail({ goalId }: { goalId: string }) {
                 onLongPress={() => removeEntry(e.id)}
                 onPress={() => removeEntry(e.id)}
                 style={[styles.historyRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }]}
-                accessibilityHint="Tap to remove this entry"
+                accessibilityHint={t('plan.goalDetail.removeHint')}
               >
                 <View style={styles.flex}>
-                  <ThemedText>{e.amount > 0 ? 'Added' : 'Taken out'}</ThemedText>
+                  <ThemedText>{e.amount > 0 ? t('plan.goalDetail.added') : t('plan.goalDetail.takenOut')}</ThemedText>
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
                     {dayLabel(e.date)}
                     {e.note ? ` · ${e.note}` : ''}
@@ -215,7 +218,7 @@ function Detail({ goalId }: { goalId: string }) {
           </View>
           {history.length > HISTORY_LIMIT ? (
             <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
-              Showing the latest {HISTORY_LIMIT} of {history.length}.
+              {t('plan.goalDetail.showingLatest', { shown: HISTORY_LIMIT, total: history.length })}
             </ThemedText>
           ) : null}
         </>

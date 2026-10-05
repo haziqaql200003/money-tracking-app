@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useT } from '@/i18n';
 import { ACCENT_PRESETS, hexToHsl, hslToHex } from './palette';
 
 type Props = {
@@ -14,6 +15,7 @@ const THUMB = 26;
 
 // Colour picker for Pro cards: ready-made swatches + a hue strip for any colour.
 export function CardColorPicker({ accent, onChange, labelColor = '#bbbbbb' }: Props) {
+  const { t } = useT();
   // Values the touch handlers need. The handlers outlive the render that made them, so they read this
   // object (kept current in an effect) instead of the props.
   const [live] = useState(() => ({ width: 0, startX: 0, onChange }));
@@ -50,7 +52,7 @@ export function CardColorPicker({ accent, onChange, labelColor = '#bbbbbb' }: Pr
 
   return (
     <View>
-      <Text style={[styles.label, { color: labelColor }]}>Warna kad</Text>
+      <Text style={[styles.label, { color: labelColor }]}>{t('acct.picker.cardColour')}</Text>
       <View style={styles.swatches}>
         {ACCENT_PRESETS.map((p) => {
           const selected = accent.toLowerCase() === p.color.toLowerCase();
@@ -58,7 +60,7 @@ export function CardColorPicker({ accent, onChange, labelColor = '#bbbbbb' }: Pr
             <Pressable
               key={p.id}
               onPress={() => onChange(p.color)}
-              accessibilityLabel={p.name}
+              accessibilityLabel={t(p.nameKey)}
               style={[styles.swatchRing, selected && styles.swatchRingOn]}
             >
               <View style={[styles.swatch, { backgroundColor: p.color }]} />
@@ -67,7 +69,7 @@ export function CardColorPicker({ accent, onChange, labelColor = '#bbbbbb' }: Pr
         })}
       </View>
 
-      <Text style={[styles.label, { color: labelColor, marginTop: 14 }]}>Warna sendiri</Text>
+      <Text style={[styles.label, { color: labelColor, marginTop: 14 }]}>{t('acct.picker.ownColour')}</Text>
       <View style={styles.strip} onLayout={onLayout} {...pan.panHandlers}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <LinearGradient
@@ -113,4 +115,4 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#ffffff',
   },
-});
+});

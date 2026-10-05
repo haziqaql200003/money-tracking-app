@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+import { useT } from '@/i18n';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CardColorPicker } from './CardColorPicker';
 import { FlipCard } from './FlipCard';
@@ -10,6 +12,7 @@ type DesignId = (typeof PRO_CARD_DESIGNS)[number]['id'];
 // Temporary test screen: render <CardShowcase /> anywhere to try the Pro cards.
 // Pick a design, change its colour, flip it over, and toggle hide/show balance.
 export default function CardShowcase() {
+  const { t } = useT();
   const [designId, setDesignId] = useState<DesignId>('songket');
   const [hidden, setHidden] = useState(false);
   const [accents, setAccents] = useState<Record<DesignId, string>>({ ...DEFAULT_ACCENT });
@@ -47,7 +50,7 @@ export default function CardShowcase() {
           />
         )}
       </FlipCard>
-      <Text style={styles.desc}>{design.description}</Text>
+      <Text style={styles.desc}>{t(design.descriptionKey)}</Text>
 
       <CardColorPicker
         accent={accent}
@@ -59,7 +62,7 @@ export default function CardShowcase() {
           onPress={() => setAccents((prev) => ({ ...prev, [designId]: design.defaultAccent }))}
           style={styles.btn}
         >
-          <Text style={styles.btnText}>Reset warna</Text>
+          <Text style={styles.btnText}>{t('acct.picker.reset')}</Text>
         </Pressable>
       </View>
     </ScrollView>

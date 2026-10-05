@@ -13,27 +13,28 @@ import { useAuth, type Goal } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT, type TKey } from '@/i18n';
 import { toDateKey } from '@/utils/dates';
 import { salaryPlan } from '@/utils/setup';
 
-const GOALS: { key: Goal; label: string; icon: IconName }[] = [
-  { key: 'track', label: 'Jejak perbelanjaan', icon: 'receipt-outline' },
-  { key: 'budget', label: 'Urus bajet', icon: 'pie-chart-outline' },
-  { key: 'save', label: 'Kumpul simpanan', icon: 'trending-up-outline' },
-  { key: 'debt', label: 'Kurangkan hutang', icon: 'card-outline' },
+const GOALS: { key: Goal; labelKey: TKey; icon: IconName }[] = [
+  { key: 'track', labelKey: 'auth.onboarding.goal.track', icon: 'receipt-outline' },
+  { key: 'budget', labelKey: 'auth.onboarding.goal.budget', icon: 'pie-chart-outline' },
+  { key: 'save', labelKey: 'auth.onboarding.goal.save', icon: 'trending-up-outline' },
+  { key: 'debt', labelKey: 'auth.onboarding.goal.debt', icon: 'card-outline' },
 ];
 
-const TIPS: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'add-circle', title: 'Tambah rekod', body: 'Tekan butang + di tengah bar bawah untuk rekod perbelanjaan, pendapatan atau pindahan antara akaun. Boleh pecahkan kepada item (cth. nasi lemak, SST).' },
-  { icon: 'swap-horizontal', title: 'Kad akaun', body: 'Di Home, leret kad ke tepi untuk tukar akaun. Carta dan senarai di bawah akan ikut akaun yang dipilih.' },
-  { icon: 'bar-chart', title: 'Analyse (Faham)', body: 'Tab Analyse tunjuk pendapatan vs perbelanjaan setiap bulan, ke mana wang pergi, hari paling boros dan beberapa ringkasan ringkas.' },
-  { icon: 'flag', title: 'Rancang', body: 'More > Rancang: sasaran simpanan, bil akan datang dan peringatan di satu tempat. Bajet juga boleh dilihat dari sini.' },
-  { icon: 'repeat', title: 'Berulang', body: 'More > Recurring: gaji, sewa atau langganan direkod sendiri pada tarikhnya. Pilih "Confirm each time" kalau jumlahnya berubah-ubah (cth. bil elektrik).' },
-  { icon: 'wallet', title: 'Aset & pindahan', body: 'More > Assets: semua akaun dan jumlah nilai bersih. Pindah wang antara akaun tidak dikira sebagai perbelanjaan atau pendapatan.' },
-  { icon: 'pie-chart', title: 'Bajet', body: 'More > Budgets: letak had bulanan setiap kategori dan lihat berapa selamat dibelanjakan sehari.' },
-  { icon: 'notifications', title: 'Peringatan', body: 'More > Rancang > Reminders: hidupkan notifikasi untuk bil yang hampir tiba dan amaran bila bajet hampir habis. Anda yang pilih, dan boleh dimatikan bila-bila masa.' },
-  { icon: 'eye-off', title: 'Privasi', body: 'Tekan ikon mata untuk sembunyikan semua jumlah bila di tempat awam.' },
-  { icon: 'download', title: 'Data anda', body: 'More > Settings: eksport CSV, ulang tutorial, atau padam akaun dan semua data anda.' },
+const TIPS: { icon: IconName; titleKey: TKey; bodyKey: TKey }[] = [
+  { icon: 'add-circle', titleKey: 'auth.onboarding.tip.add.title', bodyKey: 'auth.onboarding.tip.add.body' },
+  { icon: 'swap-horizontal', titleKey: 'auth.onboarding.tip.cards.title', bodyKey: 'auth.onboarding.tip.cards.body' },
+  { icon: 'bar-chart', titleKey: 'auth.onboarding.tip.analyse.title', bodyKey: 'auth.onboarding.tip.analyse.body' },
+  { icon: 'flag', titleKey: 'auth.onboarding.tip.plan.title', bodyKey: 'auth.onboarding.tip.plan.body' },
+  { icon: 'repeat', titleKey: 'auth.onboarding.tip.recurring.title', bodyKey: 'auth.onboarding.tip.recurring.body' },
+  { icon: 'wallet', titleKey: 'auth.onboarding.tip.assets.title', bodyKey: 'auth.onboarding.tip.assets.body' },
+  { icon: 'pie-chart', titleKey: 'auth.onboarding.tip.budgets.title', bodyKey: 'auth.onboarding.tip.budgets.body' },
+  { icon: 'notifications', titleKey: 'auth.onboarding.tip.reminders.title', bodyKey: 'auth.onboarding.tip.reminders.body' },
+  { icon: 'eye-off', titleKey: 'auth.onboarding.tip.privacy.title', bodyKey: 'auth.onboarding.tip.privacy.body' },
+  { icon: 'download', titleKey: 'auth.onboarding.tip.data.title', bodyKey: 'auth.onboarding.tip.data.body' },
 ];
 
 const PILLAR_ICON: Record<(typeof PILLARS)[number]['key'], IconName> = {
@@ -44,6 +45,7 @@ const PILLAR_ICON: Record<(typeof PILLARS)[number]['key'], IconName> = {
 
 export default function OnboardingScreen() {
   const colors = useTheme();
+  const { t } = useT();
   const { user, updateProfile } = useAuth();
   const { accounts, updateAccount, addRecurring } = useTransactions();
   const { addGoal } = usePlan();
@@ -66,8 +68,8 @@ export default function OnboardingScreen() {
 
   const isLast = index === steps.length - 1;
 
-  const parse = (t: string) => {
-    const n = parseFloat(t.replace(',', '.'));
+  const parse = (text: string) => {
+    const n = parseFloat(text.replace(',', '.'));
     return Number.isFinite(n) ? n : 0;
   };
 
@@ -81,7 +83,7 @@ export default function OnboardingScreen() {
       const bankAccount = accounts.find((a) => a.id === 'bank') ?? accounts[0];
       if (bankAccount) {
         addRecurring({
-          title: 'Gaji',
+          title: t('auth.onboarding.salaryRecurringTitle'),
           amount: salaryResult.plan.amount,
           amountMode: salaryResult.plan.ask ? 'ask' : 'fixed',
           type: 'credit',
@@ -128,10 +130,10 @@ export default function OnboardingScreen() {
               <View style={[styles.hero, { backgroundColor: `${colors.accent}26` }]}>
                 <Ionicons name="sparkles" size={40} color={colors.accent} />
               </View>
-              <ThemedText style={styles.title}>Hai, {user?.displayName}!</ThemedText>
+              <ThemedText style={styles.title}>{t('auth.onboarding.hello', { name: user?.displayName ?? '' })}</ThemedText>
               <ThemedText style={[styles.motto, { color: colors.accent }]}>{MOTTO}</ThemedText>
               <ThemedText style={{ color: colors.textSecondary }}>
-                {APP_NAME} bantu anda mencatat, memahami dan merancang wang anda. Setup ambil kurang 2 minit dan semua langkah pilihan.
+                {t('auth.onboarding.welcomeBody', { app: APP_NAME })}
               </ThemedText>
 
               <View style={styles.pillars}>
@@ -141,8 +143,8 @@ export default function OnboardingScreen() {
                       <Ionicons name={PILLAR_ICON[p.key]} size={20} color={colors.accent} />
                     </View>
                     <View style={styles.flex}>
-                      <ThemedText type="smallBold">{p.label}</ThemedText>
-                      <ThemedText type="small" style={{ color: colors.textSecondary }}>{p.hint}</ThemedText>
+                      <ThemedText type="smallBold">{t(p.labelKey)}</ThemedText>
+                      <ThemedText type="small" style={{ color: colors.textSecondary }}>{t(p.hintKey)}</ThemedText>
                     </View>
                   </View>
                 ))}
@@ -152,7 +154,7 @@ export default function OnboardingScreen() {
 
           {step === 'setup' ? (
             <>
-              <ThemedText style={styles.title}>Apa matlamat anda?</ThemedText>
+              <ThemedText style={styles.title}>{t('auth.onboarding.goalTitle')}</ThemedText>
               <View style={styles.goalGrid}>
                 {GOALS.map((g) => {
                   const active = goal === g.key;
@@ -164,24 +166,25 @@ export default function OnboardingScreen() {
                     >
                       <Ionicons name={g.icon} size={24} color={active ? colors.accent : colors.textSecondary} />
                       <ThemedText type="small" style={{ fontWeight: active ? '700' : '500', textAlign: 'center' }}>
-                        {g.label}
+                        {t(g.labelKey)}
                       </ThemedText>
                     </Pressable>
                   );
                 })}
               </View>
 
-              <ThemedText style={[styles.title, { marginTop: Spacing.four }]}>Baki permulaan</ThemedText>
+              <ThemedText style={[styles.title, { marginTop: Spacing.four }]}>{t('auth.onboarding.balanceTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-                Anggaran baki hari ini. Boleh diubah kemudian di More → Assets. Boleh kosongkan.
+                {t('auth.onboarding.balanceBody')}
               </ThemedText>
               {[
-                { label: 'Bank', value: bank, set: setBank },
-                { label: 'Tunai', value: cash, set: setCash },
+                { id: 'bank', label: t('auth.onboarding.bank'), value: bank, set: setBank },
+                { id: 'cash', label: t('auth.onboarding.cash'), value: cash, set: setCash },
               ].map((f) => (
-                <View key={f.label} style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+                <View key={f.id} style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
                   <ThemedText style={styles.flex}>{f.label}</ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
+                  {/* i18n-ignore */}
+<ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
                   <TextInput
                     value={f.value}
                     onChangeText={f.set}
@@ -197,13 +200,14 @@ export default function OnboardingScreen() {
 
           {step === 'plan' ? (
             <>
-              <ThemedText style={styles.title}>Gaji anda</ThemedText>
+              <ThemedText style={styles.title}>{t('auth.onboarding.salaryTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-                Pilihan. Isi gaji bersih (selepas EPF dan SOCSO) dan kami rekodkan sendiri setiap bulan, bermula pada tarikh gaji seterusnya. Boleh langkau dan ditambah kemudian di More → Recurring.
+                {t('auth.onboarding.salaryBody')}
               </ThemedText>
               <View style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
-                <ThemedText style={styles.flex}>Gaji bersih</ThemedText>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
+                <ThemedText style={styles.flex}>{t('auth.onboarding.netSalary')}</ThemedText>
+                {/* i18n-ignore */}
+<ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
                 <TextInput
                   value={salary}
                   onChangeText={setSalary}
@@ -214,7 +218,7 @@ export default function OnboardingScreen() {
                 />
               </View>
               <View style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: planInvalid ? colors.negative : colors.divider }]}>
-                <ThemedText style={styles.flex}>Tarikh gaji (hari dalam bulan)</ThemedText>
+                <ThemedText style={styles.flex}>{t('auth.onboarding.payDay')}</ThemedText>
                 <TextInput
                   value={payDay}
                   onChangeText={setPayDay}
@@ -227,14 +231,14 @@ export default function OnboardingScreen() {
               </View>
               {planInvalid ? (
                 <ThemedText type="small" style={{ color: colors.negative, marginBottom: Spacing.two }}>
-                  Masukkan tarikh gaji antara 1 dan 31, atau kosongkan gaji untuk langkau.
+                  {t('auth.onboarding.payDayInvalid')}
                 </ThemedText>
               ) : null}
               <View style={[styles.balanceRow, styles.switchRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
                 <View style={styles.flex}>
-                  <ThemedText>Jumlah berubah-ubah</ThemedText>
+                  <ThemedText>{t('auth.onboarding.salaryVaries')}</ThemedText>
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    Kami tanya jumlah sebenar setiap bulan, bukan rekod sendiri.
+                    {t('auth.onboarding.salaryVariesHint')}
                   </ThemedText>
                 </View>
                 <Switch value={salaryVaries} onValueChange={setSalaryVaries} trackColor={{ true: colors.accent }} />
@@ -242,23 +246,24 @@ export default function OnboardingScreen() {
 
               {goal === 'save' ? (
                 <>
-                  <ThemedText style={[styles.title, { marginTop: Spacing.four }]}>Sasaran simpanan pertama</ThemedText>
+                  <ThemedText style={[styles.title, { marginTop: Spacing.four }]}>{t('auth.onboarding.goalSectionTitle')}</ThemedText>
                   <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-                    Pilihan. Contoh: Dana kecemasan, Umrah, Kereta. Tarikh akhir boleh ditetapkan kemudian di More → Rancang.
+                    {t('auth.onboarding.goalSectionBody')}
                   </ThemedText>
                   <View style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
                     <TextInput
                       value={goalName}
                       onChangeText={setGoalName}
-                      placeholder="Nama sasaran"
+                      placeholder={t('auth.onboarding.goalNamePlaceholder')}
                       placeholderTextColor={colors.textSecondary}
                       maxLength={40}
                       style={[styles.balanceInput, styles.nameInput, { color: colors.text }]}
                     />
                   </View>
                   <View style={[styles.balanceRow, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
-                    <ThemedText style={styles.flex}>Sasaran</ThemedText>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
+                    <ThemedText style={styles.flex}>{t('auth.onboarding.goalTarget')}</ThemedText>
+                    {/* i18n-ignore */}
+<ThemedText type="small" style={{ color: colors.textSecondary }}>RM</ThemedText>
                     <TextInput
                       value={goalTarget}
                       onChangeText={setGoalTarget}
@@ -272,10 +277,10 @@ export default function OnboardingScreen() {
               ) : (
                 <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.three }}>
                   {goal === 'budget'
-                    ? 'Bajet bulanan setiap kategori boleh ditetapkan di More → Budgets.'
+                    ? t('auth.onboarding.hintBudget')
                     : goal === 'debt'
-                      ? 'Letak bayaran hutang bulanan di More → Recurring supaya ia sentiasa dalam jadual bil anda.'
-                      : 'Mulakan dengan menambah rekod pertama menggunakan butang + di bawah.'}
+                      ? t('auth.onboarding.hintDebt')
+                      : t('auth.onboarding.hintDefault')}
                 </ThemedText>
               )}
             </>
@@ -283,15 +288,15 @@ export default function OnboardingScreen() {
 
           {step === 'tips' ? (
             <>
-              <ThemedText style={styles.title}>Cara guna</ThemedText>
-              {TIPS.map((t) => (
-                <View key={t.title} style={[styles.tip, { backgroundColor: colors.backgroundElement }]}>
+              <ThemedText style={styles.title}>{t('auth.onboarding.tipsTitle')}</ThemedText>
+              {TIPS.map((tip) => (
+                <View key={tip.titleKey} style={[styles.tip, { backgroundColor: colors.backgroundElement }]}>
                   <View style={[styles.tipIcon, { backgroundColor: `${colors.accent}26` }]}>
-                    <Ionicons name={t.icon} size={20} color={colors.accent} />
+                    <Ionicons name={tip.icon} size={20} color={colors.accent} />
                   </View>
                   <View style={styles.flex}>
-                    <ThemedText type="smallBold">{t.title}</ThemedText>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>{t.body}</ThemedText>
+                    <ThemedText type="smallBold">{t(tip.titleKey)}</ThemedText>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>{t(tip.bodyKey)}</ThemedText>
                   </View>
                 </View>
               ))}
@@ -301,7 +306,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.footer}>
           <Pressable onPress={next} style={[styles.button, { backgroundColor: colors.accent }]}>
-            <ThemedText style={styles.buttonText}>{isLast ? 'Mula guna' : 'Seterusnya'}</ThemedText>
+            <ThemedText style={styles.buttonText}>{isLast ? t('auth.onboarding.start') : t('auth.onboarding.next')}</ThemedText>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -332,4 +337,4 @@ const styles = StyleSheet.create({
   footer: { padding: Spacing.four },
   button: { padding: 16, borderRadius: 14, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-});
+});

@@ -6,8 +6,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
+  const { t } = useT();
   const colors = useTheme();
   const router = useRouter();
 
@@ -18,7 +20,7 @@ export function ScreenHeader({ title, right }: { title: string; right?: ReactNod
         hitSlop={8}
         style={[styles.button, { backgroundColor: colors.backgroundElement }]}
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={t('common.back')}
       >
         <Ionicons name="chevron-back" size={20} color={colors.text} />
       </Pressable>
@@ -35,4 +37,4 @@ const styles = StyleSheet.create({
   button: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, fontSize: 28, lineHeight: 34 },
   right: { minWidth: 36, alignItems: 'flex-end' },
-});
+});

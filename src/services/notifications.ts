@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { getLanguage, t, type Lang } from '@/i18n';
 import type { PlannedReminder } from '@/utils/reminders';
 
 /**
@@ -33,9 +34,27 @@ const supported = Platform.OS !== 'web';
 export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupported';
 
 let configured: Promise<void> | null = null;
+// The Android channel name is user-visible (system settings), so it follows the app language.
+let channelLang: Lang | null = null;
 
-export function configureNotifications(): Promise<void> {
-  if (!supported) return Promise.resolve();
+async function ensureChannel(Notifications: NotificationsModule) {
+  const lang = getLanguage();
+  if (Platform.OS !== 'android' || channelLang === lang) return;
+  channelLang = lang;
+  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+    name: t('plan.notif.channel'),
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+}
+
+export async function configureNotifications(): Promise<void> {
+  if (!supported) return;
+  try {
+    const Notifications = lib();
+    if (Notifications) await ensureChannel(Notifications);
+  } catch {
+    // Not available in this environment.
+  }
   if (!configured) {
     configured = (async () => {
       try {
@@ -50,12 +69,6 @@ export function configureNotifications(): Promise<void> {
             shouldShowList: true,
           }),
         });
-        if (Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-            name: 'Reminders',
-            importance: Notifications.AndroidImportance.DEFAULT,
-          });
-        }
       } catch {
         // Not available in this environment.
       }

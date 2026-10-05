@@ -8,6 +8,8 @@ import { useCategories } from '@/context/CategoriesContext';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
+import { useT } from '@/i18n';
+import { categoryName } from '@/i18n/data';
 
 const MASK = 'RM ••••';
 const FALLBACK_COLOR = '#8E8E93';
@@ -25,6 +27,7 @@ type SummaryProps = {
 };
 
 export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden, onToggleHidden }: SummaryProps) {
+  const { t } = useT();
   const colors = useTheme();
   const net = income - spending;
 
@@ -42,14 +45,14 @@ export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden,
     <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
       <View style={styles.netTop}>
         <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          Net this month
+          {t('home.summary.netThisMonth')}
         </ThemedText>
         <Pressable
           onPress={onToggleHidden}
           hitSlop={12}
           style={[styles.eye, { backgroundColor: colors.background }]}
           accessibilityRole="button"
-          accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+          accessibilityLabel={hidden ? t('home.summary.showAmounts') : t('home.summary.hideAmounts')}
         >
           <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.text} />
         </Pressable>
@@ -66,13 +69,13 @@ export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden,
               {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {Math.abs(Math.round(deltaPercent))}%
             </ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              spending vs {prevLabel}
+              {t('home.summary.spendingVs', { label: prevLabel })}
             </ThemedText>
           </View>
         ) : null}
         {income > 0 ? (
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {rate !== null ? `Saved ${rate}% of income` : 'Spent more than earned'}
+            {rate !== null ? t('home.summary.saved', { rate }) : t('home.summary.overspent')}
           </ThemedText>
         ) : null}
       </View>
@@ -84,7 +87,7 @@ export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden,
           </View>
           <View style={styles.flex}>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              Income
+              {t('common.income')}
             </ThemedText>
             <ThemedText style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {hidden ? MASK : formatMoney(income)}
@@ -97,7 +100,7 @@ export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden,
           </View>
           <View style={styles.flex}>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              Spending
+              {t('home.summary.spending')}
             </ThemedText>
             <ThemedText style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {hidden ? MASK : formatMoney(spending)}
@@ -122,6 +125,7 @@ type BreakdownProps = {
 };
 
 export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden }: BreakdownProps) {
+  const { t } = useT();
   const colors = useTheme();
   const [expanded, setExpanded] = useState(true);
   const { getCategory } = useCategories();
@@ -132,9 +136,9 @@ export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden 
     <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
       <Pressable style={styles.breakdownHeader} onPress={() => setExpanded((v) => !v)} hitSlop={8}>
         <View>
-          <ThemedText type="smallBold">Where it went</ThemedText>
+          <ThemedText type="smallBold">{t('home.summary.whereItWent')}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {hidden ? MASK : formatMoney(total)} spent
+            {t('home.summary.spentTotal', { amount: hidden ? MASK : formatMoney(total) })}
           </ThemedText>
         </View>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
@@ -171,13 +175,13 @@ export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden 
                 onPress={() => onSelect(s.categoryId)}
                 style={[styles.catRow, dimmed && { opacity: 0.45 }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Filter by ${cat?.name ?? s.categoryId}`}
+                accessibilityLabel={t('home.summary.filterBy', { name: cat ? categoryName(cat) : s.categoryId })}
               >
                 <CategoryIcon icon={cat?.icon ?? 'help-circle'} color={color} size={34} />
                 <View style={styles.flex}>
                   <View style={styles.catTop}>
                     <ThemedText type="small" style={{ fontWeight: selected ? '700' : '500' }} numberOfLines={1}>
-                      {cat?.name ?? s.categoryId}
+                      {cat ? categoryName(cat) : s.categoryId}
                     </ThemedText>
                     <ThemedText type="small" style={{ fontWeight: '600' }}>
                       {hidden ? MASK : formatMoney(s.value)}
@@ -191,7 +195,7 @@ export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden 
                   </View>
                   {over ? (
                     <ThemedText type="small" style={[styles.overText, { color: colors.negative }]}>
-                      Over budget
+                      {t('home.summary.overBudget')}
                     </ThemedText>
                   ) : null}
                 </View>
@@ -203,7 +207,7 @@ export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden 
 
       {expanded ? (
         <ThemedText type="small" style={[styles.tip, { color: colors.textSecondary }]}>
-          Tap a category to filter the list
+          {t('home.summary.tip')}
         </ThemedText>
       ) : null}
     </View>
@@ -254,4 +258,4 @@ const styles = StyleSheet.create({
   fill: { height: 6, borderRadius: 3 },
   overText: { fontSize: 11, lineHeight: 14, fontWeight: '600', marginTop: 3 },
   tip: { textAlign: 'center', marginTop: Spacing.two, fontSize: 12, lineHeight: 16, opacity: 0.7 },
-});
+});

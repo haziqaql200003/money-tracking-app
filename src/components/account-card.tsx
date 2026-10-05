@@ -9,6 +9,7 @@ import { FlipCard } from '@/components/cards/FlipCard';
 import { TiltCard } from '@/components/cards/TiltCard';
 import { tone } from '@/components/cards/palette';
 import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/card-styles';
+import { useT } from '@/i18n';
 import { formatMoney } from '@/utils/currency';
 
 // Bold bands that cut across the bottom-right corner of the Stripes design.
@@ -176,6 +177,7 @@ export function AccountCard({
   hidden = false,
   onToggleHidden,
 }: Props) {
+  const { t } = useT();
   const ink = inkFor(color);
 
   if (isProDesign(design)) {
@@ -226,14 +228,14 @@ export function AccountCard({
 
       <View>
         <View style={styles.balanceLabelRow}>
-          <Text style={[styles.balanceLabel, { color: ink.muted }]}>BALANCE</Text>
+          <Text style={[styles.balanceLabel, { color: ink.muted }]}>{t('acct.card.balance').toUpperCase()}</Text>
           {onToggleHidden ? (
             <Pressable
               onPress={onToggleHidden}
               hitSlop={12}
               style={[styles.eyeButton, { backgroundColor: ink.chip }]}
               accessibilityRole="button"
-              accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+              accessibilityLabel={hidden ? t('acct.card.showAmounts') : t('acct.card.hideAmounts')}
             >
               <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={ink.main} />
             </Pressable>
@@ -251,11 +253,11 @@ export function AccountCard({
 
       <View style={[styles.bottom, { borderTopColor: ink.line }]}>
         <View>
-          <Text style={[styles.splitLabel, { color: ink.muted }]}>Income</Text>
+          <Text style={[styles.splitLabel, { color: ink.muted }]}>{t('acct.card.income')}</Text>
           <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(income)}</Text>
         </View>
         <View style={styles.right}>
-          <Text style={[styles.splitLabel, { color: ink.muted }]}>Spending</Text>
+          <Text style={[styles.splitLabel, { color: ink.muted }]}>{t('acct.card.spending')}</Text>
           <Text style={[styles.splitValue, { color: ink.main }]}>{hidden ? MASK_SPLIT : formatMoney(spending)}</Text>
         </View>
       </View>

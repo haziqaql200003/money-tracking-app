@@ -12,6 +12,7 @@ import { GOAL_PRESETS } from '@/constants/goals';
 import { Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 import { toDateKey } from '@/utils/dates';
 import type { SavingsGoal } from '@/utils/goals';
 
@@ -24,22 +25,23 @@ type Props = {
 
 export function GoalFormModal({ visible, onClose, editing }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <ThemedView
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title={editing ? 'Edit goal' : 'New goal'}
+            title={editing ? t('plan.goalForm.edit') : t('plan.goalForm.new')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -55,6 +57,7 @@ export function GoalFormModal({ visible, onClose, editing }: Props) {
 
 function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: () => void }) {
   const colors = useTheme();
+  const { t } = useT();
   const { addGoal, updateGoal, deleteGoal } = usePlan();
 
   const startPreset = Math.max(0, GOAL_PRESETS.findIndex((p) => p.icon === editing?.icon));
@@ -86,10 +89,10 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
 
   function remove() {
     if (!editing) return;
-    Alert.alert('Delete goal?', `"${editing.name}" and its saving history will be removed. Your accounts are not affected.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('plan.goalForm.deleteTitle'), t('plan.goalForm.deleteBody', { name: editing.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
           deleteGoal(editing.id);
@@ -104,11 +107,11 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
   return (
     <View>
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        What are you saving for?
+        {t('plan.goalForm.whatFor')}
       </ThemedText>
       <TextInput
         style={inputStyle}
-        placeholder="e.g. Umrah, Emergency fund"
+        placeholder={t('plan.goalForm.namePlaceholder')}
         placeholderTextColor={colors.textSecondary}
         value={name}
         onChangeText={setName}
@@ -117,7 +120,7 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
       />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Target amount (RM)
+        {t('plan.goalForm.target')}
       </ThemedText>
       <TextInput
         style={inputStyle}
@@ -129,7 +132,7 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
       />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        Look
+        {t('plan.goalForm.look')}
       </ThemedText>
       <View style={styles.presets}>
         {GOAL_PRESETS.map((p, i) => (
@@ -139,7 +142,7 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
             style={[styles.preset, i === preset && { borderColor: p.color, backgroundColor: `${p.color}1A` }]}
             accessibilityRole="button"
             accessibilityState={{ selected: i === preset }}
-            accessibilityLabel={p.label}
+            accessibilityLabel={t(p.labelKey)}
           >
             <CategoryIcon icon={p.icon as IconName} color={p.color} size={38} />
           </Pressable>
@@ -148,9 +151,9 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
 
       <View style={[styles.switchRow, { backgroundColor: colors.backgroundElement }]}>
         <View style={styles.flex}>
-          <ThemedText>Set a deadline</ThemedText>
+          <ThemedText>{t('plan.goalForm.setDeadline')}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            WaKira will show how much to set aside each month.
+            {t('plan.goalForm.setDeadlineSub')}
           </ThemedText>
         </View>
         <Switch value={hasDeadline} onValueChange={setHasDeadline} trackColor={{ true: colors.accent }} />
@@ -160,7 +163,7 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
           <DateField value={deadline} onChange={setDeadline} />
           {!deadlineValid ? (
             <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-              Pick a date after today.
+              {t('plan.goalForm.pickDate')}
             </ThemedText>
           ) : null}
         </View>
@@ -171,12 +174,12 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
         onPress={save}
         disabled={!valid}
       >
-        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>{editing ? 'Save changes' : 'Create goal'}</ThemedText>
+        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>{editing ? t('plan.goalForm.saveChanges') : t('plan.goalForm.create')}</ThemedText>
       </Pressable>
 
       {editing ? (
         <Pressable style={styles.textButton} onPress={remove}>
-          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete goal</ThemedText>
+          <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('plan.goalForm.delete')}</ThemedText>
         </Pressable>
       ) : null}
     </View>

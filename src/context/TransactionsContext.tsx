@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import type { CardDesign } from '@/constants/card-styles';
 import type { IconName } from '@/constants/categories';
 import { useAuth } from '@/context/AuthContext';
+import { monthShort, weekdayShort } from '@/i18n/format';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import { confirmedTransaction, materializeRecurring, skipToUpcoming } from '@/utils/recurring';
 
@@ -164,15 +165,11 @@ type TransactionsContextValue = {
 const TransactionsContext = createContext<TransactionsContextValue | undefined>(undefined);
 
 const initialAccounts: Account[] = [
-  { id: 'bank', name: 'Bank', type: 'bank', icon: 'business', initialBalance: 0 },
-  { id: 'cash', name: 'Cash', type: 'cash', icon: 'cash', initialBalance: 0 },
+  { id: 'bank', name: 'Bank', type: 'bank', icon: 'business', initialBalance: 0 }, // i18n-ignore: stored default name; shown via accountName()
+  { id: 'cash', name: 'Cash', type: 'cash', icon: 'cash', initialBalance: 0 }, // i18n-ignore: stored default name; shown via accountName()
 ];
 
 const initialTransactions: Transaction[] = [];
-
-// Monday-first, matching how the week chart is laid out.
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Local-date key (avoids the UTC-shift you get from toISOString() near midnight).
 function toDateKey(d: Date): string {
@@ -426,7 +423,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       const value = transactions
         .filter((t) => t.type === 'debit' && t.date === key && (!accountId || t.accountId === accountId))
         .reduce((sum, t) => sum + t.amount, 0);
-      points.push({ key, label: WEEKDAY_LABELS[i], value, isToday: key === todayKey, isFuture: key > todayKey });
+      points.push({ key, label: weekdayShort(i), value, isToday: key === todayKey, isFuture: key > todayKey });
     }
     return points;
   }
@@ -435,9 +432,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   function getMonthChartData(accountId?: string): ChartPoint[] {
     const now = new Date();
     const year = now.getFullYear();
-    const points: ChartPoint[] = MONTH_LABELS.map((label, i) => ({
+    const points: ChartPoint[] = Array.from({ length: 12 }, (_, i) => ({
       key: `${year}-${i}`,
-      label,
+      label: monthShort(i),
       value: 0,
       isFuture: i > now.getMonth(),
     }));

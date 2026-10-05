@@ -7,9 +7,11 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 /** Shown on Home while recurring entries are waiting for the user to enter the real amount. Renders nothing otherwise. */
 export function PendingBanner() {
+  const { t, tp } = useT();
   const colors = useTheme();
   const router = useRouter();
   const { pendingEntries } = useTransactions();
@@ -22,7 +24,7 @@ export function PendingBanner() {
       onPress={() => router.push('/more/recurring')}
       style={styles.wrap}
       accessibilityRole="button"
-      accessibilityLabel="Review recurring entries that need confirmation"
+      accessibilityLabel={t('home.pending.a11y')}
     >
       <Glass radius={20} tint={colors.accent} style={styles.card}>
         <View style={[styles.icon, { backgroundColor: `${colors.accent}26` }]}>
@@ -30,10 +32,10 @@ export function PendingBanner() {
         </View>
         <View style={styles.text}>
           <ThemedText style={{ fontWeight: '700' }}>
-            {count} recurring {count === 1 ? 'entry needs' : 'entries need'} confirming
+            {tp('home.pending.title', count)}
           </ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            Enter the real amount to record {count === 1 ? 'it' : 'them'}
+            {tp('home.pending.hint', count)}
           </ThemedText>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />

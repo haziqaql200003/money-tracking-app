@@ -1,5 +1,6 @@
+import { t, tp, type TKey } from '@/i18n';
 import type { RecurringRule, Transaction } from '@/context/TransactionsContext';
-import { addDays, dueText, upcomingOccurrences } from '@/utils/bills';
+import { addDays, upcomingOccurrences } from '@/utils/bills';
 import { budgetStatus } from '@/utils/budget';
 
 export type ReminderPrefs = {
@@ -11,12 +12,13 @@ export type ReminderPrefs = {
 };
 
 export const DEFAULT_REMINDER_PREFS: ReminderPrefs = { enabled: false, daysBefore: 1, budgetAlerts: true };
-export const DAYS_BEFORE_OPTIONS = [
-  { value: 0, label: 'On the day' },
-  { value: 1, label: '1 day' },
-  { value: 3, label: '3 days' },
-  { value: 7, label: '1 week' },
-] as const;
+/** Show `t(labelKey)`: the language can change while the app is open. */
+export const DAYS_BEFORE_OPTIONS: readonly { value: number; labelKey: TKey }[] = [
+  { value: 0, labelKey: 'plan.remind.day0' },
+  { value: 1, labelKey: 'plan.remind.day1' },
+  { value: 3, labelKey: 'plan.remind.day3' },
+  { value: 7, labelKey: 'plan.remind.day7' },
+];
 
 export type PlannedReminder = { id: string; fireAt: Date; title: string; body: string };
 
@@ -53,19 +55,28 @@ export function buildReminders(args: {
     const fireAt = at9(addDays(o.date, isBill ? -daysBefore : 0));
     if (fireAt.getTime() <= now.getTime()) continue;
 
-    const amountText = o.varies ? (o.amount > 0 ? `about ${money(o.amount)}` : 'amount varies') : money(o.amount);
+    const amountText = o.varies
+      ? o.amount > 0
+        ? t('plan.reminder.about', { amount: money(o.amount) })
+        : t('plan.reminder.amountVaries')
+      : money(o.amount);
     const leadDays = isBill ? daysBefore : 0;
-    const when = leadDays === 0 ? 'today' : dueText(leadDays).toLowerCase();
+    const dueTitle =
+      leadDays === 0
+        ? t('plan.reminder.billDueToday', { title: o.title })
+        : leadDays === 1
+          ? t('plan.reminder.billDueTomorrow', { title: o.title })
+          : tp('plan.reminder.billDueInDays', leadDays, { title: o.title });
 
     out.push({
       id: `rem_${o.ruleId}_${o.date}`,
       fireAt,
-      title: isBill ? `${o.title} is due ${when}` : `Time to record ${o.title}`,
+      title: isBill ? dueTitle : t('plan.reminder.incomeTitle', { title: o.title }),
       body: isBill
         ? o.varies
-          ? `Expected ${amountText}. Enter the real amount once you have the bill.`
-          : `${amountText} will be recorded on the due date.`
-        : 'Open WaKira and enter the real amount you received.',
+          ? t('plan.reminder.billBodyVaries', { amount: amountText })
+          : t('plan.reminder.billBodyFixed', { amount: amountText })
+        : t('plan.reminder.incomeBody'),
     });
   }
 
@@ -103,8 +114,18 @@ export function budgetAlertsToSend(args: {
     if (sent.has(key)) continue;
     out.push(
       status === 'over'
-        ? { key, level: 'over', title: `${b.name} is over budget`, body: `You have spent ${money(s)} of ${money(b.limit)} this month.` }
-        : { key, level: 'warn', title: `${b.name} is nearly used up`, body: `${money(s)} of ${money(b.limit)} spent this month.` },
+        ? {
+            key,
+            level: 'over',
+            title: t('plan.reminder.overTitle', { name: b.name }),
+            body: t('plan.reminder.overBody', { spent: money(s), limit: money(b.limit) }),
+          }
+        : {
+            key,
+            level: 'warn',
+            title: t('plan.reminder.warnTitle', { name: b.name }),
+            body: t('plan.reminder.warnBody', { spent: money(s), limit: money(b.limit) }),
+          },
     );
   }
   return out;

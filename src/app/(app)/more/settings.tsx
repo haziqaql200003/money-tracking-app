@@ -21,11 +21,20 @@ import { useTheme } from '@/hooks/use-theme';
 import { toCsv } from '@/utils/csv';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
+import { accountName, categoryName } from '@/i18n/data';
+import { setLanguage, useT, type Lang, type TKey } from '@/i18n';
+import { formatDate, weekdayLong } from '@/i18n/format';
+import { useSyncStatus } from '@/services/cloud-sync';
 
-const THEMES: { key: ThemePreference; label: string }[] = [
-  { key: 'system', label: 'System' },
-  { key: 'light', label: 'Light' },
-  { key: 'dark', label: 'Dark' },
+const THEMES: { key: ThemePreference; labelKey: TKey }[] = [
+  { key: 'system', labelKey: 'more.settings.theme.system' },
+  { key: 'light', labelKey: 'more.settings.theme.light' },
+  { key: 'dark', labelKey: 'more.settings.theme.dark' },
+];
+// Each language is always shown in its own language.
+const LANGUAGES: { key: Lang; label: string }[] = [
+  { key: 'ms', label: 'Bahasa Melayu' }, // i18n-ignore
+  { key: 'en', label: 'English' }, // i18n-ignore
 ];
 const WARN_OPTIONS = [70, 80, 90];
 
@@ -93,6 +102,7 @@ function Row({ icon, label, subtitle, value, right, onPress, danger, first }: Ro
 
 export default function SettingsScreen() {
   const colors = useTheme();
+  const { t, tp, lang } = useT();
   const { displayName, setDisplayName, avatarColor } = useProfile();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const gyroEnabled = useGyroEnabled();
@@ -101,12 +111,36 @@ export default function SettingsScreen() {
   const { getCategory, resetCategories } = useCategories();
   const { resetPlan } = usePlan();
 
-  const { user, signOut, deleteAccount, updateProfile } = useAuth();
+  const { user, signOut, deleteAccount, updateProfile, cloud, syncNow } = useAuth();
+  const sync = useSyncStatus();
+  const syncText = (() => {
+    if (sync.state === 'syncing') return t('more.settings.syncSyncing');
+    if (sync.state === 'offline') return t('more.settings.syncOffline');
+    if (sync.pending > 0) return tp('more.settings.syncPending', sync.pending);
+    if (!sync.lastSyncedAt) return t('more.settings.syncNever');
+    const d = new Date(sync.lastSyncedAt);
+    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return t('more.settings.syncLast', { time: `${formatDate(d)}, ${hhmm}` });
+  })();
+
+  function changeLanguage(language: Lang) {
+    if (language === lang) return;
+    updateProfile({ language });
+    setLanguage(language);
+  }
 
   function confirmDelete() {
-    Alert.alert('Padam akaun?', 'Akaun dan semua data anda dipadam kekal. Tindakan ini tidak boleh dibatalkan.', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Padam', style: 'destructive', onPress: () => deleteAccount() },
+    Alert.alert(t('more.settings.deleteAccountTitle'), t('more.settings.deleteAccountMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          deleteAccount().then((res) => {
+            if (!res.ok) Alert.alert(t('more.settings.deleteFailedTitle'), res.error);
+          });
+        },
+      },
     ]);
   }
 
@@ -132,16 +166,22 @@ export default function SettingsScreen() {
 
   async function exportAll() {
     if (transactions.length === 0) {
-      Alert.alert('Nothing to export', 'You have no transactions yet.');
+      Alert.alert(t('more.settings.exportEmptyTitle'), t('more.settings.exportEmptyMsg'));
       return;
     }
     const csv = toCsv(
       [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
-      (id) => accounts.find((a) => a.id === id)?.name ?? id,
-      (id) => getCategory(id)?.name ?? id,
+      (id) => {
+        const a = accounts.find((x) => x.id === id);
+        return a ? accountName(a) : id;
+      },
+      (id) => {
+        const c = getCategory(id);
+        return c ? categoryName(c) : id;
+      },
     );
     try {
-      await Share.share({ message: csv, title: 'transactions.csv' });
+      await Share.share({ message: csv, title: 'transactions.csv' /* i18n-ignore */ });
     } catch {
       // sheet dismissed
     }
@@ -149,12 +189,12 @@ export default function SettingsScreen() {
 
   function confirmReset() {
     Alert.alert(
-      'Reset all data?',
-      'This clears every transaction, account, category and budget back to the sample data. It cannot be undone.',
+      t('more.settings.resetTitle'),
+      t('more.settings.resetMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('common.reset'),
           style: 'destructive',
           onPress: () => {
             resetAllData();
@@ -170,23 +210,23 @@ export default function SettingsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ScreenHeader title="Settings" />
+          <ScreenHeader title={t('more.settings.title')} />
 
-          <Section title="Profile">
+          <Section title={t('more.settings.profile')}>
             <View style={styles.nameRow}>
               <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
                 <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{(name || '?').charAt(0).toUpperCase()}</ThemedText>
               </View>
               <View style={styles.flex}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Display name
+                  {t('more.settings.displayName')}
                 </ThemedText>
                 <TextInput
                   style={[styles.nameInput, { color: colors.text }]}
                   value={name}
                   onChangeText={setName}
                   onEndEditing={commitName}
-                  placeholder="Your name"
+                  placeholder={t('more.settings.namePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   returnKeyType="done"
                   maxLength={24}
@@ -195,17 +235,24 @@ export default function SettingsScreen() {
             </View>
           </Section>
 
-          <Section title="Akaun">
-            <Row first icon="mail-outline" label="Email" value={user?.email} />
-            <Row icon="school-outline" label="Ulang tutorial" onPress={() => updateProfile({ hasOnboarded: false })} />
-            <Row icon="log-out-outline" label="Log keluar" onPress={signOut} />
-            <Row icon="trash-outline" label="Padam akaun" subtitle="Padam semua data anda" danger onPress={confirmDelete} />
+          <Section title={t('more.settings.account')}>
+            <Row first icon="mail-outline" label={t('more.settings.email')} value={user?.email} />
+            <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={() => updateProfile({ hasOnboarded: false })} />
+            <Row icon="log-out-outline" label={t('more.settings.logOut')} onPress={signOut} />
+            <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={confirmDelete} />
           </Section>
 
-          <Section title="Appearance">
+          {cloud ? (
+            <Section title={t('more.settings.cloudSync')}>
+              <Row first icon="cloud-done-outline" label={t('more.settings.cloudSync')} subtitle={syncText} />
+              <Row icon="sync-outline" label={t('more.settings.syncNow')} subtitle={t('more.settings.syncNowSub')} onPress={() => void syncNow()} />
+            </Section>
+          ) : null}
+
+          <Section title={t('more.settings.appearance')}>
             <View style={styles.pad}>
               <GlassSegmented
-                options={THEMES}
+                options={THEMES.map((o) => ({ key: o.key, label: t(o.labelKey) }))}
                 value={themePreference}
                 onChange={setThemePreference}
                 trackColor={colors.background}
@@ -213,20 +260,31 @@ export default function SettingsScreen() {
             </View>
           </Section>
 
-          <Section title="Card motion" footer="Premium cards always tilt when you touch them. This also lets them lean as you move your phone.">
+          <Section title={t('more.settings.language')} footer={t('more.settings.languageFooter')}>
+            <View style={styles.pad}>
+              <GlassSegmented
+                options={LANGUAGES}
+                value={lang}
+                onChange={changeLanguage}
+                trackColor={colors.background}
+              />
+            </View>
+          </Section>
+
+          <Section title={t('more.settings.cardMotion')} footer={t('more.settings.cardMotionFooter')}>
             <Row
               first
               icon="phone-portrait-outline"
-              label="Tilt with phone"
+              label={t('more.settings.tiltWithPhone')}
               right={<Switch value={gyroEnabled} onValueChange={setGyroEnabled} trackColor={{ true: colors.accent }} />}
             />
           </Section>
 
-          <Section title="Privacy" footer="Masks balances and amounts on Home, Transactions, Assets and Budgets.">
+          <Section title={t('more.settings.privacy')} footer={t('more.settings.privacyFooter')}>
             <Row
               first
               icon="eye-off-outline"
-              label="Hide amounts"
+              label={t('more.settings.hideAmounts')}
               right={
                 <Switch
                   value={hideAmounts}
@@ -237,10 +295,10 @@ export default function SettingsScreen() {
             />
           </Section>
 
-          <Section title="Budgets" footer="A budget is flagged as “Nearing limit” once you have used this much of it.">
+          <Section title={t('more.settings.budgets')} footer={t('more.settings.budgetsFooter')}>
             <View style={styles.pad}>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.two }}>
-                Warn me at
+                {t('more.settings.warnAt')}
               </ThemedText>
               <View style={styles.chipRow}>
                 {WARN_OPTIONS.map((w) => {
@@ -265,16 +323,16 @@ export default function SettingsScreen() {
                 })}
               </View>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.four, marginBottom: Spacing.two }}>
-                Daily spending limit
+                {t('more.settings.dailyLimit')}
               </ThemedText>
               <View style={styles.dailyLimitRow}>
                 <View style={[styles.dailyLimitInputWrap, { backgroundColor: colors.background, borderColor: colors.divider }]}>
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    RM
+                    RM{/* i18n-ignore */}
                   </ThemedText>
                   <TextInput
                     style={[styles.dailyLimitInput, { color: colors.text }]}
-                    placeholder="Off"
+                    placeholder={t('more.settings.dailyLimitOff')}
                     placeholderTextColor={colors.textSecondary}
                     value={dailyLimitText}
                     onChangeText={setDailyLimitText}
@@ -305,28 +363,26 @@ export default function SettingsScreen() {
                 })}
               </View>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 6 }}>
-                {dailyLimit > 0
-                  ? `Shown as a line on your weekly spending chart on Home.`
-                  : 'Off — no line shown on the chart.'}
+                {dailyLimit > 0 ? t('more.settings.dailyLimitOn') : t('more.settings.dailyLimitOffHint')}
               </ThemedText>
             </View>
           </Section>
 
-          <Section title="General">
-            <Row first icon="cash-outline" label="Currency" value="MYR (RM)" />
-            <Row icon="calendar-outline" label="Week starts on" value="Monday" />
+          <Section title={t('more.settings.general')}>
+            <Row first icon="cash-outline" label={t('more.settings.currency')} value="MYR (RM)" /* i18n-ignore */ />
+            <Row icon="calendar-outline" label={t('more.settings.weekStarts')} value={weekdayLong(0)} />
           </Section>
 
-          <Section title="Data">
-            <Row first icon="download-outline" label="Export all transactions" subtitle="Share as CSV" onPress={exportAll} />
-            <Row icon="trash-outline" label="Reset all data" subtitle="Back to sample data" danger onPress={confirmReset} />
+          <Section title={t('more.settings.data')}>
+            <Row first icon="download-outline" label={t('more.settings.export')} subtitle={t('more.settings.exportSub')} onPress={exportAll} />
+            <Row icon="trash-outline" label={t('more.settings.resetData')} subtitle={t('more.settings.resetDataSub')} danger onPress={confirmReset} />
           </Section>
 
-          <Section title="About">
+          <Section title={t('more.settings.about')}>
             <Row
               first
               icon="information-circle-outline"
-              label="WaKira"
+              label="WaKira" // i18n-ignore
               value={`v${Constants.expoConfig?.version ?? '1.0.0'}`}
             />
           </Section>

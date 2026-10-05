@@ -20,16 +20,18 @@ import { useTheme } from '@/hooks/use-theme';
 import { budgetStatus, spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
 import { monthKeyFromOffset } from '@/utils/dates';
+import { useT } from '@/i18n';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { useUpdates } from '@/context/UpdatesContext';
 
-const MASK = 'RM ••••';
+const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
 type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
+  const { t, tp } = useT();
   const router = useRouter();
   const { displayName, avatarColor } = useProfile();
   const { transactions, recurringRules, pendingEntries, accountBalances } = useTransactions();
@@ -57,59 +59,56 @@ export default function MoreScreen() {
   const menu: MenuItem[] = [
     {
       icon: 'flag-outline',
-      label: 'Rancang',
-      subtitle:
-        goals.length > 0
-          ? `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · upcoming bills · reminders`
-          : 'Savings goals, upcoming bills, reminders',
+      label: t('more.index.menu.rancang'),
+      subtitle: goals.length > 0 ? tp('more.index.rancang.withGoals', goals.length) : t('more.index.rancang.empty'),
       tint: '#22C55E',
       href: '/more/rancang',
     },
     {
       icon: 'wallet-outline',
-      label: 'Assets',
-      subtitle: `${accountList.length} ${accountList.length === 1 ? 'account' : 'accounts'} · ${money(netWorth)}`,
+      label: t('more.index.menu.assets'),
+      subtitle: tp('more.index.assets.sub', accountList.length, { amount: money(netWorth) }),
       tint: '#0EA5E9',
       href: '/more/assets',
     },
     {
       icon: 'pie-chart-outline',
-      label: 'Budgets',
-      subtitle: `${budgeted.length} of ${expenseCategories.length} categories budgeted`,
+      label: t('more.index.menu.budgets'),
+      subtitle: t('more.index.budgets.sub', { budgeted: budgeted.length, total: expenseCategories.length }),
       tint: colors.accent,
       href: '/more/budgets',
     },
     {
       icon: 'repeat',
-      label: 'Recurring',
+      label: t('more.index.menu.recurring'),
       subtitle:
         pendingEntries.length > 0
-          ? `${pendingEntries.length} to confirm · tap to enter the amount`
+          ? t('more.index.recurring.pending', { count: pendingEntries.length })
           : activeRecurring > 0
-            ? `${activeRecurring} active · rent, salary, subscriptions`
-            : 'Rent, salary, subscriptions · recorded automatically',
+            ? t('more.index.recurring.active', { count: activeRecurring })
+            : t('more.index.recurring.empty'),
       tint: '#8B5CF6',
       href: '/more/recurring',
       badge: pendingEntries.length > 0,
     },
     {
       icon: 'pricetags-outline',
-      label: 'Categories',
-      subtitle: `${categories.length} categories · add your own`,
+      label: t('more.index.menu.categories'),
+      subtitle: tp('more.index.categories.sub', categories.length),
       tint: '#F0529C',
       href: '/more/categories',
     },
     {
       icon: 'settings-outline',
-      label: 'Settings',
-      subtitle: 'Appearance, privacy, data',
+      label: t('more.index.menu.settings'),
+      subtitle: t('more.index.settings.sub'),
       tint: '#14B8A6',
       href: '/more/settings',
     },
     {
       icon: 'megaphone-outline',
-      label: "What's New",
-      subtitle: hasUnseenUpdate ? `v${CURRENT_VERSION} · new updates available` : `v${CURRENT_VERSION} · up to date`,
+      label: t('more.index.menu.whatsNew'),
+      subtitle: hasUnseenUpdate ? t('more.index.whatsNew.unseen', { version: CURRENT_VERSION }) : t('more.index.whatsNew.seen', { version: CURRENT_VERSION }),
       tint: '#F59E0B',
       href: '/more/whats-new',
       badge: hasUnseenUpdate,
@@ -122,7 +121,7 @@ export default function MoreScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.header}>
             <ThemedText type="title" style={styles.heading}>
-              More
+              {t('more.index.title')}
             </ThemedText>
           </View>
 
@@ -137,7 +136,7 @@ export default function MoreScreen() {
             <View style={styles.flex}>
               <ThemedText style={styles.profileName}>{displayName}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Edit profile
+                {t('more.index.editProfile')}
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -152,9 +151,9 @@ export default function MoreScreen() {
                 <Ionicons name="sparkles" size={18} color={colors.accent} />
               </View>
               <View style={styles.flex}>
-                <ThemedText style={{ fontWeight: '700' }}>New in v{CURRENT_VERSION}</ThemedText>
+                <ThemedText style={{ fontWeight: '700' }}>{t('more.index.banner.title', { version: CURRENT_VERSION })}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Transfers, recurring transactions, budgets & more
+                  {t('more.index.banner.text')}
                 </ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -169,13 +168,13 @@ export default function MoreScreen() {
             {totalLimit > 0 ? (
               <>
                 <View style={styles.rowBetween}>
-                  <ThemedText type="smallBold">Budget this month</ThemedText>
+                  <ThemedText type="smallBold">{t('more.index.budget.title')}</ThemedText>
                   <ThemedText type="small" style={{ color: statusColor, fontWeight: '700' }}>
-                    {status === 'over' ? 'Over budget' : status === 'warn' ? 'Nearing limit' : 'On track'}
+                    {status === 'over' ? t('more.index.budget.over') : status === 'warn' ? t('more.index.budget.warn') : t('more.index.budget.ok')}
                   </ThemedText>
                 </View>
                 <ThemedText style={styles.budgetAmount}>
-                  {remaining >= 0 ? `${money(remaining)} left` : `${money(-remaining)} over`}
+                  {remaining >= 0 ? t('more.index.budget.left', { amount: money(remaining) }) : t('more.index.budget.overBy', { amount: money(-remaining) })}
                 </ThemedText>
                 <View style={[styles.track, { backgroundColor: colors.background }]}>
                   <View
@@ -186,15 +185,15 @@ export default function MoreScreen() {
                   />
                 </View>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {money(totalSpent)} of {money(totalLimit)} spent
+                  {t('more.index.budget.spentOf', { spent: money(totalSpent), total: money(totalLimit) })}
                 </ThemedText>
               </>
             ) : (
               <View style={styles.rowBetween}>
                 <View style={styles.flex}>
-                  <ThemedText type="smallBold">Set up your budgets</ThemedText>
+                  <ThemedText type="smallBold">{t('more.index.budget.setupTitle')}</ThemedText>
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    Give each category a monthly limit and track it here.
+                    {t('more.index.budget.setupText')}
                   </ThemedText>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -232,7 +231,7 @@ export default function MoreScreen() {
           </View>
 
           <ThemedText type="small" style={[styles.about, { color: colors.textSecondary }]}>
-            WaKira · MVP build
+            {t('more.index.about')}
           </ThemedText>
         </ScrollView>
 
@@ -269,4 +268,4 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderWidth: 1.5 },
   bannerIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-});
+});

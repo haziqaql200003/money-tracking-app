@@ -13,14 +13,16 @@ import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
+import { useT, type TKey } from '@/i18n';
+import { mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
 
 
 type Filter = 'all' | 'debit' | 'credit';
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'debit', label: 'Spending' },
-  { key: 'credit', label: 'Income' },
+const FILTERS: { key: Filter; labelKey: TKey }[] = [
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'debit', labelKey: 'home.recent.filterSpending' },
+  { key: 'credit', labelKey: 'common.income' },
 ];
 
 const MAX_ROWS = 15;
@@ -33,18 +35,14 @@ function toKey(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function dayLabel(iso: string) {
+function dayLabel(iso: string, t: ReturnType<typeof useT>['t']) {
   const now = new Date();
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (iso === toKey(now)) return 'Today';
-  if (iso === toKey(yesterday)) return 'Yesterday';
+  if (iso === toKey(now)) return t('common.today');
+  if (iso === toKey(yesterday)) return t('common.yesterday');
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
+  return `${weekdayShort(mondayIndex(new Date(y, m - 1, d)))}, ${d} ${monthShort(m - 1)}`;
 }
 
 type Props = {
@@ -54,6 +52,7 @@ type Props = {
 };
 
 export function RecentTransactions({ accountId, accountName }: Props) {
+  const { t, tp } = useT();
   const colors = useTheme();
   const router = useRouter();
   const { hideAmounts } = usePrivacy();
@@ -99,7 +98,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
     }));
   }, [accountTxns, filter]);
 
-  const heading = accountName ? `Recent · ${accountName}` : 'Recent transactions';
+  const heading = accountName ? t('home.recent.headingAccount', { name: accountName }) : t('home.recent.heading');
   const spentText = hideAmounts ? MASK : formatMoney(summary.spent);
 
   return (
@@ -110,18 +109,18 @@ export function RecentTransactions({ accountId, accountName }: Props) {
         </ThemedText>
         <Pressable onPress={() => router.push('/transactions')} hitSlop={8}>
           <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-            See all
+            {t('common.seeAll')}
           </ThemedText>
         </Pressable>
       </View>
 
       <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-        {summary.count} transaction{summary.count === 1 ? '' : 's'} · {spentText} spent this month
+        {tp('home.recent.summary', summary.count, { spent: spentText })}
       </ThemedText>
 
       <View style={{ marginBottom: Spacing.two }}>
         <GlassSegmented
-          options={FILTERS}
+          options={FILTERS.map((f) => ({ key: f.key, label: t(f.labelKey) }))}
           value={filter}
           onChange={setFilter}
         />
@@ -132,12 +131,14 @@ export function RecentTransactions({ accountId, accountName }: Props) {
           <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
             {filter === 'all'
               ? accountName
-                ? `No transactions in ${accountName} yet.`
-                : 'No transactions yet.'
-              : `No ${filter === 'debit' ? 'spending' : 'income'} to show.`}
+                ? t('home.recent.emptyAccount', { name: accountName })
+                : t('home.recent.empty')
+              : filter === 'debit'
+                ? t('home.recent.emptySpending')
+                : t('home.recent.emptyIncome')}
           </ThemedText>
           <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAddRecord}>
-            <ThemedText style={styles.emptyButtonText}>Add transaction</ThemedText>
+            <ThemedText style={styles.emptyButtonText}>{t('home.recent.addTransaction')}</ThemedText>
           </Pressable>
         </View>
       ) : (
@@ -145,7 +146,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
           <View key={section.date}>
             <View style={styles.dayHeader}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                {dayLabel(section.date)}
+                {dayLabel(section.date, t)}
               </ThemedText>
               <ThemedText
                 type="small"

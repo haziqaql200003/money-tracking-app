@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/category-icon';
-import { GoalDetailModal, STATUS_TEXT } from '@/components/goal-detail-modal';
+import { GoalDetailModal, STATUS_KEY } from '@/components/goal-detail-modal';
 import { GoalFormModal } from '@/components/goal-form-modal';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -18,6 +18,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 import { billsTotal, dueText, upcomingBills } from '@/utils/bills';
 import { budgetStatus, spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
@@ -32,6 +33,7 @@ const BILLS_SHOWN = 6;
 
 export default function RancangScreen() {
   const colors = useTheme();
+  const { t, tp } = useT();
   const router = useRouter();
   const { transactions, recurringRules, pendingEntries } = useTransactions();
   const { expenseCategories, getCategory } = useCategories();
@@ -88,9 +90,9 @@ export default function RancangScreen() {
   }
 
   function askOpenSettings() {
-    Alert.alert('Notifications are off', 'Allow notifications for WaKira in your phone Settings to get reminders.', [
-      { text: 'Not now', style: 'cancel' },
-      { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+    Alert.alert(t('plan.rancang.notifOffTitle'), t('plan.rancang.notifOffBody'), [
+      { text: t('plan.rancang.notNow'), style: 'cancel' },
+      { text: t('plan.rancang.openSettings'), onPress: () => void Linking.openSettings() },
     ]);
   }
 
@@ -102,7 +104,7 @@ export default function RancangScreen() {
     const ok = await enableReminders();
     if (!ok) {
       if (permission === 'unsupported') {
-        Alert.alert('Not available', 'Reminders are not supported on this device.');
+        Alert.alert(t('plan.rancang.unavailableTitle'), t('plan.rancang.unavailableBody'));
       } else {
         askOpenSettings();
       }
@@ -113,9 +115,10 @@ export default function RancangScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+          {/* i18n-ignore: pillar name, same in both languages */}
           <ScreenHeader title="Rancang" />
           <ThemedText type="small" style={[styles.tagline, { color: colors.textSecondary }]}>
-            Plan ahead: goals, upcoming bills and budgets
+            {t('plan.rancang.tagline')}
           </ThemedText>
 
           {/* Overview */}
@@ -123,26 +126,26 @@ export default function RancangScreen() {
             <View style={styles.tiles}>
               <View style={styles.tile}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Bills in {BILLS_HORIZON_DAYS} days
+                  {t('plan.rancang.billsIn', { days: BILLS_HORIZON_DAYS })}
                 </ThemedText>
                 <ThemedText style={[styles.tileValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>
                   {money(billsSum)}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {bills.length} {bills.length === 1 ? 'bill' : 'bills'}
-                  {hasUnknownBill ? ' · some vary' : ''}
+                  {tp('plan.rancang.billCount', bills.length)}
+                  {hasUnknownBill ? ` · ${t('plan.rancang.someVary')}` : ''}
                 </ThemedText>
               </View>
               <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
               <View style={styles.tile}>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Saved for goals
+                  {t('plan.rancang.savedForGoals')}
                 </ThemedText>
                 <ThemedText style={[styles.tileValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>
                   {money(totalSaved)}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {goals.length} {goals.length === 1 ? 'goal' : 'goals'}
+                  {tp('plan.rancang.goalCount', goals.length)}
                 </ThemedText>
               </View>
             </View>
@@ -150,34 +153,34 @@ export default function RancangScreen() {
 
           {/* Budgets */}
           <ThemedText type="smallBold" style={styles.sectionTitle}>
-            Budgets
+            {t('plan.rancang.budgets')}
           </ThemedText>
           <Pressable
             onPress={() => router.push('/more/budgets')}
             style={({ pressed }) => [styles.card, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.6 }]}
             accessibilityRole="button"
-            accessibilityLabel="Open budgets"
+            accessibilityLabel={t('plan.rancang.openBudgets')}
           >
             {totalLimit > 0 ? (
               <>
                 <View style={styles.rowBetween}>
-                  <ThemedText style={{ fontWeight: '700' }}>This month</ThemedText>
+                  <ThemedText style={{ fontWeight: '700' }}>{t('plan.rancang.thisMonth')}</ThemedText>
                   <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                 </View>
                 <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
                   <View style={[styles.fill, { width: `${Math.max(budgetPercent, totalSpent > 0 ? 2 : 0)}%`, backgroundColor: statusColor }]} />
                 </View>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {money(totalSpent)} of {money(totalLimit)} ·{' '}
+                  {t('plan.rancang.spentOf', { spent: money(totalSpent), limit: money(totalLimit) })} ·{' '}
                   <ThemedText type="small" style={{ color: statusColor, fontWeight: '700' }}>
-                    {status === 'over' ? 'Over budget' : status === 'warn' ? 'Nearly used up' : 'On track'}
+                    {t(`plan.rancang.status.${status}`)}
                   </ThemedText>
                 </ThemedText>
               </>
             ) : (
               <View style={styles.rowBetween}>
                 <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]}>
-                  No budgets yet. Set a monthly limit per category.
+                  {t('plan.rancang.noBudgets')}
                 </ThemedText>
                 <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               </View>
@@ -187,14 +190,14 @@ export default function RancangScreen() {
           {/* Goals */}
           <View style={styles.rowBetween}>
             <ThemedText type="smallBold" style={styles.sectionTitle}>
-              Savings goals
+              {t('plan.rancang.goals')}
             </ThemedText>
             <Pressable
               onPress={openAdd}
               hitSlop={8}
               style={[styles.addButton, { backgroundColor: colors.accent }]}
               accessibilityRole="button"
-              accessibilityLabel="Add savings goal"
+              accessibilityLabel={t('plan.rancang.addGoal')}
             >
               <Ionicons name="add" size={20} color="#fff" />
             </Pressable>
@@ -202,12 +205,12 @@ export default function RancangScreen() {
           {goalRows.length === 0 ? (
             <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="flag-outline" size={30} color={colors.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>What are you saving for?</ThemedText>
+              <ThemedText style={styles.emptyTitle}>{t('plan.rancang.goalsEmptyTitle')}</ThemedText>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                Set a target and a date. WaKira shows how much to put aside each month and whether you are on track.
+                {t('plan.rancang.goalsEmptyBody')}
               </ThemedText>
               <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAdd}>
-                <ThemedText style={styles.emptyButtonText}>Create a goal</ThemedText>
+                <ThemedText style={styles.emptyButtonText}>{t('plan.rancang.createGoal')}</ThemedText>
               </Pressable>
             </View>
           ) : (
@@ -244,10 +247,10 @@ export default function RancangScreen() {
                       </View>
                       <View style={styles.rowBetween}>
                         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                          {money(progress.saved)} of {money(goal.target)}
+                          {t('plan.rancang.spentOf', { spent: money(progress.saved), limit: money(goal.target) })}
                         </ThemedText>
                         <ThemedText type="small" style={{ color: tone, fontWeight: '700' }}>
-                          {STATUS_TEXT[progress.status]}
+                          {t(STATUS_KEY[progress.status])}
                         </ThemedText>
                       </View>
                     </View>
@@ -260,11 +263,11 @@ export default function RancangScreen() {
           {/* Upcoming bills */}
           <View style={styles.rowBetween}>
             <ThemedText type="smallBold" style={styles.sectionTitle}>
-              Upcoming bills
+              {t('plan.rancang.upcomingBills')}
             </ThemedText>
             <Pressable onPress={() => router.push('/more/recurring')} hitSlop={8}>
               <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                Manage
+                {t('plan.rancang.manage')}
               </ThemedText>
             </Pressable>
           </View>
@@ -275,7 +278,7 @@ export default function RancangScreen() {
             >
               <Ionicons name="time-outline" size={18} color={colors.accent} />
               <ThemedText type="small" style={styles.flex}>
-                {pendingEntries.length} recurring {pendingEntries.length === 1 ? 'entry needs' : 'entries need'} confirming
+                {tp('plan.rancang.pending', pendingEntries.length)}
               </ThemedText>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </Pressable>
@@ -284,8 +287,8 @@ export default function RancangScreen() {
             <View style={[styles.listCard, styles.emptyList, { backgroundColor: colors.backgroundElement }]}>
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
                 {recurringRules.length === 0
-                  ? 'Add rent, subscriptions or utilities under Recurring and they will show up here.'
-                  : `No bills due in the next ${BILLS_HORIZON_DAYS} days.`}
+                  ? t('plan.rancang.noRules')
+                  : t('plan.rancang.noBillsDue', { days: BILLS_HORIZON_DAYS })}
               </ThemedText>
             </View>
           ) : (
@@ -305,14 +308,14 @@ export default function RancangScreen() {
                       </ThemedText>
                     </View>
                     <ThemedText style={{ fontWeight: '700', color: colors.negative }}>
-                      {hideAmounts ? MASK : b.varies ? (b.amount > 0 ? `~${formatMoney(b.amount)}` : 'Varies') : formatMoney(b.amount)}
+                      {hideAmounts ? MASK : b.varies ? (b.amount > 0 ? `~${formatMoney(b.amount)}` : t('plan.rancang.varies')) : formatMoney(b.amount)}
                     </ThemedText>
                   </View>
                 );
               })}
               {bills.length > BILLS_SHOWN ? (
                 <ThemedText type="small" style={[styles.more, { color: colors.textSecondary }]}>
-                  + {bills.length - BILLS_SHOWN} more in the next {BILLS_HORIZON_DAYS} days
+                  {t('plan.rancang.moreBills', { count: bills.length - BILLS_SHOWN, days: BILLS_HORIZON_DAYS })}
                 </ThemedText>
               ) : null}
             </View>
@@ -320,14 +323,14 @@ export default function RancangScreen() {
 
           {/* Reminders */}
           <ThemedText type="smallBold" style={styles.sectionTitle}>
-            Reminders
+            {t('plan.rancang.reminders')}
           </ThemedText>
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
             <View style={styles.switchRow}>
               <View style={styles.flex}>
-                <ThemedText style={{ fontWeight: '600' }}>Notifications</ThemedText>
+                <ThemedText style={{ fontWeight: '600' }}>{t('plan.rancang.notifications')}</ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  Bill reminders and a nudge to enter your real pay
+                  {t('plan.rancang.notificationsSub')}
                 </ThemedText>
               </View>
               <Switch
@@ -342,7 +345,7 @@ export default function RancangScreen() {
               <Pressable onPress={askOpenSettings} style={styles.blocked}>
                 <Ionicons name="warning-outline" size={16} color={WARN_COLOR} />
                 <ThemedText type="small" style={[styles.flex, { color: WARN_COLOR }]}>
-                  Notifications are blocked for WaKira. Tap to open Settings.
+                  {t('plan.rancang.blocked')}
                 </ThemedText>
               </Pressable>
             ) : null}
@@ -350,7 +353,7 @@ export default function RancangScreen() {
             {remindersOn ? (
               <>
                 <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-                  Remind me about bills
+                  {t('plan.rancang.remindMe')}
                 </ThemedText>
                 <View style={[styles.segment, { backgroundColor: colors.backgroundSelected }]}>
                   {DAYS_BEFORE_OPTIONS.map((o) => {
@@ -364,7 +367,7 @@ export default function RancangScreen() {
                         accessibilityState={{ selected: active }}
                       >
                         <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
-                          {o.label}
+                          {t(o.labelKey)}
                         </ThemedText>
                       </Pressable>
                     );
@@ -373,16 +376,15 @@ export default function RancangScreen() {
 
                 <View style={[styles.switchRow, { marginTop: Spacing.three }]}>
                   <View style={styles.flex}>
-                    <ThemedText style={{ fontWeight: '600' }}>Budget alerts</ThemedText>
+                    <ThemedText style={{ fontWeight: '600' }}>{t('plan.rancang.budgetAlerts')}</ThemedText>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                      When a category reaches {warnPercent}% or goes over
+                      {t('plan.rancang.budgetAlertsSub', { percent: warnPercent })}
                     </ThemedText>
                   </View>
                   <Switch value={reminderPrefs.budgetAlerts} onValueChange={setBudgetAlerts} trackColor={{ true: colors.accent }} />
                 </View>
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
-                  Sent by your phone at 9:00 am, no internet needed. Alerts are planned when you open the app, so open it now and
-                  then.
+                  {t('plan.rancang.footnote')}
                 </ThemedText>
               </>
             ) : null}

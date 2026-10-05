@@ -33,6 +33,8 @@ import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
+import { categoryName, subcategoryName } from '@/i18n/data';
 
 type Props = {
   visible: boolean;
@@ -44,6 +46,7 @@ type Props = {
 };
 
 export function CategoryModal({ visible, onClose, editingCategory, defaultKind = 'expense' }: Props) {
+  const { t, tp } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
@@ -63,7 +66,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
   useEffect(() => {
     if (!visible) return;
     if (editingCategory) {
-      setName(editingCategory.name);
+      setName(categoryName(editingCategory));
       setKind(editingCategory.kind);
       setIcon(editingCategory.icon);
       setColor(editingCategory.color);
@@ -83,14 +86,14 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
 
   const trimmed = name.trim();
   const duplicate = categories.some(
-    (c) => c.id !== editingCategory?.id && c.kind === kind && c.name.toLowerCase() === trimmed.toLowerCase(),
+    (c) => c.id !== editingCategory?.id && c.kind === kind && categoryName(c).toLowerCase() === trimmed.toLowerCase(),
   );
   const limitNum = parseFloat(limit.replace(',', '.'));
   const limitValid = limit.trim() === '' || (Number.isFinite(limitNum) && limitNum >= 0);
   const canSave = trimmed.length > 0 && !duplicate && limitValid;
 
   const isProtected = !!editingCategory && PROTECTED_CATEGORY_IDS.includes(editingCategory.id);
-  const usedBy = editingCategory ? transactions.filter((t) => t.categoryId === editingCategory.id).length : 0;
+  const usedBy = editingCategory ? transactions.filter((tx) => tx.categoryId === editingCategory.id).length : 0;
 
   const filteredIcons = useMemo(() => {
     const q = iconQuery.trim().toLowerCase();
@@ -107,7 +110,8 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
   function handleSave() {
     if (!canSave) return;
     const payload = {
-      name: trimmed,
+      // An untouched default name keeps its stored English form so it follows the language.
+      name: editingCategory && trimmed === categoryName(editingCategory) ? editingCategory.name : trimmed,
       icon,
       color,
       kind,
@@ -123,16 +127,18 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
   function handleDelete() {
     if (!editingCategory || isProtected) return;
     const fallbackId = editingCategory.kind === 'income' ? FALLBACK_INCOME_ID : FALLBACK_EXPENSE_ID;
-    const fallbackName = categories.find((c) => c.id === fallbackId)?.name ?? 'Other';
+    const fallbackCategory = categories.find((c) => c.id === fallbackId);
+    const fallbackName = fallbackCategory ? categoryName(fallbackCategory) : t('cat.other');
+    const shownName = categoryName(editingCategory);
     Alert.alert(
-      'Delete category?',
+      t('acct.catModal.deleteTitle'),
       usedBy > 0
-        ? `"${editingCategory.name}" will be deleted and its ${usedBy} transaction${usedBy === 1 ? '' : 's'} moved to "${fallbackName}".`
-        : `"${editingCategory.name}" will be deleted.`,
+        ? tp('acct.catModal.deleteUsed', usedBy, { name: shownName, fallback: fallbackName })
+        : t('acct.catModal.deleteUnused', { name: shownName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             reassignCategory(editingCategory.id, fallbackId);
@@ -147,7 +153,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[
@@ -158,11 +164,11 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
 
           <SheetHeader
-            title={isEditing ? 'Edit category' : 'New category'}
+            title={isEditing ? t('acct.catModal.titleEdit') : t('acct.catModal.titleNew')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -174,22 +180,22 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
               <CategoryIcon icon={icon} color={color} size={56} />
               <View style={styles.flex}>
                 <ThemedText style={styles.previewName} numberOfLines={1}>
-                  {trimmed || 'Category name'}
+                  {trimmed || t('acct.catModal.previewName')}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {kind === 'income' ? 'Income' : 'Expense'} · {Math.max(subs.length, 1)} subcategor
-                  {Math.max(subs.length, 1) === 1 ? 'y' : 'ies'}
+                  {kind === 'income' ? t('common.income') : t('common.expense')} ·{' '}
+                  {tp('acct.catModal.subCount', Math.max(subs.length, 1))}
                 </ThemedText>
               </View>
             </View>
 
             {/* Name */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Name
+              {t('common.name')}
             </ThemedText>
             <TextInput
               style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="e.g. Health, Pets, Freelance"
+              placeholder={t('acct.catModal.namePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
@@ -197,19 +203,19 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             />
             {duplicate ? (
               <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                You already have a {kind} category with this name
+                {kind === 'income' ? t('acct.catModal.duplicateIncome') : t('acct.catModal.duplicateExpense')}
               </ThemedText>
             ) : null}
 
             {/* Kind */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Type
+              {t('acct.catModal.type')}
             </ThemedText>
             <GlassSegmented
               disabled={isEditing}
               options={[
-                { key: 'expense', label: 'Expense' },
-                { key: 'income', label: 'Income' },
+                { key: 'expense', label: t('common.expense') },
+                { key: 'income', label: t('common.income') },
               ]}
               value={kind}
               onChange={(k) => {
@@ -219,19 +225,19 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             />
             {isEditing ? (
               <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-                Type can't be changed after creating, because existing transactions depend on it.
+                {t('acct.catModal.typeLocked')}
               </ThemedText>
             ) : null}
 
             {/* Icon */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Icon
+              {t('acct.catModal.icon')}
             </ThemedText>
             <View style={[styles.search, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="search" size={16} color={colors.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search icons (e.g. food, car, heart)"
+                placeholder={t('acct.catModal.searchIcons')}
                 placeholderTextColor={colors.textSecondary}
                 value={iconQuery}
                 onChangeText={setIconQuery}
@@ -258,7 +264,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                         styles.iconCell,
                         active && { backgroundColor: `${color}26`, borderColor: color },
                       ]}
-                      accessibilityLabel={`Icon ${n}`}
+                      accessibilityLabel={t('acct.add.iconA11y', { name: n })}
                     >
                       <Ionicons name={n} size={22} color={active ? color : colors.textSecondary} />
                     </Pressable>
@@ -267,7 +273,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                 </EvenGrid>
                 {filteredIcons.length === 0 ? (
                   <ThemedText type="small" style={{ color: colors.textSecondary, padding: 8 }}>
-                    No icons match "{iconQuery}"
+                    {t('acct.catModal.noIcons', { query: iconQuery })}
                   </ThemedText>
                 ) : null}
               </ScrollView>
@@ -275,7 +281,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
 
             {/* Colour */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Colour
+              {t('acct.catModal.colour')}
             </ThemedText>
             <EvenGrid columns={7} rowGap={12}>
               {CATEGORY_COLORS.map((c) => (
@@ -283,24 +289,24 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                   key={c}
                   onPress={() => setColor(c)}
                   style={[styles.swatch, { backgroundColor: c }, color === c && { borderColor: colors.text }]}
-                  accessibilityLabel={`Colour ${c}`}
+                  accessibilityLabel={t('acct.add.colourA11y', { color: c })}
                 />
               ))}
             </EvenGrid>
 
             {/* Subcategories */}
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Subcategories
+              {t('acct.catModal.subcategories')}
             </ThemedText>
             {subs.length > 0 ? (
               <View style={styles.subWrap}>
                 {subs.map((s) => (
                   <View key={s} style={[styles.subChip, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
-                    <ThemedText type="small">{s}</ThemedText>
+                    <ThemedText type="small">{subcategoryName(s)}</ThemedText>
                     <Pressable
                       onPress={() => setSubs(subs.filter((x) => x !== s))}
                       hitSlop={8}
-                      accessibilityLabel={`Remove ${s}`}
+                      accessibilityLabel={t('acct.catModal.removeSubA11y', { name: subcategoryName(s) })}
                     >
                       <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                     </Pressable>
@@ -311,7 +317,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             <View style={styles.addSubRow}>
               <TextInput
                 style={[styles.input, styles.flex, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                placeholder="Add a subcategory"
+                placeholder={t('acct.catModal.addSubPlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 value={newSub}
                 onChangeText={setNewSub}
@@ -323,24 +329,24 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
               <Pressable
                 onPress={addSub}
                 style={[styles.addSubButton, { backgroundColor: newSub.trim() ? colors.accent : colors.backgroundSelected }]}
-                accessibilityLabel="Add subcategory"
+                accessibilityLabel={t('acct.catModal.addSubA11y')}
               >
                 <Ionicons name="add" size={22} color={newSub.trim() ? '#fff' : colors.textSecondary} />
               </Pressable>
             </View>
             <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-              Renaming or removing a subcategory won't change past transactions. They keep the old label.
+              {t('acct.catModal.subNote')}
             </ThemedText>
 
             {/* Budget */}
             {kind === 'expense' ? (
               <>
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  Monthly budget (RM), optional
+                  {t('acct.catModal.budget')}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="0.00 (no budget)"
+                  placeholder={t('acct.catModal.budgetPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   value={limit}
                   onChangeText={setLimit}
@@ -348,7 +354,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                 />
                 {!limitValid ? (
                   <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                    Enter a valid amount
+                    {t('acct.catModal.invalidAmount')}
                   </ThemedText>
                 ) : null}
               </>
@@ -360,18 +366,18 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
               disabled={!canSave}
             >
               <ThemedText style={[styles.saveButtonText, !canSave && { color: colors.textSecondary }]}>
-                {isEditing ? 'Save changes' : 'Add category'}
+                {isEditing ? t('acct.catModal.saveChanges') : t('acct.catModal.submit')}
               </ThemedText>
             </Pressable>
 
             {isEditing && !isProtected ? (
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>Delete category</ThemedText>
+                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('acct.catModal.delete')}</ThemedText>
               </Pressable>
             ) : null}
             {isProtected ? (
               <ThemedText type="small" style={[styles.helper, styles.protectedNote, { color: colors.textSecondary }]}>
-                This is a default category, so it can't be deleted. Transactions from deleted categories are moved here.
+                {t('acct.catModal.protectedNote')}
               </ThemedText>
             ) : null}
           </ScrollView>

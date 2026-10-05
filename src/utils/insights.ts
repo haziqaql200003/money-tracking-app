@@ -1,4 +1,6 @@
 import type { Transaction } from '@/context/TransactionsContext';
+import { t, tp } from '@/i18n';
+import { weekdayLong } from '@/i18n/format';
 
 /**
  * Pure analysis helpers for the Faham tab.
@@ -220,8 +222,8 @@ type InsightInput = {
   money: (n: number) => string;
 };
 
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-export const weekdayName = (day: number) => WEEKDAYS[day];
+/** Full weekday name in the current language (0 = Monday). */
+export const weekdayName = (day: number) => weekdayLong(day);
 
 /**
  * A few plain-language observations. Deliberately conservative: nothing is said unless there is enough data
@@ -246,19 +248,19 @@ export function buildInsights({ transactions, todayKey, months, categoryName, mo
       tone: pace > 0 ? 'bad' : 'good',
       text:
         pace > 0
-          ? `You have spent ${pace}% more this month than by the same day last month.`
-          : `You have spent ${Math.abs(pace)}% less this month than by the same day last month.`,
+          ? t('plan.insight.paceUp', { pct: pace })
+          : t('plan.insight.paceDown', { pct: Math.abs(pace) }),
     });
   }
 
   // 2) Savings rate.
   if (now.savingsRate !== null) {
     if (now.savingsRate >= 20) {
-      out.push({ id: 'save', tone: 'good', text: `You kept ${now.savingsRate}% of your income (${money(now.net)}) over this period.` });
+      out.push({ id: 'save', tone: 'good', text: t('plan.insight.saveGood', { rate: now.savingsRate, amount: money(now.net) }) });
     } else if (now.savingsRate < 0) {
-      out.push({ id: 'save', tone: 'bad', text: `You spent ${money(-now.net)} more than you earned over this period.` });
+      out.push({ id: 'save', tone: 'bad', text: t('plan.insight.saveBad', { amount: money(-now.net) }) });
     } else {
-      out.push({ id: 'save', tone: 'info', text: `You kept ${now.savingsRate}% of your income over this period.` });
+      out.push({ id: 'save', tone: 'info', text: t('plan.insight.saveInfo', { rate: now.savingsRate }) });
     }
   }
 
@@ -273,13 +275,16 @@ export function buildInsights({ transactions, todayKey, months, categoryName, mo
     out.push({
       id: 'mover',
       tone: up ? 'bad' : 'good',
-      text: `${categoryName(c.categoryId)} is ${up ? 'up' : 'down'} ${Math.abs(c.change!)}% compared with the previous ${months === 1 ? 'month' : `${months} months`}.`,
+      text: tp(up ? 'plan.insight.moverUp' : 'plan.insight.moverDown', months, {
+        category: categoryName(c.categoryId),
+        pct: Math.abs(c.change!),
+      }),
     });
   }
 
   // 4) Where most of the money goes.
   if (cats[0] && cats[0].share >= 30) {
-    out.push({ id: 'top', tone: 'info', text: `${categoryName(cats[0].categoryId)} takes ${cats[0].share}% of your spending.` });
+    out.push({ id: 'top', tone: 'info', text: t('plan.insight.top', { category: categoryName(cats[0].categoryId), share: cats[0].share }) });
   }
 
   // 5) Priciest weekday (needs a few weeks of data so one big purchase does not decide it).
@@ -287,7 +292,7 @@ export function buildInsights({ transactions, todayKey, months, categoryName, mo
   const busiest = [...days].sort((a, b) => b.average - a.average)[0];
   const daysCovered = Math.round((Date.parse(`${w.to}T00:00:00Z`) - Date.parse(`${w.from}T00:00:00Z`)) / 86400000) + 1;
   if (busiest && busiest.average > 0 && daysCovered >= 28) {
-    out.push({ id: 'weekday', tone: 'info', text: `${weekdayName(busiest.day)} is your priciest day, about ${money(busiest.average)} on average.` });
+    out.push({ id: 'weekday', tone: 'info', text: t('plan.insight.weekday', { day: weekdayName(busiest.day), amount: money(busiest.average) }) });
   }
 
   return out;

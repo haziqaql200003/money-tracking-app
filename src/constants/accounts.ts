@@ -1,10 +1,19 @@
+import { t, type TKey } from '@/i18n';
+
 import type { IconName } from './categories';
 
-export const ACCOUNT_TYPE_LABEL: Record<'bank' | 'cash' | 'other', string> = {
-  bank: 'Bank',
-  cash: 'Cash',
-  other: 'Other',
+type AccountTypeKey = 'bank' | 'cash' | 'other';
+
+const ACCOUNT_TYPE_LABEL_KEY: Record<AccountTypeKey, TKey> = {
+  bank: 'acct.type.bank',
+  cash: 'acct.type.cash',
+  other: 'acct.type.other',
 };
+
+/** Label of a built-in account type in the current language. */
+export function accountTypeLabel(type: AccountTypeKey): string {
+  return t(ACCOUNT_TYPE_LABEL_KEY[type]);
+}
 
 export const DEFAULT_ACCOUNT_ICON: Record<'bank' | 'cash' | 'other', IconName> = {
   bank: 'business',

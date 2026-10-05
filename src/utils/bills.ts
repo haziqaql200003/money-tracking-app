@@ -1,3 +1,4 @@
+import { t, tp } from '@/i18n';
 import type { RecurringRule } from '@/context/TransactionsContext';
 import { isAsk, isEnded, nextOccurrence } from '@/utils/recurring';
 
@@ -79,7 +80,7 @@ export function billsTotal(bills: UpcomingBill[]) {
 
 /** "Today", "Tomorrow" or "In 5 days". */
 export function dueText(daysUntil: number) {
-  if (daysUntil <= 0) return 'Today';
-  if (daysUntil === 1) return 'Tomorrow';
-  return `In ${daysUntil} days`;
+  if (daysUntil <= 0) return t('tx.bills.dueToday');
+  if (daysUntil === 1) return t('tx.bills.dueTomorrow');
+  return tp('tx.bills.dueInDays', daysUntil);
 }

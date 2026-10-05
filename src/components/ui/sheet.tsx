@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 type Props = {
   visible: boolean;
@@ -23,13 +24,14 @@ const SLOT = 72;
  * scrolling body and an optional pinned footer. Replaces the frame each modal rebuilt itself.
  */
 export function Sheet({ visible, onClose, title, right, footer, children }: Props) {
+  const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <View
           style={[
@@ -41,8 +43,8 @@ export function Sheet({ visible, onClose, title, right, footer, children }: Prop
 
           <View style={styles.header}>
             <View style={[styles.slot, { alignItems: 'flex-start' }]}>
-              <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cancel">
-                <Text style={[Type.label, { color: colors.accent }]}>Cancel</Text>
+              <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+                <Text style={[Type.label, { color: colors.accent }]}>{t('common.cancel')}</Text>
               </Pressable>
             </View>
             <Text style={[Type.heading, styles.title, { color: colors.text }]} numberOfLines={1} accessibilityRole="header">

@@ -8,6 +8,7 @@ import { TransferForm } from '@/components/transfer-form';
 import { Spacing } from '@/constants/theme';
 import type { Transfer } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 type Props = {
   visible: boolean;
@@ -18,23 +19,24 @@ type Props = {
 
 export function TransferModal({ visible, onClose, editing }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
         <ThemedView
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title={editing ? 'Edit transfer' : 'Transfer'}
+            title={editing ? t('tx.transfer.editTitle') : t('common.transfer')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </ThemedText>
               </Pressable>
             }
@@ -60,4 +62,4 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
-});
+});

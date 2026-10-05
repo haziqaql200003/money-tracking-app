@@ -5,11 +5,13 @@ import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'rea
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useT } from '@/i18n';
 
 type Props = TextInputProps & { label: string };
 
 export function AuthField({ label, secureTextEntry, ...props }: Props) {
   const colors = useTheme();
+  const { t } = useT();
   const [hidden, setHidden] = useState(!!secureTextEntry);
 
   return (
@@ -25,7 +27,7 @@ export function AuthField({ label, secureTextEntry, ...props }: Props) {
           style={[styles.input, { color: colors.text }]}
         />
         {secureTextEntry ? (
-          <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10} accessibilityLabel="Tunjuk/sembunyi kata laluan">
+          <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10} accessibilityLabel={t('auth.field.toggleHint')}>
             <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={20} color={colors.textSecondary} />
           </Pressable>
         ) : null}

@@ -4,6 +4,8 @@ import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from 'react-na
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useT } from '@/i18n';
+import { mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
 import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
 import { formatMoney } from '@/utils/currency';
 
@@ -50,13 +52,23 @@ function smoothLinePath(coords: Coord[]): string {
   return d;
 }
 
+/** Axis label in the current language: "Mon" / "Isn" for week points, "Sep" for month points, "2026" for years. */
+export function pointLabel(point: ChartPoint, period: ChartPeriod) {
+  if (period === 'week') {
+    const [y, m, d] = point.key.split('-').map(Number);
+    return weekdayShort(mondayIndex(new Date(y, m - 1, d)));
+  }
+  if (period === 'month') return monthShort(Number(point.key.split('-')[1]));
+  return point.label;
+}
+
 // "Mon, 21 Sep" for week points, "Sep 2026" for month points, "2026" for year points.
 function tooltipTitle(point: ChartPoint, period: ChartPeriod) {
   if (period === 'week') {
     const [y, m, d] = point.key.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    return `${weekdayShort(mondayIndex(new Date(y, m - 1, d)))}, ${d} ${monthShort(m - 1)}`;
   }
-  if (period === 'month') return `${point.label} ${point.key.split('-')[0]}`;
+  if (period === 'month') return `${pointLabel(point, period)} ${point.key.split('-')[0]}`;
   return point.label;
 }
 
@@ -69,6 +81,7 @@ export function SpendingChart({
   period: ChartPeriod;
   dailyLimit?: number;
 }) {
+  const { t } = useT();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = Colors[isDark ? 'dark' : 'light'];
@@ -189,7 +202,7 @@ export function SpendingChart({
             {!hasData && (
               <View style={styles.emptyOverlay} pointerEvents="none">
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  No spending in this period
+                  {t('home.chart.noSpending')}
                 </ThemedText>
               </View>
             )}
@@ -227,7 +240,7 @@ export function SpendingChart({
                 style={[styles.limitLabel, { top: Math.max(limitY - 18, 0), backgroundColor: colors.background }]}
               >
                 <ThemedText type="small" style={{ color: LIMIT_COLOR, fontWeight: '700' }}>
-                  Limit {formatMoney(dailyLimit!)}
+                  {t('home.chart.limit', { amount: formatMoney(dailyLimit!) })}
                 </ThemedText>
               </View>
             )}
@@ -251,7 +264,7 @@ export function SpendingChart({
                 ]}
                 numberOfLines={1}
               >
-                {point.label}
+                {pointLabel(point, period)}
               </ThemedText>
             </View>
           );
@@ -297,4 +310,4 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
-});
+});

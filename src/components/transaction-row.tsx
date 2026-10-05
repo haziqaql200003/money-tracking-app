@@ -7,6 +7,8 @@ import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { formatMoney } from '@/utils/currency';
+import { useT } from '@/i18n';
+import { accountName, categoryName, subcategoryName } from '@/i18n/data';
 
 type Props = {
   item: Transaction;
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export function TransactionRow({ item, showAccount = true, hidden = false, onPress }: Props) {
+  const { t, tp } = useT();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { getCategory } = useCategories();
@@ -24,7 +27,9 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
   const account = accounts.find((a) => a.id === item.accountId);
 
   const amountColor = item.type === 'debit' ? colors.negative : colors.positive;
-  const subtitle = item.subcategory || category?.name || 'Uncategorized';
+  const subtitle = (item.subcategory ? subcategoryName(item.subcategory) : '') ||
+    (category ? categoryName(category) : '') ||
+    t('home.row.uncategorized');
 
   return (
     <Pressable
@@ -38,9 +43,9 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
         <ThemedText numberOfLines={1}>{item.title}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
           {subtitle}
-          {showAccount && account ? ` · ${account.name}` : ''}
-          {item.items && item.items.length > 0 ? ` · ${item.items.length} items` : ''}
-          {item.recurringId ? ' · Recurring' : ''}
+          {showAccount && account ? ` · ${accountName(account)}` : ''}
+          {item.items && item.items.length > 0 ? ` · ${tp('home.row.items', item.items.length)}` : ''}
+          {item.recurringId ? ` · ${t('home.row.recurring')}` : ''}
         </ThemedText>
       </View>
 
@@ -60,4 +65,4 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   details: { flex: 1 },
-});
+});
