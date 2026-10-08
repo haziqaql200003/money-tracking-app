@@ -2,6 +2,7 @@ import { SwipeRow, type SwipeAction } from '@/components/ui/swipe-row';
 import { TransactionRow } from '@/components/transaction-row';
 import { useUndo } from '@/context/UndoContext';
 import { useTransactions, type Transaction } from '@/context/TransactionsContext';
+import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { toDateKey } from '@/utils/dates';
@@ -14,10 +15,17 @@ type Props = {
   /** Opens the editor (also run by the Edit button). */
   onOpen: () => void;
   background?: string;
+  /** Position inside its day card: rounds the right corners and hides the last divider. */
+  position?: 'first' | 'middle' | 'last' | 'only';
 };
 
+/** Where row `i` of `n` sits inside its card. */
+export function rowPosition(i: number, n: number): 'first' | 'middle' | 'last' | 'only' {
+  return n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 ? 'last' : 'middle';
+}
+
 /** A transaction row with swipe actions: left = Edit and Delete (all the way = delete), right = copy to today. */
-export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, background }: Props) {
+export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, background, position = 'middle' }: Props) {
   const colors = useTheme();
   const { t } = useT();
   const { offer } = useUndo();
@@ -53,13 +61,17 @@ export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, bac
 
   return (
     <SwipeRow
-      background={background ?? colors.background}
+      background={background ?? colors.backgroundElement}
+      style={[
+        (position === 'first' || position === 'only') && { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg },
+        (position === 'last' || position === 'only') && { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg },
+      ]}
       disabled={locked}
       rightActions={actions}
       onFullSwipe={remove}
       leftAction={linked ? undefined : { key: 'copy', label: t('common.copy'), icon: 'copy-outline', color: colors.positive, onPress: copy }}
     >
-      <TransactionRow item={item} showAccount={showAccount} hidden={hidden} onPress={onOpen} />
+      <TransactionRow item={item} showAccount={showAccount} hidden={hidden} onPress={onOpen} last={position === 'last' || position === 'only'} />
     </SwipeRow>
   );
 }

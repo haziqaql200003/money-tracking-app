@@ -31,7 +31,7 @@ export const msMore: Record<keyof typeof enMore, string> = {
   'more.index.whatsNew.unseen': 'v{version} · ada kemas kini baharu',
   'more.index.whatsNew.seen': 'v{version} · terkini',
   'more.index.banner.title': 'Baharu dalam v{version}',
-  'more.index.banner.text': 'Log masuk Google & Apple, kunci apl, tukar kata laluan',
+  'more.index.banner.text': 'Rupa lebih kemas, Profil dan Tetapan disusun semula',
   'more.index.budget.title': 'Bajet bulan ini',
   'more.index.budget.over': 'Melebihi bajet',
   'more.index.budget.warn': 'Menghampiri had',

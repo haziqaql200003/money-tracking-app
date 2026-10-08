@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
 import { GOAL_PRESETS } from '@/constants/goals';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -371,7 +371,7 @@ function defaultDeadline() {
 }
 
 const styles = StyleSheet.create({
-  template: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.two },
+  template: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.two },
   templateText: { flex: 1 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
@@ -382,15 +382,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   flex: { flex: 1 },
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: 17 },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: FontSize.body },
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  preset: { padding: 4, borderRadius: 26, borderWidth: 2, borderColor: 'transparent' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderRadius: 14, marginTop: Spacing.three },
+  preset: { padding: 4, borderRadius: Radius.xl, borderWidth: 2, borderColor: 'transparent' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderRadius: Radius.md, marginTop: Spacing.three },
   dateBlock: { marginTop: Spacing.two },
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.four },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   textButton: { padding: 14, alignItems: 'center' },
 });

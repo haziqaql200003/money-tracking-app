@@ -7,7 +7,7 @@ import { AuthField } from '@/components/auth-field';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { passwordOk } from '@/context/auth-shared';
 import { useTheme } from '@/hooks/use-theme';
@@ -110,6 +110,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: Spacing.three },
-  button: { alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, marginTop: Spacing.two },
+  button: { alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: Radius.md, marginTop: Spacing.two },
   buttonText: { color: '#FFFFFF', fontWeight: '600' },
 });

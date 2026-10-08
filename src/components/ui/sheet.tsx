@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.three },
   slot: { width: SLOT, justifyContent: 'center' },
   title: { flex: 1, textAlign: 'center' },

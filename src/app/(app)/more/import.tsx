@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { CATEGORY_COLORS, FALLBACK_EXPENSE_ID, FALLBACK_INCOME_ID } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -532,10 +532,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130, gap: 0 },
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three, gap: 6 },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three, gap: 6 },
   doneCard: { alignItems: 'center', gap: 10 },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
-  big: { fontSize: 24, lineHeight: 30, fontWeight: '700' },
+  cardTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  big: { fontSize: FontSize.title, lineHeight: 30, fontWeight: '700' },
   gapTop: { marginTop: Spacing.three },
   center: { textAlign: 'center' },
   chipRow: { gap: 8, paddingVertical: 6, paddingRight: 8 },

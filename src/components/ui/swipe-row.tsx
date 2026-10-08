@@ -1,14 +1,15 @@
 /* eslint-disable react-hooks/immutability */
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useT } from '@/i18n';
 
-import type { IconName } from '@/constants/categories';
+import type { IconName } from '@/constants/categories';
+import { FontSize } from '@/constants/theme';
 
 export type SwipeAction = {
   key: string;
@@ -29,13 +30,15 @@ type Props = {
   /** Must match what is behind the row, so the actions stay hidden until it slides. */
   background: string;
   disabled?: boolean;
+  /** Outer shape, e.g. rounded top corners for the first row of a card. */
+  style?: StyleProp<ViewStyle>;
 };
 
 const ACTION_W = 76;
 const SPRING = { damping: 22, stiffness: 260, mass: 0.8 };
 
 /** A row you can swipe like WhatsApp: a little reveals buttons, all the way runs the last one. */
-export function SwipeRow({ children, rightActions = [], onFullSwipe, leftAction, background, disabled }: Props) {
+export function SwipeRow({ children, rightActions = [], onFullSwipe, leftAction, background, disabled, style }: Props) {
   const { t } = useT();
   const x = useSharedValue(0);
   const start = useSharedValue(0);
@@ -105,7 +108,7 @@ export function SwipeRow({ children, rightActions = [], onFullSwipe, leftAction,
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
   return (
-    <View style={styles.wrap} onLayout={onLayout}>
+    <View style={[styles.wrap, style]} onLayout={onLayout}>
       {leftAction ? (
         <Animated.View style={[styles.leftBox, { backgroundColor: leftAction.color }, leftStyle]}>
           <Ionicons name={leftAction.icon} size={22} color="#fff" />
@@ -151,5 +154,5 @@ const styles = StyleSheet.create({
   leftBox: { position: 'absolute', left: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   action: { alignItems: 'center', justifyContent: 'center', gap: 2 },
   actionLast: { flex: 1, minWidth: ACTION_W },
-  actionText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  actionText: { color: '#fff', fontSize: FontSize.micro, fontWeight: '700' },
 });

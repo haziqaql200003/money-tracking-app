@@ -7,7 +7,7 @@ import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { PendingEntry } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -176,24 +176,24 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
 
   summary: { alignItems: 'center', gap: 4, marginTop: Spacing.one },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: { fontSize: FontSize.heading, fontWeight: '700' },
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: 28,
+    fontSize: FontSize.largeTitle,
     fontWeight: '600',
     lineHeight: 34,
     textAlign: 'center',
   },
-  hint: { fontSize: 12, lineHeight: 16, marginTop: Spacing.one },
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  hint: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.one },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.four },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   textButton: { padding: 14, alignItems: 'center' },
   missing: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.four },
 });

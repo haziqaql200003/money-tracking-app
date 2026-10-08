@@ -7,7 +7,7 @@ import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -360,14 +360,14 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
   box: { paddingHorizontal: Spacing.four, paddingTop: Spacing.two, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%' },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   flex: { flex: 1 },
-  card: { padding: Spacing.three, borderRadius: 16, marginTop: Spacing.two, gap: 6 },
-  big: { fontSize: 30, lineHeight: 36, fontWeight: '700' },
+  card: { padding: Spacing.three, borderRadius: Radius.lg, marginTop: Spacing.two, gap: 6 },
+  big: { fontSize: FontSize.largeTitle, lineHeight: 36, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   rowRight: { alignItems: 'flex-end' },
   actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
-  action: { flex: 1, padding: 14, borderRadius: 14, alignItems: 'center' },
-  panel: { borderWidth: 1.5, borderRadius: 16, padding: Spacing.three, marginTop: Spacing.three },
+  action: { flex: 1, padding: 14, borderRadius: Radius.md, alignItems: 'center' },
+  panel: { borderWidth: 1.5, borderRadius: Radius.lg, padding: Spacing.three, marginTop: Spacing.three },
   textButton: { padding: 14, alignItems: 'center', marginTop: Spacing.two },
 });

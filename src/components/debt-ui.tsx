@@ -2,7 +2,7 @@ import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Account } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { accountName } from '@/i18n/data';
@@ -62,8 +62,8 @@ export const toNumber = (s: string) => {
 
 const styles = StyleSheet.create({
   labelBlock: { marginTop: Spacing.three, marginBottom: Spacing.one },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: 17 },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: FontSize.body },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4 },
+  track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden' },
+  fill: { height: 8, borderRadius: Radius.pill },
 });

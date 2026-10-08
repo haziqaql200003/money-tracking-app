@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
-import { SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
-import { Spacing } from '@/constants/theme';
+import { rowPosition, SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SectionHeader } from '@/components/ui/section-header';
+import { Spacing, tabularNums } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { AddTransactionModal } from '@/components/add-transaction-modal';
@@ -104,22 +107,14 @@ export function RecentTransactions({ accountId, accountName }: Props) {
 
   return (
     <View>
-      <View style={styles.headerRow}>
-        <ThemedText type="smallBold" style={styles.heading} numberOfLines={1}>
-          {heading}
-        </ThemedText>
-        <Pressable onPress={() => router.push('/transactions')} hitSlop={8}>
-          <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-            {t('common.seeAll')}
-          </ThemedText>
-        </Pressable>
-      </View>
+      <SectionHeader
+        title={heading}
+        subtitle={tp('home.recent.summary', summary.count, { spent: spentText })}
+        actionLabel={t('common.seeAll')}
+        onAction={() => router.push('/transactions')}
+      />
 
-      <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.three }}>
-        {tp('home.recent.summary', summary.count, { spent: spentText })}
-      </ThemedText>
-
-      <View style={{ marginBottom: Spacing.two }}>
+      <View style={styles.filter}>
         <GlassSegmented
           options={FILTERS.map((f) => ({ key: f.key, label: t(f.labelKey) }))}
           value={filter}
@@ -128,43 +123,46 @@ export function RecentTransactions({ accountId, accountName }: Props) {
       </View>
 
       {sections.length === 0 ? (
-        <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
-          <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-            {filter === 'all'
-              ? accountName
-                ? t('home.recent.emptyAccount', { name: accountName })
-                : t('home.recent.empty')
-              : filter === 'debit'
-                ? t('home.recent.emptySpending')
-                : t('home.recent.emptyIncome')}
-          </ThemedText>
-          <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAddRecord}>
-            <ThemedText style={styles.emptyButtonText}>{t('home.recent.addTransaction')}</ThemedText>
-          </Pressable>
-        </View>
+        <Card padding={0}>
+          <EmptyState
+            icon="receipt-outline"
+            title={
+              filter === 'all'
+                ? accountName
+                  ? t('home.recent.emptyAccount', { name: accountName })
+                  : t('home.recent.empty')
+                : filter === 'debit'
+                  ? t('home.recent.emptySpending')
+                  : t('home.recent.emptyIncome')
+            }
+            actionLabel={t('home.recent.addTransaction')}
+            onAction={openAddRecord}
+          />
+        </Card>
       ) : (
         sections.map((section) => (
           <View key={section.date}>
             <View style={styles.dayHeader}>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+              <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '600' }}>
                 {dayLabel(section.date, t)}
               </ThemedText>
               <ThemedText
                 type="small"
-                style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600' }}
+                style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600', ...tabularNums }}
               >
                 {hideAmounts
                   ? MASK
                   : formatMoney(section.net, { signed: true, type: section.net < 0 ? 'debit' : 'credit' })}
               </ThemedText>
             </View>
-            {section.items.map((item) => (
+            {section.items.map((item, i) => (
               <SwipeableTransactionRow
                 key={item.id}
                 item={item}
                 showAccount={!accountId}
                 hidden={hideAmounts}
                 onOpen={() => setEditing(item)}
+                position={rowPosition(i, section.items.length)}
               />
             ))}
           </View>
@@ -180,26 +178,12 @@ export function RecentTransactions({ accountId, accountName }: Props) {
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  heading: { fontSize: 16, flexShrink: 1 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
+  filter: { marginBottom: Spacing.one },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: Spacing.three,
-    paddingBottom: 2,
+    paddingBottom: Spacing.two,
+    paddingHorizontal: Spacing.one,
   },
-  empty: { borderRadius: 16, padding: Spacing.four, alignItems: 'center', gap: Spacing.three },
-  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  emptyButtonText: { color: '#fff', fontWeight: '700' },
 });

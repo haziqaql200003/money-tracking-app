@@ -7,7 +7,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CHANGELOG, entryText, releaseTitle, type ChangeKind } from '@/constants/changelog';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useUpdates } from '@/context/UpdatesContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -84,10 +84,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  versionPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  title: { fontSize: 18, fontWeight: '700', marginBottom: Spacing.two },
+  versionPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.sm },
+  title: { fontSize: FontSize.heading, fontWeight: '700', marginBottom: Spacing.two },
   changes: { gap: 8 },
   changeRow: { flexDirection: 'row', gap: 8 },
   changeIcon: { marginTop: 2 },

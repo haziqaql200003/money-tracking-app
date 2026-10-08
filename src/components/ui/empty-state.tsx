@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 type Props = {
   icon: IconName;
   title: string;
-  message: string;
+  message?: string;
   actionLabel?: string;
   onAction?: () => void;
 };
@@ -23,14 +23,14 @@ export function EmptyState({ icon, title, message, actionLabel, onAction }: Prop
         <Ionicons name={icon} size={26} color={colors.accent} />
       </View>
       <Text style={[Type.heading, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
-      <Text style={[Type.body, { color: colors.textSecondary, textAlign: 'center' }]}>{message}</Text>
+      {message ? <Text style={[Type.label, { color: colors.textSecondary, textAlign: 'center', fontWeight: '500' }]}>{message}</Text> : null}
       {actionLabel && onAction ? <Button label={actionLabel} onPress={onAction} size="sm" style={styles.action} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five, paddingHorizontal: Spacing.four },
+  wrap: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.four, paddingHorizontal: Spacing.four },
   badge: { width: 56, height: 56, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
   action: { marginTop: Spacing.two, alignSelf: 'center' },
 });

@@ -7,7 +7,7 @@ import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Category } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -158,25 +158,25 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   summary: { alignItems: 'center', gap: 4, marginTop: Spacing.two },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: { fontSize: FontSize.heading, fontWeight: '700' },
   label: { marginTop: Spacing.four, marginBottom: Spacing.one },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: 28,
+    fontSize: FontSize.largeTitle,
     fontWeight: '600',
     lineHeight: 34,
     textAlign: 'center',
   },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.three },
-  quick: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  quick: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth },
   quickWide: { flexGrow: 0, flexShrink: 0, flexBasis: '100%' },
-  note: { marginTop: Spacing.three, fontSize: 12, lineHeight: 16 },
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  note: { marginTop: Spacing.three, fontSize: FontSize.caption, lineHeight: 16 },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   removeButton: { padding: 14, alignItems: 'center' },
 });

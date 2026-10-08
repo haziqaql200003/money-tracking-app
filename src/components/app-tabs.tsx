@@ -7,7 +7,8 @@ import { BlurTargetView } from 'expo-blur';
 import { GlassTabBar } from '@/components/glass/glass-tab-bar';
 import { useTheme } from '@/hooks/use-theme';
 import { useUpdates } from '@/context/UpdatesContext';
-import { useT } from '@/i18n';
+import { useT } from '@/i18n';
+import { Radius } from '@/constants/theme';
 
 export default function AppTabs() {
   const { t } = useT();
@@ -81,7 +82,7 @@ const styles = StyleSheet.create({
     right: -4,
     width: 9,
     height: 9,
-    borderRadius: 4.5,
+    borderRadius: Radius.pill,
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
   },

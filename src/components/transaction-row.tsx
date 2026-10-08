@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -16,9 +16,11 @@ type Props = {
   showAccount?: boolean;
   hidden?: boolean;
   onPress?: () => void;
+  /** Last row of a card: no divider underneath. */
+  last?: boolean;
 };
 
-export function TransactionRow({ item, showAccount = true, hidden = false, onPress }: Props) {
+export function TransactionRow({ item, showAccount = true, hidden = false, onPress, last }: Props) {
   const { t, tp } = useT();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
@@ -39,10 +41,11 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
     <Pressable
       onPress={onPress}
       disabled={!onPress}
-      style={({ pressed }) => [styles.row, { borderBottomColor: colors.divider }, pressed && { opacity: 0.6 }]}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.backgroundSelected }]}
     >
-      <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} />
+      <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? colors.textSecondary} />
 
+      <View style={[styles.body, !last && { borderBottomColor: colors.divider, borderBottomWidth: StyleSheet.hairlineWidth }]}>
       <View style={styles.details}>
         <ThemedText numberOfLines={1}>{item.title || (saved ? t(isDebtEntry(item) ? 'tx.saved.debtTitle' : 'tx.saved.rowTitle') : '')}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
@@ -53,20 +56,18 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
         </ThemedText>
       </View>
 
-      <ThemedText style={{ color: amountColor, fontWeight: '700' }}>
+      <ThemedText style={[styles.amount, { color: amountColor }]} numberOfLines={1}>
         {hidden ? 'RM ••••' : saved ? formatMoney(item.amount) : formatMoney(item.amount, { signed: true, type: item.type })}
       </ThemedText>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
+  // Sits inside a card: the divider starts after the icon, like iOS grouped lists.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: Spacing.three },
+  body: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: 12, paddingRight: Spacing.three, minHeight: 64 },
   details: { flex: 1 },
+  amount: { fontWeight: '700', ...tabularNums },
 });

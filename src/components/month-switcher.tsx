@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
@@ -63,7 +63,7 @@ export function MonthSwitcher({ label, range, isCurrent, canPrev, canNext, onPre
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48, marginBottom: Spacing.three },
-  button: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  button: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
+  label: { fontSize: FontSize.body, lineHeight: 22, fontWeight: '700' },
 });

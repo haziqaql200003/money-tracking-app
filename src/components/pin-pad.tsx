@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
-import { PIN_LENGTH } from '@/services/app-lock';
+import { PIN_LENGTH } from '@/services/app-lock';
+import { FontSize, Radius } from '@/constants/theme';
 
 const DIGITS = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']];
 
@@ -81,9 +82,9 @@ export function PinPad({
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 14 },
   dots: { flexDirection: 'row', gap: 16, marginBottom: 18, height: 18, alignItems: 'center' },
-  dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5 },
+  dot: { width: 16, height: 16, borderRadius: Radius.pill, borderWidth: 1.5 },
   row: { flexDirection: 'row', gap: 22 },
-  key: { width: 74, height: 74, borderRadius: 37, alignItems: 'center', justifyContent: 'center' },
-  keyText: { fontSize: 28, lineHeight: 34, fontWeight: '500' },
+  key: { width: 74, height: 74, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  keyText: { fontSize: FontSize.largeTitle, lineHeight: 34, fontWeight: '500' },
   slot: { width: 74, height: 74, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -61,9 +61,9 @@ export function TabungAllocation() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 16, marginBottom: Spacing.three, gap: 8 },
+  card: { borderRadius: Radius.lg, padding: 16, marginBottom: Spacing.three, gap: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  bar: { height: 10, borderRadius: 5, flexDirection: 'row', overflow: 'hidden' },
+  bar: { height: 10, borderRadius: Radius.pill, flexDirection: 'row', overflow: 'hidden' },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  dot: { width: 10, height: 10, borderRadius: Radius.pill },
 });

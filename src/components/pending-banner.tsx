@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Glass } from '@/components/glass/glass';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -47,6 +47,6 @@ export function PendingBanner() {
 const styles = StyleSheet.create({
   wrap: { marginBottom: Spacing.three },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three },
-  icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 36, height: 36, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1 },
 });

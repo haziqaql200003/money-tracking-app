@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
-import { useT } from '@/i18n';
+import { useT } from '@/i18n';
+import { FontSize, Radius } from '@/constants/theme';
 
 type Offer = { id: number; message: string; onUndo: () => void };
 type UndoValue = { offer: (message: string, onUndo: () => void) => void };
@@ -64,7 +65,7 @@ export function useUndo() {
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, maxWidth: 520, width: '100%' },
-  text: { flex: 1, fontSize: 14 },
-  undo: { fontSize: 14, fontWeight: '700' },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: Radius.md, maxWidth: 520, width: '100%' },
+  text: { flex: 1, fontSize: FontSize.label },
+  undo: { fontSize: FontSize.label, fontWeight: '700' },
 });

@@ -9,7 +9,7 @@ import { SocialButtons } from '@/components/social-buttons';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth, type Language } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { setLanguage, useT } from '@/i18n';
@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.six },
   chipRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.four },
-  chip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
+  chip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth },
   consentRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: Spacing.three },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
 });

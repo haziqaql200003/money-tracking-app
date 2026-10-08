@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { LineChart } from '@/components/line-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -308,7 +308,7 @@ export function AnalyseForecast({ months, todayKey }: Props) {
               <View key={key} style={styles.bandRow}>
                 <ThemedText type="small" style={[muted, styles.monthCol]}>{monthLabel(key, 'short')}</ThemedText>
                 <View style={[styles.barTrack, { backgroundColor: colors.backgroundSelected }]}>
-                  <View style={{ width: `${Math.max(2, (Math.abs(v) / maxSaving) * 100)}%`, height: 8, borderRadius: 4, backgroundColor: v < 0 ? colors.negative : colors.accent }} />
+                  <View style={{ width: `${Math.max(2, (Math.abs(v) / maxSaving) * 100)}%`, height: 8, borderRadius: Radius.pill, backgroundColor: v < 0 ? colors.negative : colors.accent }} />
                 </View>
                 <ThemedText type="small" style={styles.amountCol}>{money(v)}</ThemedText>
               </View>
@@ -440,14 +440,14 @@ export function AnalyseForecast({ months, todayKey }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three, gap: 10 },
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three, gap: 10 },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
   trio: { flexDirection: 'row', gap: 12 },
   block: { gap: 4, marginBottom: 6 },
   bandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   monthCol: { width: 44 },
   amountCol: { minWidth: 70, textAlign: 'right' },
-  barTrack: { flex: 1, height: 8, borderRadius: 4 },
+  barTrack: { flex: 1, height: 8, borderRadius: Radius.pill },
   gap: { marginTop: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Spacing } from '@/constants/theme';
 
 // Both side slots share one width, so the title is always dead-centre
 // no matter what (or whether) the left/right actions are.
@@ -27,5 +27,5 @@ const styles = StyleSheet.create({
   slot: { width: SLOT_WIDTH, justifyContent: 'center' },
   slotLeft: { alignItems: 'flex-start' },
   slotRight: { alignItems: 'flex-end' },
-  title: { flex: 1, fontSize: 18, textAlign: 'center' },
+  title: { flex: 1, fontSize: FontSize.heading, textAlign: 'center' },
 });

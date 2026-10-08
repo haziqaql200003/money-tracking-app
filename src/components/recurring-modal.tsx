@@ -8,7 +8,7 @@ import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { Account, RecurringAmountMode, RecurringFrequency, RecurringRule, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -495,44 +495,44 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
 
 
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
-  hint: { fontSize: 12, lineHeight: 16 },
+  hint: { fontSize: FontSize.caption, lineHeight: 16 },
   amountInput: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: 28,
+    fontSize: FontSize.largeTitle,
     fontWeight: '600',
     lineHeight: 34,
     textAlign: 'center',
   },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
 
   freqRow: { flexDirection: 'row', gap: Spacing.two },
-  freqChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+  freqChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth },
 
-  switchCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: Spacing.three, marginTop: Spacing.three },
+  switchCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: Spacing.three, marginTop: Spacing.three },
   endField: { marginTop: Spacing.two },
 
   chipScroll: { flexDirection: 'row', marginBottom: Spacing.one },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, marginRight: Spacing.two },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth, marginRight: Spacing.two },
   chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipTextActive: { color: '#fff', fontWeight: '600' },
   subGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  subChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, width: '31.5%', alignItems: 'center' },
+  subChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, width: '31.5%', alignItems: 'center' },
 
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   removeButton: { padding: 14, alignItems: 'center' },
-  info: { alignItems: 'center', gap: Spacing.two, borderRadius: 16, padding: Spacing.four, marginTop: Spacing.three },
+  info: { alignItems: 'center', gap: Spacing.two, borderRadius: Radius.lg, padding: Spacing.four, marginTop: Spacing.three },
 });

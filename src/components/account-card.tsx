@@ -10,7 +10,8 @@ import { TiltCard } from '@/components/cards/TiltCard';
 import { tone } from '@/components/cards/palette';
 import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/card-styles';
 import { useT } from '@/i18n';
-import { formatMoney } from '@/utils/currency';
+import { formatMoney } from '@/utils/currency';
+import { FontSize, Radius } from '@/constants/theme';
 
 // Bold bands that cut across the bottom-right corner of the Stripes design.
 const BANDS = [
@@ -270,21 +271,21 @@ export function AccountCard({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   right: { alignItems: 'flex-end' },
-  card: { height: 196, borderRadius: 24, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
+  card: { height: 196, borderRadius: Radius.xl, padding: 20, justifyContent: 'space-between', overflow: 'hidden' },
   stretch: { alignSelf: 'stretch' },
   proCard: { height: 196, alignSelf: 'stretch' },
   proInner: { width: '100%', height: '100%', aspectRatio: undefined },
-  rim: { ...StyleSheet.absoluteFill, borderRadius: 24, borderWidth: 1 },
+  rim: { ...StyleSheet.absoluteFill, borderRadius: Radius.xl, borderWidth: 1 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 17, fontWeight: '700' },
-  subtitle: { fontSize: 12, fontWeight: '500' },
-  last4: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  iconChip: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: FontSize.body, fontWeight: '700' },
+  subtitle: { fontSize: FontSize.caption, fontWeight: '500' },
+  last4: { fontSize: FontSize.caption, fontWeight: '600', letterSpacing: 1 },
   balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  balanceLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
-  balanceAmount: { fontSize: 34, lineHeight: 40, fontWeight: '700', marginTop: 2 },
+  eyeButton: { width: 26, height: 26, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  balanceLabel: { fontSize: FontSize.micro, fontWeight: '600', letterSpacing: 1.5 },
+  balanceAmount: { fontSize: FontSize.display, lineHeight: 40, fontWeight: '700', marginTop: 2 },
   bottom: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  splitLabel: { fontSize: 12, fontWeight: '500' },
-  splitValue: { fontSize: 15, fontWeight: '700', marginTop: 1 },
+  splitLabel: { fontSize: FontSize.caption, fontWeight: '500' },
+  splitValue: { fontSize: FontSize.label, fontWeight: '700', marginTop: 1 },
 });

@@ -29,7 +29,7 @@ export const enMore = {
   'more.index.whatsNew.unseen': 'v{version} · new updates available',
   'more.index.whatsNew.seen': 'v{version} · up to date',
   'more.index.banner.title': 'New in v{version}',
-  'more.index.banner.text': 'Google & Apple sign-in, app lock, change password',
+  'more.index.banner.text': 'A cleaner look, tidier Profile and Settings',
   'more.index.budget.title': 'Budget this month',
   'more.index.budget.over': 'Over budget',
   'more.index.budget.warn': 'Nearing limit',

@@ -11,12 +11,14 @@ type Props = {
   icon?: IconName;
   onPress: () => void;
   onLongPress?: () => void;
+  /** 'sm' for filter rows (36 pt), 'md' for form choices (44 pt). */
+  size?: 'md' | 'sm';
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
 /** Selectable pill for types, filters and options. Selected = soft indigo fill + indigo outline. */
-export function Chip({ label, active, icon, onPress, onLongPress, accessibilityHint, style }: Props) {
+export function Chip({ label, active, icon, onPress, onLongPress, size = 'md', accessibilityHint, style }: Props) {
   const colors = useTheme();
   return (
     <Pressable
@@ -27,6 +29,7 @@ export function Chip({ label, active, icon, onPress, onLongPress, accessibilityH
       accessibilityHint={accessibilityHint}
       style={[
         styles.chip,
+        size === 'sm' && styles.sm,
         {
           backgroundColor: active ? colors.accentSoft : colors.backgroundElement,
           borderColor: active ? colors.accent : colors.divider,
@@ -35,7 +38,9 @@ export function Chip({ label, active, icon, onPress, onLongPress, accessibilityH
       ]}
     >
       {icon ? <Ionicons name={icon} size={16} color={active ? colors.accent : colors.textSecondary} /> : null}
-      <Text style={[Type.label, { color: active ? colors.accent : colors.text }]}>{label}</Text>
+      <Text numberOfLines={1} style={[Type.label, { color: active ? colors.accent : colors.text }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -51,4 +56,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
   },
+  sm: { minHeight: 36, paddingHorizontal: 14 },
 });

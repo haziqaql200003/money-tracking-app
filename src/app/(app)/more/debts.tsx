@@ -10,7 +10,7 @@ import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -182,15 +182,15 @@ function DebtCard({ debt, onPress, trailing, children }: { debt: Debt; onPress: 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: Spacing.four, paddingBottom: 120 },
-  add: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  add: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', gap: Spacing.two, paddingTop: Spacing.six },
   center: { textAlign: 'center' },
-  emptyButton: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: Spacing.three },
+  emptyButton: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: Radius.md, marginTop: Spacing.three },
   emptyButtonText: { color: '#fff', fontWeight: '700' },
-  summary: { padding: Spacing.three, borderRadius: 18, gap: 6 },
-  big: { fontSize: 34, lineHeight: 40, fontWeight: '700' },
+  summary: { padding: Spacing.three, borderRadius: Radius.lg, gap: 6 },
+  big: { fontSize: FontSize.display, lineHeight: 40, fontWeight: '700' },
   stats: { flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.two },
   section: { marginTop: Spacing.four, marginBottom: Spacing.two },
-  card: { padding: Spacing.three, borderRadius: 16, gap: 8, marginBottom: Spacing.two },
+  card: { padding: Spacing.three, borderRadius: Radius.lg, gap: 8, marginBottom: Spacing.two },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
 });

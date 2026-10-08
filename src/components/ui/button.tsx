@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { IconName } from '@/constants/categories';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
   sm: { minHeight: 44, paddingHorizontal: Spacing.three },
   full: { alignSelf: 'stretch' },
   pressed: { opacity: 0.85 },
-  label: { fontSize: 16 },
+  label: { fontSize: FontSize.body },
 });

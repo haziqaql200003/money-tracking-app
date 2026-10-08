@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
@@ -9,7 +9,8 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Chip } from '@/components/ui/chip';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/context/AuthContext';
@@ -34,7 +35,7 @@ export default function SettingsScreen() {
   const { t, lang } = useT();
   const gyroEnabled = useGyroEnabled();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
-  const { user, signOut, updateProfile } = useAuth();
+  const { updateProfile } = useAuth();
   function changeLanguage(language: Lang) {
     if (language === lang) return;
     updateProfile({ language });
@@ -59,12 +60,6 @@ export default function SettingsScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ScreenHeader title={t('more.settings.title')} />
-
-          <Section title={t('more.settings.account')}>
-            <Row first icon="mail-outline" label={t('more.settings.email')} value={user?.email} />
-            <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={() => updateProfile({ hasOnboarded: false })} />
-            <Row icon="log-out-outline" label={t('more.settings.logOut')} onPress={signOut} />
-          </Section>
 
           <Section title={t('more.settings.appearance')}>
             <View style={styles.pad}>
@@ -102,28 +97,12 @@ export default function SettingsScreen() {
               <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.two }}>
                 {t('more.settings.warnAt')}
               </ThemedText>
-              <View style={styles.chipRow}>
-                {WARN_OPTIONS.map((w) => {
-                  const active = warnPercent === w;
-                  return (
-                    <Pressable
-                      key={w}
-                      onPress={() => setWarnPercent(w)}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: active ? colors.accent : colors.background,
-                          borderColor: active ? colors.accent : colors.divider,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}>
-                        {w}%
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <GlassSegmented
+                options={WARN_OPTIONS.map((w) => ({ key: String(w), label: `${w}%` }))}
+                value={String(warnPercent)}
+                onChange={(k) => setWarnPercent(Number(k))}
+                trackColor={colors.background}
+              />
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.four, marginBottom: Spacing.two }}>
                 {t('more.settings.dailyLimit')}
               </ThemedText>
@@ -143,26 +122,9 @@ export default function SettingsScreen() {
                     returnKeyType="done"
                   />
                 </View>
-                {[50, 100, 150].map((q) => {
-                  const active = dailyLimit === q;
-                  return (
-                    <Pressable
-                      key={q}
-                      onPress={() => applyDailyLimit(active ? 0 : q)}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: active ? colors.accent : colors.background,
-                          borderColor: active ? colors.accent : colors.divider,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}>
-                        {q}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
+                {[50, 100, 150].map((q) => (
+                  <Chip key={q} size="sm" label={`RM ${q}`} active={dailyLimit === q} onPress={() => applyDailyLimit(dailyLimit === q ? 0 : q)} style={styles.flex} />
+                ))}
               </View>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 6 }}>
                 {dailyLimit > 0 ? t('more.settings.dailyLimitOn') : t('more.settings.dailyLimitOffHint')}
@@ -173,11 +135,11 @@ export default function SettingsScreen() {
           <Section title={t('more.settings.general')}>
             <Row first icon="cash-outline" label={t('more.settings.currency')} value="MYR (RM)" /* i18n-ignore */ />
             <Row icon="calendar-outline" label={t('more.settings.weekStarts')} value={weekdayLong(0)} />
+            <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={() => updateProfile({ hasOnboarded: false })} />
           </Section>
 
           <Section title={t('more.settings.more')}>
-            <Row first icon="person-circle-outline" label={t('more.profile.title')} subtitle={t('more.settings.profileSub')} onPress={() => router.push('/more/profile')} />
-            <Row icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} onPress={() => router.push('/more/data')} />
+            <Row first icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} onPress={() => router.push('/more/data')} />
             <Row icon="information-circle-outline" label={t('more.about.title')} subtitle={t('more.settings.aboutSub')} onPress={() => router.push('/more/about')} />
           </Section>
         </ScrollView>
@@ -193,21 +155,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
 
   pad: { padding: Spacing.three },
-
-
-
-
-  chipRow: { flexDirection: 'row', gap: Spacing.two },
-  chip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
-    dailyLimitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
+  dailyLimitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   dailyLimitInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: 12,
     width: '100%',
   },
-  dailyLimitInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
+  dailyLimitInput: { flex: 1, fontSize: FontSize.label, paddingVertical: 10 },
 });

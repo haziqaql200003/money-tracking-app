@@ -11,7 +11,7 @@ import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { PendingEntry, RecurringRule } from '@/context/TransactionsContext';
@@ -323,25 +323,25 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  addButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  addButton: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
 
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
-  big: { fontSize: 34, lineHeight: 42, fontWeight: '700', marginTop: 4 },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
+  big: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700', marginTop: 4 },
   tiles: { flexDirection: 'row', marginTop: Spacing.three, paddingTop: Spacing.three, borderTopWidth: StyleSheet.hairlineWidth },
   tile: { flex: 1, alignItems: 'center' },
-  tileValue: { fontSize: 17, fontWeight: '700', marginTop: 2 },
+  tileValue: { fontSize: FontSize.body, fontWeight: '700', marginTop: 2 },
   tileDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
-  footnote: { fontSize: 12, lineHeight: 16, marginTop: Spacing.three },
+  footnote: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.three },
   center: { textAlign: 'center' },
 
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.md },
   pillText: { color: '#fff', fontWeight: '700' },
 
   empty: { alignItems: 'center', gap: Spacing.two },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: Spacing.two },
+  emptyTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.lg, marginTop: Spacing.two },
   emptyButtonText: { color: '#fff', fontWeight: '700' },
 });

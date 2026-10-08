@@ -29,7 +29,7 @@ import {
   type CategoryKind,
   type IconName,
 } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -398,22 +398,22 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
-  sheetTitle: { fontSize: 18 },
+  sheetTitle: { fontSize: FontSize.heading },
 
-  preview: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, padding: Spacing.three },
-  previewName: { fontSize: 18, fontWeight: '700' },
+  preview: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: Radius.lg, padding: Spacing.three },
+  previewName: { fontSize: FontSize.heading, fontWeight: '700' },
 
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
-  helper: { marginTop: Spacing.one, fontSize: 12, lineHeight: 16 },
+  helper: { marginTop: Spacing.one, fontSize: FontSize.caption, lineHeight: 16 },
   protectedNote: { textAlign: 'center', marginBottom: Spacing.three },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
 
 
@@ -421,19 +421,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 10,
     marginBottom: Spacing.two,
   },
-  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
-  iconBox: { borderRadius: 14, padding: 6 },
+  searchInput: { flex: 1, fontSize: FontSize.label, paddingVertical: 0 },
+  iconBox: { borderRadius: Radius.md, padding: 6 },
   iconScroll: { maxHeight: 216 },
   iconGrid: { paddingVertical: 4 },
   iconCell: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
     borderColor: 'transparent',
     alignItems: 'center',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
 
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  swatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 3, borderColor: 'transparent' },
+  swatch: { width: 34, height: 34, borderRadius: Radius.pill, borderWidth: 3, borderColor: 'transparent' },
 
   subWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.two },
   subChip: {
@@ -451,13 +451,13 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     paddingRight: 8,
     paddingVertical: 7,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
   },
   addSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addSubButton: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  addSubButton: { width: 48, height: 48, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
-  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
+  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
 });

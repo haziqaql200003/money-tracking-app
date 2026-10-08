@@ -7,7 +7,7 @@ import { isLightColor } from '@/constants/card-styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useDebts } from '@/context/DebtsContext';
@@ -255,24 +255,24 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   header: { paddingVertical: Spacing.three },
-  heading: { fontSize: 34, lineHeight: 40 },
-  card: { borderRadius: 20, marginBottom: Spacing.three },
+  heading: { fontSize: FontSize.display, lineHeight: 40 },
+  card: { borderRadius: Radius.lg, marginBottom: Spacing.three },
 
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontSize: 20, fontWeight: '700' },
-  profileName: { fontSize: 18, fontWeight: '700' },
+  avatar: { width: 48, height: 48, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontSize: FontSize.heading, fontWeight: '700' },
+  profileName: { fontSize: FontSize.heading, fontWeight: '700' },
 
   budgetCard: { padding: 20, gap: 8 },
-  budgetAmount: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4 },
+  budgetAmount: { fontSize: FontSize.largeTitle, lineHeight: 34, fontWeight: '700' },
+  track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden' },
+  fill: { height: 8, borderRadius: Radius.pill },
 
   menuCard: { paddingHorizontal: Spacing.three },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  menuIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  menuIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   about: { textAlign: 'center', marginTop: Spacing.two },
-  dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
+  dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: Radius.pill, borderWidth: 2 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderWidth: 1.5 },
-  bannerIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  bannerIcon: { width: 36, height: 36, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 });

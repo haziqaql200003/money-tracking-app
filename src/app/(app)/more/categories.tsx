@@ -10,7 +10,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Category, CategoryKind } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
@@ -136,10 +136,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   flex: { flex: 1 },
-  addButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  addButton: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
 
 
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
@@ -149,9 +149,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 1.5,
     borderStyle: 'dashed',
   },
-  footnote: { textAlign: 'center', marginTop: Spacing.three, fontSize: 12, lineHeight: 16 },
+  footnote: { textAlign: 'center', marginTop: Spacing.three, fontSize: FontSize.caption, lineHeight: 16 },
 });

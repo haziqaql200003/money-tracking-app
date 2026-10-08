@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { useDebts } from '@/context/DebtsContext';
 import { usePlan } from '@/context/PlanContext';
@@ -112,7 +112,7 @@ export function AnalyseInsight({ todayKey }: Props) {
         <ThemedText type="small" style={muted}>{Math.round(f.points)}/{f.max}</ThemedText>
       </View>
       <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
-        <View style={{ width: `${(f.points / f.max) * 100}%`, height: 8, borderRadius: 4, backgroundColor: f.points / f.max >= 0.7 ? colors.positive : f.points / f.max >= 0.4 ? colors.warning : colors.negative }} />
+        <View style={{ width: `${(f.points / f.max) * 100}%`, height: 8, borderRadius: Radius.pill, backgroundColor: f.points / f.max >= 0.7 ? colors.positive : f.points / f.max >= 0.4 ? colors.warning : colors.negative }} />
       </View>
     </View>
   );
@@ -189,14 +189,14 @@ export function AnalyseInsight({ todayKey }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 18, marginBottom: Spacing.three, gap: 8 },
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
+  card: { borderRadius: Radius.lg, padding: 18, marginBottom: Spacing.three, gap: 8 },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   big: { fontSize: 52, lineHeight: 58, fontWeight: '700' },
   factor: { gap: 4 },
   factorHead: { flexDirection: 'row', justifyContent: 'space-between' },
-  track: { height: 8, borderRadius: 4 },
+  track: { height: 8, borderRadius: Radius.pill },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14, marginTop: 4 },
+  button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: Radius.md, marginTop: 4 },
   buttonText: { color: '#fff', fontWeight: '700' },
 });

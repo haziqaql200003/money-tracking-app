@@ -89,4 +89,8 @@ export const enHome = {
   'home.date.select': 'Select date',
   // Shared UI primitives
   'home.ui.amountHidden': 'Amount hidden',
+  'home.index.greetMorning': 'Good morning',
+  'home.index.greetAfternoon': 'Good afternoon',
+  'home.index.greetEvening': 'Good evening',
+  'home.index.greetNight': 'Good evening',
 } as const;

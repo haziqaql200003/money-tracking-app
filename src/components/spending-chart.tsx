@@ -3,7 +3,7 @@ import { LayoutChangeEvent, Pressable, StyleSheet, View, useColorScheme } from '
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, FontSize, Radius } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
 import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
@@ -292,22 +292,22 @@ const styles = StyleSheet.create({
     width: TOOLTIP_WIDTH,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: Radius.sm,
     alignItems: 'center',
   },
-  tooltipTitle: { fontSize: 11, lineHeight: 14, opacity: 0.7 },
-  tooltipValue: { fontSize: 14, lineHeight: 18, fontWeight: '700' },
+  tooltipTitle: { fontSize: FontSize.micro, lineHeight: 14, opacity: 0.7 },
+  tooltipValue: { fontSize: FontSize.label, lineHeight: 18, fontWeight: '700' },
   labelRow: { flexDirection: 'row', marginTop: 4 },
   labelColumn: { flex: 1, alignItems: 'center' },
   label: {},
   labelActive: { fontWeight: '700' },
   labelFuture: { opacity: 0.4 },
-  labelDense: { fontSize: 11 },
+  labelDense: { fontSize: FontSize.micro },
   limitLabel: {
     position: 'absolute',
     right: 0,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
   },
 });

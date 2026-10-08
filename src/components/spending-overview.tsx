@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { StyleSheet, View, useColorScheme } from 'react-native';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
-import { Glass } from '@/components/glass/glass';
+import { Card } from '@/components/ui/card';
 import { SpendingChart, PERIOD_COLOR, pointLabel } from '@/components/spending-chart';
 import { ThemedText } from '@/components/themed-text';
 import { WeekChartPager } from '@/components/week-chart-pager';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -103,7 +103,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
         />
       </View>
 
-      <Glass radius={20} style={styles.card}>
+      <Card style={styles.card}>
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
             <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
@@ -151,7 +151,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
             </ThemedText>
           </View>
         </View>
-      </Glass>
+      </Card>
 
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
         {period === 'week' ? t('home.overview.hintWeek') : t('home.overview.hintPoint')}
@@ -161,13 +161,13 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { paddingTop: Spacing.three, paddingBottom: Spacing.three, paddingHorizontal: Spacing.three },
+  card: { paddingBottom: Spacing.three },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   headerText: { flexShrink: 1 },
-  total: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
-  deltaPill: { borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center' },
+  total: { fontSize: FontSize.largeTitle, lineHeight: 36, fontWeight: '700' },
+  deltaPill: { borderRadius: Radius.md, paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center' },
   deltaText: { fontWeight: '700', lineHeight: 18 },
-  deltaCaption: { fontSize: 11, lineHeight: 14 },
+  deltaCaption: { fontSize: FontSize.micro, lineHeight: 14 },
   chartSpacing: { marginTop: Spacing.two },
   statsRow: {
     flexDirection: 'row',
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   stat: { flex: 1, alignItems: 'center' },
-  statLabel: { fontSize: 12, lineHeight: 16 },
+  statLabel: { fontSize: FontSize.caption, lineHeight: 16 },
   statDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
-  hint: { textAlign: 'center', marginTop: 8, opacity: 0.7, fontSize: 12, lineHeight: 16 },
+  hint: { textAlign: 'center', marginTop: 8, opacity: 0.7, fontSize: FontSize.caption, lineHeight: 16 },
 });

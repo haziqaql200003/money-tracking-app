@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -74,9 +74,9 @@ export default function ConsentScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, paddingTop: Spacing.six },
-  icon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.three },
+  icon: { width: 56, height: 56, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.three },
   row: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: Spacing.three },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   decline: { alignItems: 'center', padding: Spacing.three },
 });

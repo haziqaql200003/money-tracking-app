@@ -11,10 +11,11 @@ import { SwipeRow } from '@/components/ui/swipe-row';
 import { GoalFormModal } from '@/components/goal-form-modal';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -139,7 +140,7 @@ export default function RancangScreen() {
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
             <View style={styles.tiles}>
               <View style={styles.tile}>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                <ThemedText type="small" style={[styles.tileLabel, { color: colors.textSecondary }]} numberOfLines={2}>
                   {t('plan.rancang.billsIn', { days: BILLS_HORIZON_DAYS })}
                 </ThemedText>
                 <ThemedText style={[styles.tileValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -152,7 +153,7 @@ export default function RancangScreen() {
               </View>
               <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
               <View style={styles.tile}>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                <ThemedText type="small" style={[styles.tileLabel, { color: colors.textSecondary }]} numberOfLines={2}>
                   {t('plan.rancang.savedForGoals')}
                 </ThemedText>
                 <ThemedText style={[styles.tileValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -258,7 +259,7 @@ export default function RancangScreen() {
                     <CategoryIcon icon={goal.icon as IconName} color={goal.color} size={42} />
                     <View style={styles.flex}>
                       <View style={styles.rowBetween}>
-                        <ThemedText numberOfLines={1} style={styles.flex}>
+                        <ThemedText numberOfLines={2} style={styles.flex}>
                           {goal.name}
                         </ThemedText>
                         <ThemedText type="small" style={{ fontWeight: '700' }}>
@@ -269,7 +270,7 @@ export default function RancangScreen() {
                         <View style={[styles.fill, styles.fillThin, { width: `${Math.max(progress.percent, progress.saved > 0 ? 2 : 0)}%`, backgroundColor: goal.color }]} />
                       </View>
                       <View style={styles.rowBetween}>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                        <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]} numberOfLines={2}>
                           {t('plan.rancang.spentOf', { spent: money(progress.saved), limit: money(goal.target) })}
                         </ThemedText>
                         <ThemedText type="small" style={{ color: tone, fontWeight: '700' }}>
@@ -379,24 +380,13 @@ export default function RancangScreen() {
                 <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
                   {t('plan.rancang.remindMe')}
                 </ThemedText>
-                <View style={[styles.segment, { backgroundColor: colors.backgroundSelected }]}>
-                  {DAYS_BEFORE_OPTIONS.map((o) => {
-                    const active = o.value === reminderPrefs.daysBefore;
-                    return (
-                      <Pressable
-                        key={o.value}
-                        onPress={() => setDaysBefore(o.value)}
-                        style={[styles.segmentItem, active && { backgroundColor: colors.accent }]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                      >
-                        <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
-                          {t(o.labelKey)}
-                        </ThemedText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <GlassSegmented
+                  height={40}
+                  trackColor={colors.backgroundSelected}
+                  options={DAYS_BEFORE_OPTIONS.map((o) => ({ key: String(o.value), label: t(o.labelKey) }))}
+                  value={String(reminderPrefs.daysBefore)}
+                  onChange={(k) => setDaysBefore(Number(k))}
+                />
 
                 <View style={[styles.switchRow, { marginTop: Spacing.three }]}>
                   <View style={styles.flex}>
@@ -436,36 +426,35 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   tagline: { marginTop: -Spacing.two, marginBottom: Spacing.three },
 
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
   tiles: { flexDirection: 'row' },
-  tile: { flex: 1, alignItems: 'center', gap: 2 },
-  tileValue: { fontSize: 20, fontWeight: '700' },
+  tile: { flex: 1, gap: 2, paddingHorizontal: Spacing.two },
+  tileLabel: { minHeight: 40 },
+  tileValue: { fontSize: FontSize.title, lineHeight: 28, fontWeight: '800', ...tabularNums },
   tileDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
 
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginVertical: Spacing.two },
-  trackThin: { height: 6, borderRadius: 3, marginVertical: 6 },
-  fill: { height: 8, borderRadius: 4 },
-  fillThin: { height: 6, borderRadius: 3 },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
+  track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden', marginVertical: Spacing.two },
+  trackThin: { height: 6, borderRadius: Radius.pill, marginVertical: 6 },
+  fill: { height: 8, borderRadius: Radius.pill },
+  fillThin: { height: 6, borderRadius: Radius.pill },
 
-  addButton: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  addButton: { width: 30, height: 30, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
   emptyList: { padding: 20 },
   goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: Spacing.three },
   billRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   more: { textAlign: 'center', paddingBottom: 12 },
-  notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.three, borderRadius: 16, borderWidth: 1.5, marginBottom: Spacing.two },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.three, borderRadius: Radius.lg, borderWidth: 1.5, marginBottom: Spacing.two },
 
   empty: { alignItems: 'center', gap: Spacing.two },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: Spacing.two },
+  emptyTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.lg, marginTop: Spacing.two },
   emptyButtonText: { color: '#fff', fontWeight: '700' },
 
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   blocked: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.three },
   label: { marginTop: Spacing.three, marginBottom: Spacing.one },
-  segment: { flexDirection: 'row', borderRadius: 12, padding: 3 },
-  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
-  footnote: { fontSize: 12, lineHeight: 16, marginTop: Spacing.three },
+  footnote: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.three },
 });

@@ -77,6 +77,8 @@ export function Glass({ children, style, radius = Radius.lg, variant = 'regular'
               : 'rgba(255,255,255,0.72)',
           borderColor: dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.75)',
         },
+        Platform.OS === 'web' && { backgroundColor: dark ? 'rgba(22,29,49,0.92)' : 'rgba(255,255,255,0.92)' },
+        Platform.OS === 'web' && webFrost,
         style,
       ]}
       {...rest}
@@ -97,6 +99,9 @@ export function Glass({ children, style, radius = Radius.lg, variant = 'regular'
     </View>
   );
 }
+
+// Browsers can blur what is behind an element themselves (react-native-web passes this through as CSS).
+const webFrost = { backdropFilter: 'blur(24px) saturate(160%)' } as unknown as ViewStyle;
 
 const styles = StyleSheet.create({
   fallback: { overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },

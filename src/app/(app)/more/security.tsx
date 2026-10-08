@@ -8,7 +8,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useAppLock } from '@/context/AppLockContext';
 import { useAuth } from '@/context/AuthContext';
 import type { LinkedLogin, SocialProvider } from '@/context/auth-shared';
@@ -192,5 +192,5 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   pad: { padding: Spacing.three },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.two },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.lg },
 });

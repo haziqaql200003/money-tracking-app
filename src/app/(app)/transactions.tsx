@@ -10,12 +10,17 @@ import { AddTransactionModal } from '@/components/add-transaction-modal';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
+import { rowPosition, SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
+import { Card } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
+import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
+import { ScreenTitle } from '@/components/ui/screen-title';
 import { CategoryBreakdown, SummaryCard } from '@/components/transactions-summary';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
 import type { IconName } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Transaction, TransactionType, Transfer } from '@/context/TransactionsContext';
@@ -203,21 +208,10 @@ export default function TransactionsScreen() {
   const header = (
     <View>
       {/* Title */}
-      <View style={styles.titleRow}>
-        <ThemedText type="title" style={styles.heading}>
-          {t('tx.list.title')}
-        </ThemedText>
-        <Pressable
-          onPress={handleExport}
-          disabled={monthTxns.length === 0}
-          hitSlop={8}
-          style={[styles.iconButton, { backgroundColor: colors.backgroundElement, opacity: monthTxns.length ? 1 : 0.4 }]}
-          accessibilityRole="button"
-          accessibilityLabel={t('tx.list.exportA11y')}
-        >
-          <Ionicons name="share-outline" size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      <ScreenTitle
+        title={t('tx.list.title')}
+        right={<IconButton icon="share-outline" onPress={handleExport} disabled={monthTxns.length === 0} label={t('tx.list.exportA11y')} />}
+      />
 
       {/* Month switcher */}
       <MonthSwitcher
@@ -297,32 +291,16 @@ export default function TransactionsScreen() {
           style={styles.chipScroll}
           keyboardShouldPersistTaps="handled"
         >
-          {accountOptions.map((opt) => {
-            const active = accountId === opt.id;
-            return (
-              <Pressable
-                key={opt.id ?? 'all'}
-                onPress={() => selectAccount(opt.id)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? colors.accent : colors.backgroundElement,
-                    borderColor: active ? colors.accent : colors.divider,
-                  },
-                ]}
-              >
-                <View style={styles.chipInner}>
-                  <Ionicons name={opt.icon} size={14} color={active ? '#fff' : colors.textSecondary} />
-                  <ThemedText
-                    type="small"
-                    style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.textSecondary }}
-                  >
-                    {opt.label}
-                  </ThemedText>
-                </View>
-              </Pressable>
-            );
-          })}
+          {accountOptions.map((opt) => (
+            <Chip
+              key={opt.id ?? 'all'}
+              size="sm"
+              icon={opt.icon}
+              label={opt.label}
+              active={accountId === opt.id}
+              onPress={() => selectAccount(opt.id)}
+            />
+          ))}
         </ScrollView>
       ) : null}
 
@@ -345,27 +323,25 @@ export default function TransactionsScreen() {
   const empty = !ready ? (
     <ScreenSkeleton rows={8} />
   ) : monthTxns.length + monthSaved.length + monthGoal.length + monthDebt.length === 0 ? (
-      <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
-        <Ionicons name="receipt-outline" size={32} color={colors.textSecondary} />
-        <ThemedText style={styles.emptyTitle}>{t('tx.list.emptyMonth', { month: monthLabel(monthKey) })}</ThemedText>
-        <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          {accountId ? t('tx.list.emptyAccount') : t('tx.list.emptyAll')}
-        </ThemedText>
-        <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAddRecord}>
-          <ThemedText style={styles.emptyButtonText}>{t('tx.list.addTransaction')}</ThemedText>
-        </Pressable>
-      </View>
+      <Card padding={0} style={styles.empty}>
+        <EmptyState
+          icon="receipt-outline"
+          title={t('tx.list.emptyMonth', { month: monthLabel(monthKey) })}
+          message={accountId ? t('tx.list.emptyAccount') : t('tx.list.emptyAll')}
+          actionLabel={t('tx.list.addTransaction')}
+          onAction={openAddRecord}
+        />
+      </Card>
     ) : (
-      <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
-        <Ionicons name="search-outline" size={32} color={colors.textSecondary} />
-        <ThemedText style={styles.emptyTitle}>{t('tx.list.noMatches')}</ThemedText>
-        <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          {t('tx.list.noMatchesHint')}
-        </ThemedText>
-        <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={clearFilters}>
-          <ThemedText style={styles.emptyButtonText}>{t('tx.list.clearFilters')}</ThemedText>
-        </Pressable>
-      </View>
+      <Card padding={0} style={styles.empty}>
+        <EmptyState
+          icon="search-outline"
+          title={t('tx.list.noMatches')}
+          message={t('tx.list.noMatchesHint')}
+          actionLabel={t('tx.list.clearFilters')}
+          onAction={clearFilters}
+        />
+      </Card>
     );
 
   return (
@@ -374,9 +350,10 @@ export default function TransactionsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          renderItem={({ item, index, section }) => (
             <SwipeableTransactionRow
               item={item}
+              position={rowPosition(index, section.data.length)}
               showAccount={!accountId}
               hidden={hideAmounts}
               onOpen={() =>
@@ -392,12 +369,12 @@ export default function TransactionsScreen() {
           )}
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+              <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '600' }}>
                 {dayLabel(section.title)}
               </ThemedText>
               <ThemedText
                 type="small"
-                style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600' }}
+                style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600', ...tabularNums }}
               >
                 {hideAmounts
                   ? MASK
@@ -427,42 +404,32 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: 14, marginBottom: Spacing.three },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.three },
   savedLabel: { flex: 1 },
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   listContent: { paddingBottom: 120 },
 
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.three },
-  heading: { fontSize: 34, lineHeight: 40 },
-  iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
   monthCenter: { alignItems: 'center' },
-  monthLabel: { fontSize: 17, fontWeight: '700' },
+  monthLabel: { fontSize: FontSize.body, fontWeight: '700' },
 
   search: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 10,
     marginBottom: Spacing.three,
   },
-  searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: FontSize.body, paddingVertical: 0 },
 
 
   chipScroll: { marginHorizontal: -Spacing.four, flexGrow: 0, marginBottom: Spacing.two },
   chipRow: { paddingHorizontal: Spacing.four, gap: Spacing.two },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
-
-  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   countRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.two },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three, paddingBottom: 6 },
-
-  empty: { borderRadius: 16, padding: Spacing.four, alignItems: 'center', gap: Spacing.two, marginTop: Spacing.three },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: Spacing.two },
-  emptyButtonText: { color: '#fff', fontWeight: '700' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three, paddingBottom: Spacing.two, paddingHorizontal: Spacing.one },
+  empty: { marginTop: Spacing.three },
 });

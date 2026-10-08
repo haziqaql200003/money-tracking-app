@@ -9,9 +9,10 @@ import { AnalyseInsight } from '@/components/analyse-insight';
 import { CategoryIcon } from '@/components/category-icon';
 import { IncomeSpendingChart } from '@/components/income-spending-chart';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -20,9 +21,9 @@ import { useT } from '@/i18n';
 import { categoryName as categoryLabel, subcategoryName } from '@/i18n/data';
 import { weekdayLong, weekdayShort } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
-import { formatPct } from '@/utils/insights';
 import { dayLabel, monthLabel, toDateKey } from '@/utils/dates';
 import {
+  formatPct,
   biggestExpense,
   buildInsights,
   categoryTrends,
@@ -101,49 +102,31 @@ export default function AnalyseScreen() {
           {!(ready) ? <ScreenSkeleton variant="cards" /> : (
           <>
 
-          {/* Overview / Deep dive */}
-          <View style={[styles.segment, { backgroundColor: colors.backgroundElement }]}>
-            {(['overview', 'deep', 'forecast', 'insight'] as const).map((id) => {
-              const active = id === tab;
-              return (
-                <Pressable
-                  key={id}
-                  onPress={() => setTab(id)}
-                  style={[styles.segmentItem, active && { backgroundColor: colors.accent }]}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                >
-                  <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
-                    {id === 'overview' ? t('plan.analyse.tabOverview') : id === 'deep' ? t('plan.analyse.tabDeep') : id === 'forecast' ? t('fc.tab') : t('fc.insight.tab')}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+          {/* Overview / Deep dive / Forecast / Insight */}
+          <View style={styles.segment}>
+            <GlassSegmented
+              options={(['overview', 'deep', 'forecast', 'insight'] as const).map((id) => ({
+                key: id,
+                label: id === 'overview' ? t('plan.analyse.tabOverview') : id === 'deep' ? t('plan.analyse.tabDeep') : id === 'forecast' ? t('fc.tab') : t('fc.insight.tab'),
+              }))}
+              value={tab}
+              onChange={setTab}
+            />
           </View>
 
           {/* Range */}
-          <View style={[styles.segment, { backgroundColor: colors.backgroundElement }]}>
-            {RANGES.map((r) => {
-              const active = r === months;
-              return (
-                <Pressable
-                  key={r}
-                  onPress={() => {
-                    setMonths(r);
-                    setOpenCategory(null);
-                    setShowAllCategories(false);
-                  }}
-                  style={[styles.segmentItem, active && { backgroundColor: colors.accent }]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={t('plan.analyse.rangeA11y', { n: r })}
-                >
-                  <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
-                    {t('plan.analyse.rangeLabel', { n: r })}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+          <View style={styles.segment}>
+            <GlassSegmented
+              height={36}
+              trackColor={colors.backgroundSelected}
+              options={RANGES.map((r) => ({ key: String(r), label: t('plan.analyse.rangeLabel', { n: r }) }))}
+              value={String(months)}
+              onChange={(k) => {
+                setMonths(Number(k) as typeof months);
+                setOpenCategory(null);
+                setShowAllCategories(false);
+              }}
+            />
           </View>
 
           {tab === 'insight' ? (
@@ -260,16 +243,16 @@ export default function AnalyseScreen() {
                           <CategoryIcon icon={category?.icon ?? 'help-circle'} color={color} size={42} />
                           <View style={styles.flex}>
                             <View style={styles.rowBetween}>
-                              <ThemedText numberOfLines={1} style={styles.flex}>
+                              <ThemedText numberOfLines={2} style={styles.flex}>
                                 {categoryName(row.categoryId)}
                               </ThemedText>
-                              <ThemedText style={{ fontWeight: '700' }}>{money(row.total)}</ThemedText>
+                              <ThemedText style={{ fontWeight: '700', ...tabularNums }}>{money(row.total)}</ThemedText>
                             </View>
                             <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
                               <View style={[styles.fill, { width: `${Math.max(row.share, 2)}%`, backgroundColor: color }]} />
                             </View>
                             <View style={styles.rowBetween}>
-                              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                              <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]} numberOfLines={2}>
                                 {t('plan.analyse.shareOfSpending', { share: row.share })}
                               </ThemedText>
                               <ThemedText type="small" style={{ color: changeColor, fontWeight: '700' }}>
@@ -342,7 +325,7 @@ export default function AnalyseScreen() {
                                 ]}
                               />
                             </View>
-                            <ThemedText type="small" style={{ fontSize: 11, color: isTop ? colors.text : colors.textSecondary, fontWeight: isTop ? '700' : '400' }}>
+                            <ThemedText type="small" style={{ fontSize: FontSize.micro, color: isTop ? colors.text : colors.textSecondary, fontWeight: isTop ? '700' : '400' }}>
                               {weekdayShort(d.day)}
                             </ThemedText>
                           </View>
@@ -398,7 +381,7 @@ export default function AnalyseScreen() {
                                 {tp('plan.analyse.times', row.count)}
                               </ThemedText>
                             </View>
-                            <ThemedText style={{ fontWeight: '700' }}>{money(row.total)}</ThemedText>
+                            <ThemedText style={{ fontWeight: '700', ...tabularNums }}>{money(row.total)}</ThemedText>
                           </View>
                         ))}
                       </View>
@@ -428,33 +411,32 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
 
   titleBlock: { paddingVertical: Spacing.three, gap: 2 },
-  heading: { fontSize: 34, lineHeight: 40 },
+  heading: { fontSize: FontSize.display, lineHeight: 40 },
 
-  segment: { flexDirection: 'row', borderRadius: 14, padding: 4, marginBottom: Spacing.three },
-  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
+  segment: { marginBottom: Spacing.three },
 
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
-  big: { fontSize: 34, lineHeight: 42, fontWeight: '700', marginTop: 4 },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
+  big: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700', marginTop: 4 },
   tiles: { flexDirection: 'row', marginTop: Spacing.three, paddingTop: Spacing.three, borderTopWidth: StyleSheet.hairlineWidth },
   tile: { flex: 1, alignItems: 'center' },
-  tileValue: { fontSize: 17, fontWeight: '700', marginTop: 2 },
+  tileValue: { fontSize: FontSize.body, fontWeight: '700', marginTop: 2 },
   tileDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
 
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   emptyList: { padding: 20, alignItems: 'center' },
-  footnote: { fontSize: 12, lineHeight: 16, marginBottom: Spacing.three },
+  footnote: { fontSize: FontSize.caption, lineHeight: 16, marginBottom: Spacing.three },
   center: { textAlign: 'center' },
 
   insightRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  insightIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  insightIcon: { width: 30, height: 30, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
 
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden', marginVertical: 6 },
-  fill: { height: 6, borderRadius: 3 },
+  track: { height: 6, borderRadius: Radius.pill, overflow: 'hidden', marginVertical: 6 },
+  fill: { height: 6, borderRadius: Radius.pill },
   subs: { paddingLeft: 54, paddingBottom: 12, gap: 6 },
   subRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  subNote: { fontSize: 12, marginTop: 2 },
+  subNote: { fontSize: FontSize.caption, marginTop: 2 },
   moreButton: { alignItems: 'center', paddingVertical: 12 },
 
   weekRow: { flexDirection: 'row', marginTop: Spacing.three, marginBottom: Spacing.two },
@@ -467,5 +449,5 @@ const styles = StyleSheet.create({
   rank: { width: 18, textAlign: 'center' },
 
   empty: { alignItems: 'center', gap: Spacing.two },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
+  emptyTitle: { fontSize: FontSize.body, fontWeight: '700' },
 });

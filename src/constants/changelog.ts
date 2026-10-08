@@ -4,9 +4,24 @@ export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string; ms: string };
 export type Release = { version: string; date: string; title: string; titleMs: string; changes: ChangeEntry[] };
 
-export const CURRENT_VERSION = '1.9.1';
+export const CURRENT_VERSION = '2.0.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '2.0.0',
+    date: '2026-10-08',
+    title: 'A cleaner, more consistent look', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Rupa yang lebih kemas dan seragam',
+    changes: [
+      { kind: 'improved', text: 'One set of colours, text sizes and corner shapes across every screen, in light and dark mode.', ms: 'Satu set warna, saiz teks dan bentuk bucu pada setiap skrin, dalam mod cerah dan gelap.' }, // i18n-ignore
+      { kind: 'improved', text: 'All switchers (Week/Month/Year, Faham tabs and ranges, reminders, budget alerts) now look and slide the same way.', ms: 'Semua pemilih (Minggu/Bulan/Tahun, tab dan julat Faham, peringatan, amaran bajet) kini sama rupa dan gelongsorannya.' }, // i18n-ignore
+      { kind: 'improved', text: 'Transactions are grouped by day in rounded cards on Home and Transactions.', ms: 'Transaksi dikumpul ikut hari dalam kad bulat di Utama dan Transaksi.' }, // i18n-ignore
+      { kind: 'improved', text: 'Profile now holds your account: email, Security and Log out. Settings keeps app preferences only.', ms: 'Profil kini memegang akaun anda: e-mel, Keselamatan dan Log keluar. Tetapan hanya untuk pilihan aplikasi.' }, // i18n-ignore
+      { kind: 'improved', text: 'Pick your state from a list instead of a wall of buttons.', ms: 'Pilih negeri daripada senarai, bukan deretan butang.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Long category and goal names and amounts are no longer cut off with "…" in Faham, Budgets and Rancang.', ms: 'Nama kategori, matlamat dan jumlah yang panjang tidak lagi terpotong dengan "…" dalam Faham, Bajet dan Rancang.' }, // i18n-ignore
+      { kind: 'fixed', text: 'The black avatar colour is visible in dark mode, and your name lines up under your avatar.', ms: 'Warna avatar hitam kelihatan dalam mod gelap, dan nama anda sejajar di bawah avatar.' }, // i18n-ignore
+    ],
+  },
   {
     version: '1.9.1',
     date: '2026-10-08',

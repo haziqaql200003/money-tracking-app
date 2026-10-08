@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } fro
 import { DateField } from '@/components/date-field';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Account, Transfer } from '@/context/TransactionsContext';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePlan } from '@/context/PlanContext';
@@ -294,42 +294,42 @@ export function TransferForm({ editing, onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderRadius: 14, marginTop: Spacing.three },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderRadius: Radius.md, marginTop: Spacing.three },
   switchText: { flex: 1 },
   catChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
   labelTight: { marginBottom: Spacing.one },
   chipScroll: { flexDirection: 'row', marginBottom: Spacing.one },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, marginRight: Spacing.two },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth, marginRight: Spacing.two },
   chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
   swapRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginVertical: Spacing.two },
   swapLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  swapButton: { width: 36, height: 36, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  swapButton: { width: 36, height: 36, borderRadius: Radius.pill, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
 
   amountInput: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: 28,
+    fontSize: FontSize.largeTitle,
     fontWeight: '600',
     lineHeight: 34,
     textAlign: 'center',
   },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: FontSize.body,
   },
-  note: { marginTop: Spacing.three, fontSize: 12, lineHeight: 16 },
-  saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  note: { marginTop: Spacing.three, fontSize: FontSize.caption, lineHeight: 16 },
+  saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   removeButton: { padding: 14, alignItems: 'center' },
 
-  info: { borderRadius: 16, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
-  infoTitle: { fontSize: 17, fontWeight: '700' },
+  info: { borderRadius: Radius.lg, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
+  infoTitle: { fontSize: FontSize.body, fontWeight: '700' },
 });

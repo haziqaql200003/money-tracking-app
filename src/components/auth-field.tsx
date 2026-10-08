@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
@@ -38,6 +38,6 @@ export function AuthField({ label, secureTextEntry, ...props }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: Spacing.three },
-  box: { flexDirection: 'row', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: Spacing.three },
-  input: { flex: 1, fontSize: 16, paddingVertical: 14 },
+  box: { flexDirection: 'row', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.three },
+  input: { flex: 1, fontSize: FontSize.body, paddingVertical: 14 },
 });

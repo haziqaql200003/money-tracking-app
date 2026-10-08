@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCompact, formatMoney } from '@/utils/currency';
 import { useT } from '@/i18n';
@@ -143,20 +143,20 @@ export function IncomeSpendingChart({ data, hideAmounts = false }: Props) {
 const styles = StyleSheet.create({
   plot: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, paddingTop: 16 },
   axis: { position: 'absolute', top: 0, left: 0 },
-  axisLabel: { fontSize: 11, lineHeight: 14 },
+  axisLabel: { fontSize: FontSize.micro, lineHeight: 14 },
   baseline: { position: 'absolute', left: 0, right: 0, bottom: 22, height: StyleSheet.hairlineWidth },
-  column: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', borderRadius: 10, paddingTop: 4, paddingBottom: 2 },
+  column: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', borderRadius: Radius.sm, paddingTop: 4, paddingBottom: 2 },
   bars: { height: PLOT_HEIGHT, flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
   bar: { width: 10, borderTopLeftRadius: 4, borderTopRightRadius: 4 },
   barThin: { width: 6 },
-  month: { fontSize: 11, lineHeight: 16, marginTop: 4 },
+  month: { fontSize: FontSize.micro, lineHeight: 16, marginTop: 4 },
 
   legend: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.three, marginTop: Spacing.two },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: Radius.pill },
 
   detail: { marginTop: Spacing.three, paddingTop: Spacing.three, borderTopWidth: StyleSheet.hairlineWidth, gap: Spacing.two },
   detailRow: { flexDirection: 'row', gap: Spacing.two },
   detailCell: { flex: 1 },
-  detailValue: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  detailValue: { fontSize: FontSize.label, fontWeight: '700', marginTop: 2 },
 });

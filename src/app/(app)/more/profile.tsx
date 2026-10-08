@@ -5,13 +5,15 @@ import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EvenGrid } from '@/components/even-grid';
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ScreenHeader } from '@/components/screen-header';
 import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Sheet } from '@/components/ui/sheet';
 import { CARD_COLORS, isLightColor } from '@/constants/card-styles';
 import { MY_STATES } from '@/constants/my-holidays';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePlan } from '@/context/PlanContext';
@@ -35,7 +37,7 @@ export default function ProfileScreen() {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { displayName, setDisplayName, avatarColor, setAvatarColor } = useProfile();
   const { transactions } = useTransactions();
   const { expenseCategories } = useCategories();
@@ -44,6 +46,8 @@ export default function ProfileScreen() {
   const { savingsTarget, setSavingsTarget, payday, setPayday, paydayEom, setPaydayEom, paydayAdjust, setPaydayAdjust, country, setCountry, state, setState } = useSettings();
 
   const [name, setName] = useState(displayName);
+  const [statePicker, setStatePicker] = useState(false);
+  const stateName = state ? (MY_STATES.find((x) => x.code === state)?.name ?? state) : t('more.profile.stateAny');
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
   const snapshot = useMemo(() => snapshotOf(transactions, toDateKey(new Date())), [transactions]);
@@ -92,7 +96,7 @@ export default function ProfileScreen() {
               <ThemedText style={[styles.avatarLetter, { color: ink }]}>{(name || '?').charAt(0).toUpperCase()}</ThemedText>
             </View>
             <TextInput
-              style={[styles.nameInput, { color: colors.text }]}
+              style={[styles.nameInput, { color: colors.text, borderBottomColor: colors.divider }]}
               value={name}
               onChangeText={setName}
               onEndEditing={commitName}
@@ -112,7 +116,8 @@ export default function ProfileScreen() {
                 <Pressable
                   key={c}
                   onPress={() => setAvatarColor(c)}
-                  style={[styles.swatch, { backgroundColor: c }, avatarColor === c && { borderColor: colors.text }]}
+                  style={[styles.swatch, { backgroundColor: c, borderColor: avatarColor === c ? colors.background : `${colors.textSecondary}66` }, avatarColor === c && { boxShadow: `0 0 0 2px ${colors.accent}` }]}
+                  accessibilityState={{ selected: avatarColor === c }}
                   accessibilityLabel={t('acct.profile.avatarColourA11y', { color: c })}
                 />
               ))}
@@ -166,52 +171,22 @@ export default function ProfileScreen() {
 
           <Section title={t('more.profile.location')} footer={t('more.profile.locationFooter')}>
             <View style={styles.pad}>
-              <ThemedText type="small" style={muted}>{t('more.profile.country')}</ThemedText>
-              <View style={styles.chipWrap}>
-                {(['MY', 'OTHER'] as const).map((c) => (
-                  <Pressable
-                    key={c}
-                    onPress={() => setCountry(c)}
-                    style={[styles.locChip, { backgroundColor: country === c ? colors.accent : colors.background }]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: country === c }}
-                  >
-                    <ThemedText type="small" style={{ color: country === c ? '#FFFFFF' : colors.text }}>
-                      {t(c === 'MY' ? 'more.profile.countryMy' : 'more.profile.countryOther')}
-                    </ThemedText>
-                  </Pressable>
-                ))}
-              </View>
-              {country === 'MY' ? (
-                <>
-                  <ThemedText type="small" style={[muted, styles.locLabel]}>{t('more.profile.state')}</ThemedText>
-                  <View style={styles.chipWrap}>
-                    <Pressable
-                      onPress={() => setState(null)}
-                      style={[styles.locChip, { backgroundColor: state === null ? colors.accent : colors.background }]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: state === null }}
-                    >
-                      <ThemedText type="small" style={{ color: state === null ? '#FFFFFF' : colors.text }}>{t('more.profile.stateAny')}</ThemedText>
-                    </Pressable>
-                    {MY_STATES.map((st) => (
-                      <Pressable
-                        key={st.code}
-                        onPress={() => setState(st.code)}
-                        style={[styles.locChip, { backgroundColor: state === st.code ? colors.accent : colors.background }]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: state === st.code }}
-                      >
-                        <ThemedText type="small" style={{ color: state === st.code ? '#FFFFFF' : colors.text }}>{st.name}</ThemedText>
-                      </Pressable>
-                    ))}
-                  </View>
-                  {state && MY_STATES.find((x) => x.code === state)?.friSat ? (
-                    <ThemedText type="small" style={[muted, styles.locLabel]}>{t('more.profile.friSatNote')}</ThemedText>
-                  ) : null}
-                </>
-              ) : null}
+              <GlassSegmented
+                options={(['MY', 'OTHER'] as const).map((c) => ({ key: c, label: t(c === 'MY' ? 'more.profile.countryMy' : 'more.profile.countryOther') }))}
+                value={country}
+                onChange={setCountry}
+                trackColor={colors.background}
+              />
             </View>
+            {country === 'MY' ? (
+              <Row
+                icon="map-outline"
+                label={t('more.profile.state')}
+                value={stateName}
+                subtitle={state && MY_STATES.find((x) => x.code === state)?.friSat ? t('more.profile.friSatNote') : undefined}
+                onPress={() => setStatePicker(true)}
+              />
+            ) : null}
           </Section>
 
           <Section
@@ -269,16 +244,32 @@ export default function ProfileScreen() {
             ) : null}
           </Section>
 
-          <Section title={t('more.profile.shortcuts')}>
-            <Row first icon="pie-chart-outline" label={t('acct.profile.budgets')} subtitle={t('acct.profile.budgetsSub')} onPress={() => router.push('/more/budgets')} />
-            <Row icon="pricetags-outline" label={t('acct.profile.categories')} subtitle={t('acct.profile.categoriesSub')} onPress={() => router.push('/more/categories')} />
+          <Section title={t('more.settings.account')}>
+            <Row first icon="mail-outline" label={t('more.settings.email')} value={user?.email} />
             <Row icon="lock-closed-outline" label={t('more.security.title')} subtitle={t('more.security.profile.link')} onPress={() => router.push('/more/security')} />
-            <Row icon="settings-outline" label={t('acct.profile.settings')} subtitle={t('acct.profile.settingsSub')} onPress={() => router.push('/more/settings')} />
-            <Row icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} onPress={() => router.push('/more/data')} />
-            <Row icon="information-circle-outline" label={t('more.about.title')} subtitle={t('more.settings.aboutSub')} onPress={() => router.push('/more/about')} />
+            <Row icon="log-out-outline" label={t('more.settings.logOut')} danger onPress={signOut} />
           </Section>
         </ScrollView>
       </SafeAreaView>
+
+      <Sheet visible={statePicker} onClose={() => setStatePicker(false)} title={t('more.profile.state')}>
+        <Section>
+          {[{ code: null, name: t('more.profile.stateAny'), friSat: false }, ...MY_STATES].map((st, i) => (
+            <Row
+              key={st.code ?? 'any'}
+              first={i === 0}
+              icon={st.code ? 'location-outline' : 'globe-outline'}
+              label={st.name}
+              subtitle={st.friSat ? t('more.profile.friSatNote') : undefined}
+              right={state === st.code ? <Ionicons name="checkmark" size={20} color={colors.accent} /> : <View />}
+              onPress={() => {
+                setState(st.code);
+                setStatePicker(false);
+              }}
+            />
+          ))}
+        </Section>
+      </Sheet>
     </ThemedView>
   );
 }
@@ -290,18 +281,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   pad: { padding: Spacing.three },
   identity: { alignItems: 'center', gap: 4, paddingVertical: Spacing.three },
-  avatar: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  avatarLetter: { fontSize: 36, lineHeight: 42, fontWeight: '700' },
-  nameInput: { fontSize: 22, fontWeight: '700', paddingVertical: 2, minWidth: 160 },
+  avatar: { width: 84, height: 84, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  avatarLetter: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700' },
+  nameInput: { fontSize: FontSize.title, fontWeight: '700', paddingVertical: 4, alignSelf: 'stretch', textAlign: 'center', borderBottomWidth: StyleSheet.hairlineWidth, marginHorizontal: Spacing.five },
   swatches: { marginBottom: Spacing.four },
-  swatch: { width: 36, height: 36, borderRadius: 18, borderWidth: 3, borderColor: 'transparent', alignSelf: 'center' },
+  swatch: { width: 36, height: 36, borderRadius: Radius.pill, borderWidth: 3, alignSelf: 'center' },
   statRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 },
-  statValue: { fontSize: 16, fontWeight: '700' },
+  statValue: { fontSize: FontSize.body, fontWeight: '700' },
   targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   paydayNow: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  locChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
-  locLabel: { marginTop: Spacing.three },
-  targetNumber: { fontSize: 18, fontWeight: '700', minWidth: 52, textAlign: 'center' },
+  targetNumber: { fontSize: FontSize.heading, fontWeight: '700', minWidth: 52, textAlign: 'center' },
 });

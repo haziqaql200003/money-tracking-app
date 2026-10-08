@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { CategoryIcon } from '@/components/category-icon';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { cycleInfo } from '@/utils/cycle';
@@ -246,7 +246,7 @@ export function AnalyseDeep({ months, todayKey }: Props) {
                     (isToday || selected) && { borderWidth: 2, borderColor: selected ? colors.text : colors.accent },
                   ]}
                 >
-                  <ThemedText type="small" style={{ fontSize: 12, color: level >= 3 ? colors.onAccent : colors.text }}>
+                  <ThemedText type="small" style={{ fontSize: FontSize.caption, color: level >= 3 ? colors.onAccent : colors.text }}>
                     {day}
                   </ThemedText>
                 </Pressable>
@@ -564,40 +564,40 @@ export function AnalyseDeep({ months, todayKey }: Props) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: 'center', gap: Spacing.two },
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three, gap: 6 },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
-  big: { fontSize: 34, lineHeight: 42, fontWeight: '700' },
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three, gap: 6 },
+  cardTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  big: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700' },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   right: { alignItems: 'flex-end' },
   line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   key: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gap: { marginTop: Spacing.two },
   foot: { marginBottom: Spacing.three },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginVertical: 6 },
-  fill: { height: 8, borderRadius: 4 },
-  split: { height: 14, borderRadius: 7, overflow: 'hidden', flexDirection: 'row', marginBottom: Spacing.two },
-  legendDot: { width: 10, height: 10, borderRadius: 3 },
+  track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden', marginVertical: 6 },
+  fill: { height: 8, borderRadius: Radius.pill },
+  split: { height: 14, borderRadius: Radius.pill, overflow: 'hidden', flexDirection: 'row', marginBottom: Spacing.two },
+  legendDot: { width: 10, height: 10, borderRadius: Radius.xs },
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: Spacing.two },
 
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.two },
   monthTitle: { fontWeight: '700' },
   calRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
-  calHead: { flex: 1, textAlign: 'center', fontSize: 11 },
+  calHead: { flex: 1, textAlign: 'center', fontSize: FontSize.micro },
   calCell: { flex: 1, aspectRatio: 1 },
-  calDay: { borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  calDay: { borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
 
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginBottom: Spacing.two },
-  tile: { width: '48.5%', borderRadius: 16, padding: 14, gap: 2 },
-  tileValue: { fontSize: 19, fontWeight: '700' },
+  tile: { width: '48.5%', borderRadius: Radius.lg, padding: 14, gap: 2 },
+  tileValue: { fontSize: FontSize.heading, fontWeight: '700' },
 
   chipRow: { gap: 8, paddingVertical: 4, paddingRight: 8 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', marginTop: Spacing.two, marginBottom: Spacing.two },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barSlot: { height: 90, justifyContent: 'flex-end', alignItems: 'center', width: '100%' },
-  barValue: { fontSize: 10, height: 14 },
-  barLabel: { fontSize: 10 },
+  barValue: { fontSize: FontSize.micro, height: 14 },
+  barLabel: { fontSize: FontSize.micro },
 
   rhythmRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rhythmLabel: { width: 84 },

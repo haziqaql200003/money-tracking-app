@@ -4,7 +4,7 @@ import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import { AccountCard } from '@/components/account-card';
 import { AddAccountModal } from '@/components/add-account-modal';
 import { DEFAULT_COLOR, normalizeDesign, type CardDesign } from '@/constants/card-styles';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Account, Transaction } from '@/context/TransactionsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: Spacing.four, gap: GAP },
   addCard: {
     height: CARD_HEIGHT,
-    borderRadius: 24,
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     alignItems: 'center',
@@ -212,11 +212,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     gap: 6,
   },
-  addCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  addPlus: { fontSize: 30, lineHeight: 34, fontWeight: '400' },
-  addTitle: { fontSize: 16, fontWeight: '700', marginTop: 4 },
-  addHint: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  addCircle: { width: 48, height: 48, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  addPlus: { fontSize: FontSize.largeTitle, lineHeight: 34, fontWeight: '400' },
+  addTitle: { fontSize: FontSize.body, fontWeight: '700', marginTop: 4 },
+  addHint: { fontSize: FontSize.caption, lineHeight: 18, textAlign: 'center' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: Radius.pill },
   dotActive: { width: 18 },
 });

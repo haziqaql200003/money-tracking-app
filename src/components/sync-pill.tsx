@@ -4,7 +4,8 @@ import { ThemedText } from '@/components/themed-text';
 import { CLOUD_ENABLED } from '@/services/supabase';
 import { useSyncStatus } from '@/services/cloud-sync';
 import { useTheme } from '@/hooks/use-theme';
-import { useT } from '@/i18n';
+import { useT } from '@/i18n';
+import { Radius } from '@/constants/theme';
 
 /** Small note on Home while changes are being sent to the server, or waiting for the phone to get back online. */
 export function SyncPill() {
@@ -26,5 +27,5 @@ export function SyncPill() {
 }
 
 const styles = StyleSheet.create({
-  pill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginBottom: 12 },
+  pill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.md, marginBottom: 12 },
 });

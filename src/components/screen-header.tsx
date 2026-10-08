@@ -1,13 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { IconButton } from '@/components/ui/icon-button';
+import { Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
+/** Header for sub-screens: round back button, title, optional action on the right. */
 export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
   const { t } = useT();
   const colors = useTheme();
@@ -15,26 +15,17 @@ export function ScreenHeader({ title, right }: { title: string; right?: ReactNod
 
   return (
     <View style={styles.row}>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={8}
-        style={[styles.button, { backgroundColor: colors.backgroundElement }]}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.back')}
-      >
-        <Ionicons name="chevron-back" size={20} color={colors.text} />
-      </Pressable>
-      <ThemedText type="title" style={styles.title} numberOfLines={1}>
+      <IconButton icon="chevron-back" onPress={() => router.back()} label={t('common.back')} />
+      <Text style={[Type.title, styles.title, { color: colors.text }]} numberOfLines={1} accessibilityRole="header">
         {title}
-      </ThemedText>
+      </Text>
       <View style={styles.right}>{right}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: Spacing.three },
-  button: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, fontSize: 28, lineHeight: 34 },
-  right: { minWidth: 36, alignItems: 'flex-end' },
-});
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: Spacing.two, paddingBottom: Spacing.three },
+  title: { flex: 1 },
+  right: { minWidth: 40, alignItems: 'flex-end' },
+});

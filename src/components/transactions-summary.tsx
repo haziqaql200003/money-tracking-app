@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { CategoryIcon } from '@/components/category-icon';
 import { useCategories } from '@/context/CategoriesContext';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
 import { formatPct } from '@/utils/insights';
@@ -217,11 +217,11 @@ export function CategoryBreakdown({ slices, total, selectedId, onSelect, hidden 
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
 
   netTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  eye: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  netAmount: { fontSize: 36, lineHeight: 44, fontWeight: '700', marginTop: 2 },
+  eye: { width: 28, height: 28, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  netAmount: { fontSize: FontSize.display, lineHeight: 44, fontWeight: '700', marginTop: 2 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: Spacing.two },
   pill: {
     flexDirection: 'row',
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: Radius.md,
   },
   tiles: {
     flexDirection: 'row',
@@ -239,24 +239,24 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   tile: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tileIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  tileValue: { fontSize: 15, fontWeight: '700' },
+  tileIcon: { width: 34, height: 34, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  tileValue: { fontSize: FontSize.label, fontWeight: '700' },
 
   breakdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   stack: {
     flexDirection: 'row',
     height: 10,
-    borderRadius: 5,
+    borderRadius: Radius.pill,
     overflow: 'hidden',
     marginTop: Spacing.three,
     marginBottom: Spacing.two,
   },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  catIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  catEmoji: { fontSize: 16 },
+  catIcon: { width: 34, height: 34, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  catEmoji: { fontSize: FontSize.body },
   catTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
-  overText: { fontSize: 11, lineHeight: 14, fontWeight: '600', marginTop: 3 },
-  tip: { textAlign: 'center', marginTop: Spacing.two, fontSize: 12, lineHeight: 16, opacity: 0.7 },
+  track: { height: 6, borderRadius: Radius.pill, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: Radius.pill },
+  overText: { fontSize: FontSize.micro, lineHeight: 14, fontWeight: '600', marginTop: 3 },
+  tip: { textAlign: 'center', marginTop: Spacing.two, fontSize: FontSize.caption, lineHeight: 16, opacity: 0.7 },
 });

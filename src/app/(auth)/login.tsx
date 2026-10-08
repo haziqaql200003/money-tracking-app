@@ -9,7 +9,7 @@ import { SocialButtons } from '@/components/social-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_NAME, MOTTO, SLOGAN_KEY } from '@/constants/brand';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -125,12 +125,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1 },
   content: { padding: Spacing.four, paddingTop: Spacing.six },
-  logo: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.four },
-  title: { fontSize: 34, lineHeight: 40, fontWeight: '700' },
-  motto: { fontSize: 16, lineHeight: 22, fontWeight: '700', marginBottom: 4 },
+  logo: { width: 60, height: 60, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.four },
+  title: { fontSize: FontSize.display, lineHeight: 40, fontWeight: '700' },
+  motto: { fontSize: FontSize.body, lineHeight: 22, fontWeight: '700', marginBottom: 4 },
   forgot: { alignSelf: 'flex-end', marginBottom: Spacing.three },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.four },
-  sim: { textAlign: 'center', marginTop: Spacing.four, fontSize: 12, lineHeight: 16 },
+  sim: { textAlign: 'center', marginTop: Spacing.four, fontSize: FontSize.caption, lineHeight: 16 },
 });

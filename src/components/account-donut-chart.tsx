@@ -38,7 +38,8 @@ export function AccountDonutChart({ slices, selectedId, children }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Svg width={SIZE} height={SIZE}>
+      {/* Rotated so the first arc starts at 12 o'clock (rotating the circles themselves trips react-native-svg on web). */}
+      <Svg width={SIZE} height={SIZE} style={styles.rotate}>
         <Circle
           cx={SIZE / 2}
           cy={SIZE / 2}
@@ -60,8 +61,6 @@ export function AccountDonutChart({ slices, selectedId, children }: Props) {
             strokeLinecap="butt"
             fill="none"
             opacity={selectedId && selectedId !== arc.id ? 0.25 : 1}
-            rotation={-90}
-            origin={`${SIZE / 2}, ${SIZE / 2}`}
           />
         ))}
       </Svg>
@@ -73,6 +72,7 @@ export function AccountDonutChart({ slices, selectedId, children }: Props) {
 }
 
 const styles = StyleSheet.create({
+  rotate: { transform: [{ rotate: '-90deg' }] },
   wrap: { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', maxWidth: SIZE - STROKE * 2 - 16 },
 });

@@ -91,4 +91,8 @@ export const msHome: Record<keyof typeof enHome, string> = {
   'home.date.select': 'Pilih tarikh',
   // Shared UI primitives
   'home.ui.amountHidden': 'Jumlah disembunyikan',
+  'home.index.greetMorning': 'Selamat pagi',
+  'home.index.greetAfternoon': 'Selamat tengah hari',
+  'home.index.greetEvening': 'Selamat petang',
+  'home.index.greetNight': 'Selamat malam',
 };

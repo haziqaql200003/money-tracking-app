@@ -11,7 +11,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Category } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
@@ -264,24 +264,22 @@ export default function BudgetsScreen() {
                       <CategoryIcon icon={cat.icon} color={cat.color} size={40} />
                       <View style={styles.flex}>
                         <View style={styles.rowBetween}>
-                          <ThemedText numberOfLines={1} style={styles.flex}>
+                          <ThemedText numberOfLines={2} style={styles.flex}>
                             {categoryName(cat)}
                           </ThemedText>
-                          <ThemedText type="small" style={{ fontWeight: '700' }}>
-                            {money(s)}
-                            <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                              {` / ${money(cat.monthlyLimit)}`}
-                            </ThemedText>
+                          <ThemedText type="small" style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: '700', ...tabularNums }}>
+                            {Math.round(ratio * 100)}%
                           </ThemedText>
                         </View>
                         <View style={styles.barGap}>
                           <Bar ratio={ratio} color={color} track={colors.background} />
                         </View>
-                        <ThemedText
-                          type="small"
-                          style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: st === 'ok' ? '500' : '600' }}
-                        >
-                          {left >= 0 ? t('plan.budget.left', { amount: money(left) }) : t('plan.budget.over', { amount: money(-left) })} · {Math.round(ratio * 100)}%
+                        <ThemedText type="small" style={tabularNums}>
+                          <ThemedText type="small" style={{ fontWeight: '700' }}>{money(s)}</ThemedText>
+                          <ThemedText type="small" style={{ color: colors.textSecondary }}>{` / ${money(cat.monthlyLimit)} · `}</ThemedText>
+                          <ThemedText type="small" style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: st === 'ok' ? '500' : '600' }}>
+                            {left >= 0 ? t('plan.budget.left', { amount: money(left) }) : t('plan.budget.over', { amount: money(-left) })}
+                          </ThemedText>
                         </ThemedText>
                       </View>
                     </Pressable>
@@ -312,7 +310,7 @@ export default function BudgetsScreen() {
                     >
                       <CategoryIcon icon={cat.icon} color={cat.color} size={40} />
                       <View style={styles.flex}>
-                        <ThemedText numberOfLines={1}>{categoryName(cat)}</ThemedText>
+                        <ThemedText numberOfLines={2}>{categoryName(cat)}</ThemedText>
                         <ThemedText type="small" style={{ color: colors.textSecondary }}>
                           {s > 0 ? t('plan.budget.spent', { amount: money(s) }) : t('plan.budget.nothingSpent')}
                         </ThemedText>
@@ -351,15 +349,15 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
 
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.three },
   monthCenter: { alignItems: 'center' },
-  monthLabel: { fontSize: 17, fontWeight: '700' },
+  monthLabel: { fontSize: FontSize.body, fontWeight: '700' },
 
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  bigAmount: { fontSize: 34, lineHeight: 42, fontWeight: '700', marginTop: 4, marginBottom: Spacing.two },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.md },
+  bigAmount: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700', marginTop: 4, marginBottom: Spacing.two },
 
   tiles: {
     flexDirection: 'row',
@@ -368,18 +366,18 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   tile: { flex: 1, alignItems: 'center' },
-  tileValue: { fontSize: 17, fontWeight: '700', marginTop: 2 },
-  tileHint: { fontSize: 11, lineHeight: 14, opacity: 0.7 },
+  tileValue: { fontSize: FontSize.body, fontWeight: '700', marginTop: 2 },
+  tileHint: { fontSize: FontSize.micro, lineHeight: 14, opacity: 0.7 },
   tileDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
-  footnote: { fontSize: 12, lineHeight: 16, marginTop: Spacing.three },
+  footnote: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.three },
 
   intro: { alignItems: 'center', gap: Spacing.two },
-  introTitle: { fontSize: 17, fontWeight: '700' },
-  introButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: Spacing.two },
+  introTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  introButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.lg, marginTop: Spacing.two },
   introButtonText: { color: '#fff', fontWeight: '700' },
 
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two, marginTop: Spacing.two },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
 });

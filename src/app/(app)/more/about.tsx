@@ -7,7 +7,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   pad: { padding: Spacing.three },
   hero: { alignItems: 'center', paddingVertical: Spacing.three, marginBottom: Spacing.three, gap: 6 },
-  brand: { fontSize: 32, lineHeight: 38, fontWeight: '800' },
+  brand: { fontSize: FontSize.largeTitle, lineHeight: 38, fontWeight: '800' },
   tagline: { textAlign: 'center', paddingHorizontal: Spacing.three },
   point: { marginBottom: 8 },
   qa: { marginBottom: Spacing.three, gap: 2 },

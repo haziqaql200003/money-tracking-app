@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthField } from '@/components/auth-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -108,11 +108,11 @@ export default function MigrateScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, paddingTop: Spacing.six },
-  title: { fontSize: 30, lineHeight: 36, fontWeight: '700', marginBottom: Spacing.two },
+  title: { fontSize: FontSize.largeTitle, lineHeight: 36, fontWeight: '700', marginBottom: Spacing.two },
   list: { gap: Spacing.two, marginBottom: Spacing.four },
-  account: { padding: Spacing.three, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  account: { padding: Spacing.three, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   skip: { alignSelf: 'center', marginTop: Spacing.four },
   hint: { textAlign: 'center', marginTop: Spacing.two },
 });

@@ -13,7 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TransferModal } from '@/components/transfer-modal';
 import { accountTypeLabel } from '@/constants/accounts';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Account, AccountType, Transfer } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -347,7 +347,7 @@ export default function AssetsScreen() {
                             </ThemedText>
                             <ThemedText
                               type="small"
-                              style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: 12, lineHeight: 16 }}
+                              style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: FontSize.caption, lineHeight: 16 }}
                             >
                               {negative
                                 ? t('acct.assets.overdrawn')
@@ -447,12 +447,12 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
   titleActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  addButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  addButton: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   transfersHeader: { marginTop: Spacing.four },
 
-  card: { borderRadius: 20, padding: 20, marginBottom: Spacing.three },
-  eye: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  total: { fontSize: 36, lineHeight: 44, fontWeight: '700', marginTop: 2 },
+  card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
+  eye: { width: 28, height: 28, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  total: { fontSize: FontSize.display, lineHeight: 44, fontWeight: '700', marginTop: 2 },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -460,11 +460,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     marginTop: Spacing.two,
   },
 
-  centerAmount: { fontSize: 20, lineHeight: 26, fontWeight: '700', textAlign: 'center' },
+  centerAmount: { fontSize: FontSize.heading, lineHeight: 26, fontWeight: '700', textAlign: 'center' },
   centerNote: { textAlign: 'center', marginTop: Spacing.three },
 
   legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.two, marginTop: Spacing.four },
@@ -474,19 +474,19 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 18,
+    borderRadius: Radius.lg,
     borderWidth: 1,
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, padding: 12, marginTop: Spacing.three },
+  dot: { width: 10, height: 10, borderRadius: Radius.pill },
+  warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: Radius.md, padding: 12, marginTop: Spacing.three },
 
-  sectionTitle: { fontSize: 16, marginBottom: Spacing.two },
-  listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two },
+  listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: ACCOUNT_ROW_H, paddingHorizontal: Spacing.three },
   listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
   sortHint: { textAlign: 'center', marginTop: -Spacing.two, marginBottom: Spacing.three },
-  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  avatarIcon: { fontSize: 20 },
+  avatar: { width: 42, height: 42, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  avatarIcon: { fontSize: FontSize.heading },
   right: { alignItems: 'flex-end' },
   addRow: {
     flexDirection: 'row',
@@ -494,13 +494,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 1.5,
     borderStyle: 'dashed',
   },
 
-  empty: { borderRadius: 20, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: Spacing.two },
+  empty: { borderRadius: Radius.lg, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
+  emptyTitle: { fontSize: FontSize.body, fontWeight: '700' },
+  emptyButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.lg, marginTop: Spacing.two },
   emptyButtonText: { color: '#fff', fontWeight: '700' },
 });

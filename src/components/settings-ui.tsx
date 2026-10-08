@@ -1,26 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
 import type { IconName } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-/** Grouped list pieces shared by Settings, Profile, Data & Privacy and About. */
-export function Section({ title, footer, children }: { title: string; footer?: string; children: ReactNode }) {
+/** Grouped list pieces shared by More, Settings, Profile, Security, Data & Privacy and About. */
+export function Section({ title, footer, children }: { title?: string; footer?: string; children: ReactNode }) {
   const colors = useTheme();
   return (
     <View style={styles.section}>
-      <ThemedText type="small" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        {title.toUpperCase()}
-      </ThemedText>
+      {title ? <Text style={[Type.overline, styles.sectionTitle, { color: colors.textSecondary }]}>{title}</Text> : null}
       <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>{children}</View>
-      {footer ? (
-        <ThemedText type="small" style={[styles.footer, { color: colors.textSecondary }]}>
-          {footer}
-        </ThemedText>
-      ) : null}
+      {footer ? <Text style={[Type.caption, styles.footer, { color: colors.textSecondary }]}>{footer}</Text> : null}
     </View>
   );
 }
@@ -34,38 +27,41 @@ export type RowProps = {
   onPress?: () => void;
   danger?: boolean;
   first?: boolean;
+  /** Icon tile colour; defaults to the accent (or red for danger rows). */
+  tint?: string;
+  /** Small red dot on the icon (something needs attention). */
+  badge?: boolean;
 };
 
-export function Row({ icon, label, subtitle, value, right, onPress, danger, first }: RowProps) {
+export function Row({ icon, label, subtitle, value, right, onPress, danger, first, tint: tintProp, badge }: RowProps) {
   const colors = useTheme();
-  const tint = danger ? colors.negative : colors.accent;
+  const tint = danger ? colors.negative : (tintProp ?? colors.accent);
   return (
     <Pressable
       disabled={!onPress}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-        pressed && { opacity: 0.6 },
-      ]}
+      accessibilityRole={onPress ? 'button' : undefined}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.backgroundSelected }]}
     >
-      <View style={[styles.rowIcon, { backgroundColor: `${tint}26` }]}>
-        <Ionicons name={icon} size={18} color={tint} />
+      <View>
+        <View style={[styles.rowIcon, { backgroundColor: `${tint}1F` }]}>
+          <Ionicons name={icon} size={18} color={tint} />
+        </View>
+        {badge ? <View style={[styles.dot, { backgroundColor: colors.negative, borderColor: colors.backgroundElement }]} /> : null}
       </View>
-      <View style={styles.flex}>
-        <ThemedText style={danger ? { color: colors.negative } : undefined}>{label}</ThemedText>
-        {subtitle ? (
-          <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {subtitle}
-          </ThemedText>
+      <View style={[styles.body, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }]}>
+        <View style={styles.flex}>
+          <Text style={[Type.body, { color: danger ? colors.negative : colors.text }]}>{label}</Text>
+          {subtitle ? <Text style={[Type.label, { color: colors.textSecondary, fontWeight: '500' }]}>{subtitle}</Text> : null}
+        </View>
+        {value ? (
+          <Text style={[Type.label, styles.value, { color: colors.textSecondary, fontWeight: '500' }]} numberOfLines={1}>
+            {value}
+          </Text>
         ) : null}
+        {right}
+        {onPress && !right ? <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} /> : null}
       </View>
-      {value ? (
-        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          {value}
-        </ThemedText>
-      ) : null}
-      {right}
     </Pressable>
   );
 }
@@ -73,9 +69,13 @@ export function Row({ icon, label, subtitle, value, right, onPress, danger, firs
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   section: { marginBottom: Spacing.four },
-  sectionTitle: { fontSize: 12, lineHeight: 16, letterSpacing: 0.6, marginBottom: 6, marginLeft: 4 },
-  card: { borderRadius: 20, overflow: 'hidden' },
-  footer: { fontSize: 12, lineHeight: 16, marginTop: 6, marginLeft: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.three, paddingVertical: 12 },
-  rowIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { marginBottom: Spacing.two, marginLeft: Spacing.one },
+  card: { borderRadius: Radius.lg, overflow: 'hidden' },
+  footer: { marginTop: Spacing.two, marginHorizontal: Spacing.one },
+  // The divider starts after the icon, like iOS grouped lists.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: Spacing.three },
+  body: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: 13, paddingRight: Spacing.three, minHeight: 56 },
+  rowIcon: { width: 32, height: 32, borderRadius: Radius.sm + 1, alignItems: 'center', justifyContent: 'center' },
+  value: { maxWidth: '50%' },
+  dot: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: Radius.pill, borderWidth: 2 },
 });

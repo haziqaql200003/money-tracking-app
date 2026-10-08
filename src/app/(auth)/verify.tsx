@@ -7,7 +7,7 @@ import { AuthField } from '@/components/auth-field';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -115,8 +115,8 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.six },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   resend: { alignSelf: 'center', marginTop: Spacing.four },
   hint: { textAlign: 'center', marginTop: Spacing.two },
 });

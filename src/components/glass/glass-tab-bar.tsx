@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glass } from '@/components/glass/glass';
 import { SlidingGlassTrack } from '@/components/glass/sliding-glass-track';
-import { Type } from '@/constants/theme';
+import { FontSize, Radius, Type } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -89,6 +89,6 @@ export function GlassTabBar({ state, descriptors, navigation, blurTarget }: Bott
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16 },
   slot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  label: { fontSize: 11, lineHeight: 14 },
-  addButton: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: FontSize.micro, lineHeight: 14 },
+  addButton: { width: 50, height: 50, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
 });

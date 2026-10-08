@@ -8,7 +8,7 @@ import { SheetHeader } from '@/components/sheet-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -159,7 +159,7 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
       {outlook !== 'none' && outlook !== 'done' ? (
         <View style={[styles.card, styles.gap, { backgroundColor: colors.backgroundElement }]}>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('plan.goalDetail.outlook.label')}</ThemedText>
-          <ThemedText style={{ fontSize: 22, fontWeight: '700', color: outlookColor }}>{t(`plan.goalDetail.outlook.${outlook}` as TKey)}</ThemedText>
+          <ThemedText style={{ fontSize: FontSize.title, fontWeight: '700', color: outlookColor }}>{t(`plan.goalDetail.outlook.${outlook}` as TKey)}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>{t(`plan.goalDetail.outlook.${outlook}Body` as TKey)}</ThemedText>
         </View>
       ) : null}
@@ -266,7 +266,7 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
               <View style={[styles.calDot, { borderColor: stateColor[c.state], backgroundColor: c.state === 'deposited' ? stateColor.deposited : 'transparent' }]}>
                 {c.state === 'deposited' ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
               </View>
-              <ThemedText type="small" style={{ color: colors.textSecondary, fontSize: 11 }}>{monthShort(i)}</ThemedText>
+              <ThemedText type="small" style={{ color: colors.textSecondary, fontSize: FontSize.micro }}>{monthShort(i)}</ThemedText>
             </View>
           ))}
         </View>
@@ -405,12 +405,12 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
 const styles = StyleSheet.create({
   calGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
   calCell: { width: '16.66%', alignItems: 'center', gap: 4 },
-  calDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  calDot: { width: 30, height: 30, borderRadius: Radius.pill, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 3 },
-  pill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  reviewButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, alignItems: 'center' },
+  legendDot: { width: 14, height: 14, borderRadius: Radius.pill, borderWidth: 3 },
+  pill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.sm },
+  reviewButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.lg, alignItems: 'center' },
   reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
@@ -421,29 +421,29 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '92%',
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.three },
+  handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
 
   summary: { alignItems: 'center', gap: 4, marginBottom: Spacing.three },
-  title: { fontSize: 20, fontWeight: '700' },
-  card: { borderRadius: 20, padding: 20 },
-  saved: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  track: { height: 10, borderRadius: 5, overflow: 'hidden', marginVertical: Spacing.two },
-  fill: { height: 10, borderRadius: 5 },
-  note: { fontSize: 12, lineHeight: 16, marginTop: Spacing.two },
+  title: { fontSize: FontSize.heading, fontWeight: '700' },
+  card: { borderRadius: Radius.lg, padding: 20 },
+  saved: { fontSize: FontSize.largeTitle, lineHeight: 34, fontWeight: '700' },
+  track: { height: 10, borderRadius: Radius.pill, overflow: 'hidden', marginVertical: Spacing.two },
+  fill: { height: 10, borderRadius: Radius.pill },
+  note: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.two },
   gap: { marginTop: Spacing.three, gap: 6, padding: Spacing.three },
   milestones: { flexDirection: 'row', gap: Spacing.two },
-  milestone: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10 },
+  milestone: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: Radius.sm },
   small: { flex: 0, paddingHorizontal: 16 },
 
   label: { marginBottom: Spacing.one, marginTop: Spacing.three },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: 22, fontWeight: '600', textAlign: 'center' },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: FontSize.title, fontWeight: '600', textAlign: 'center' },
   buttons: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
-  button: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 14, borderRadius: 14 },
+  button: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 14, borderRadius: Radius.md },
   buttonText: { color: '#fff', fontWeight: '700' },
 
-  historyTitle: { fontSize: 16, marginTop: Spacing.four, marginBottom: Spacing.two },
+  historyTitle: { fontSize: FontSize.body, marginTop: Spacing.four, marginBottom: Spacing.two },
   historyCard: { paddingVertical: 4, paddingHorizontal: Spacing.three },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
 });

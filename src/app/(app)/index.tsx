@@ -1,38 +1,44 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AmbientBackground } from '@/components/glass/ambient-background';
-import { Glass } from '@/components/glass/glass';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
 import { BalanceCarousel } from '@/components/balance-carousel';
-import { SyncPill } from '@/components/sync-pill';
-import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { PendingBanner } from '@/components/pending-banner';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
+import { SyncPill } from '@/components/sync-pill';
+import { ThemedView } from '@/components/themed-view';
+import { IconButton } from '@/components/ui/icon-button';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
+import { isLightColor } from '@/constants/card-styles';
+import { Colors, Radius, Spacing, Type } from '@/constants/theme';
+import { useProfile } from '@/context/ProfileContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
-import { isLightColor } from '@/constants/card-styles';
-import { useProfile } from '@/context/ProfileContext';
-import { useT } from '@/i18n';
+import { useT, type TKey } from '@/i18n';
 import { accountName } from '@/i18n/data';
+
+function greetingKey(hour: number): TKey {
+  if (hour < 12) return 'home.index.greetMorning';
+  if (hour < 15) return 'home.index.greetAfternoon';
+  if (hour < 19) return 'home.index.greetEvening';
+  return 'home.index.greetNight';
+}
 
 export default function HomeScreen() {
   const { t } = useT();
   const { accounts, ready } = useTransactions();
   const colors = useTheme();
+  const router = useRouter();
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
-  const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedName = selectedAccount ? accountName(selectedAccount) : undefined;
 
   const { displayName, avatarColor } = useProfile();
+  const greeting = t(greetingKey(new Date().getHours()));
 
   function showComingSoon() {
     Alert.alert(t('home.index.notifications'), t('home.index.comingSoon'));
@@ -40,24 +46,30 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
           <View style={styles.headerRow}>
-            <Pressable style={styles.headerLeft} onPress={() => router.push('/more/profile')}>
+            <Pressable
+              style={styles.headerLeft}
+              onPress={() => router.push('/more/profile')}
+              accessibilityRole="button"
+              accessibilityLabel={t('more.index.editProfile')}
+            >
               <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
+                <Text style={[Type.heading, { color: isLightColor(avatarColor) ? Colors.light.text : '#FFFFFF' }]}>
+                  {displayName.charAt(0).toUpperCase()}
+                </Text>
               </View>
-              <Text style={[styles.greeting, { color: colors.textSecondary }]} numberOfLines={1}>
-                {t('home.index.greeting')}<Text style={[styles.greetingName, { color: colors.text }]}>{displayName}</Text>
-              </Text>
+              <View style={styles.flex}>
+                <Text style={[Type.label, { color: colors.textSecondary, fontWeight: '500' }]} numberOfLines={1}>
+                  {greeting}
+                </Text>
+                <Text style={[Type.title, { color: colors.text }]} numberOfLines={1}>
+                  {displayName}
+                </Text>
+              </View>
             </Pressable>
-
-            <Pressable onPress={showComingSoon} accessibilityRole="button" accessibilityLabel={t('home.index.notifications')}>
-              <Glass radius={20} interactive style={styles.bellButton}>
-                <Ionicons name="notifications-outline" size={20} color={colors.text} />
-              </Glass>
-            </Pressable>
+            <IconButton icon="notifications-outline" onPress={showComingSoon} label={t('home.index.notifications')} />
           </View>
 
           <SyncPill />
@@ -67,17 +79,14 @@ export default function HomeScreen() {
             <ScreenSkeleton variant="home" rows={4} />
           ) : (
             <>
-          <BalanceCarousel onSelectAccount={setSelectedAccountId} />
-
-          <View style={styles.chartBlock}>
-            <SpendingOverview accountId={selectedAccount?.id} accountName={selectedAccount ? accountName(selectedAccount) : undefined} />
-          </View>
-
-          <RecentTransactions accountId={selectedAccount?.id} accountName={selectedAccount ? accountName(selectedAccount) : undefined} />
+              <BalanceCarousel onSelectAccount={setSelectedAccountId} />
+              <View style={styles.block}>
+                <SpendingOverview accountId={selectedAccount?.id} accountName={selectedName} />
+              </View>
+              <RecentTransactions accountId={selectedAccount?.id} accountName={selectedName} />
             </>
           )}
         </ScrollView>
-
       </SafeAreaView>
     </ThemedView>
   );
@@ -86,19 +95,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
+  flex: { flex: 1 },
   listContent: { paddingHorizontal: Spacing.four, paddingBottom: 130 },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Spacing.two,
-    marginBottom: Spacing.three,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontWeight: '700' },
-  greeting: { fontSize: 28, lineHeight: 34, fontWeight: '400', flexShrink: 1 },
-  greetingName: { fontWeight: '700' },
-  bellButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  chartBlock: { marginBottom: Spacing.four },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two, marginBottom: Spacing.three },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 44, height: 44, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  block: { marginBottom: Spacing.four },
 });

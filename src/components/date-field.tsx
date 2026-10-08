@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -150,18 +150,18 @@ export function DateField({ value, onChange, accent, showQuick = false, maxToday
 
 const styles = StyleSheet.create({
   quickRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.two },
-  quick: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+  quick: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
   rowInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  iosCard: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', marginTop: Spacing.two },
+  iosCard: { borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', marginTop: Spacing.two },
   iosToolbar: {
     flexDirection: 'row',
     alignItems: 'center',

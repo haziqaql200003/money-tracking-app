@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { APP_NAME, MOTTO, PILLARS } from '@/constants/brand';
 import { FALLBACK_INCOME_ID, type IconName } from '@/constants/categories';
 import { GOAL_PRESETS } from '@/constants/goals';
-import { Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth, type Goal } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -317,24 +317,24 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: Spacing.three },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: Radius.pill },
   dotActive: { width: 18 },
   content: { padding: Spacing.four, gap: Spacing.two },
-  hero: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginVertical: Spacing.four },
-  title: { fontSize: 24, lineHeight: 30, fontWeight: '700', marginBottom: Spacing.two },
-  motto: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  hero: { width: 88, height: 88, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginVertical: Spacing.four },
+  title: { fontSize: FontSize.title, lineHeight: 30, fontWeight: '700', marginBottom: Spacing.two },
+  motto: { fontSize: FontSize.body, lineHeight: 22, fontWeight: '700' },
   pillars: { gap: Spacing.two, marginTop: Spacing.three },
-  pillar: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: Spacing.three },
+  pillar: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: Spacing.three },
   goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  goal: { width: '48%', borderRadius: 16, padding: Spacing.three, alignItems: 'center', gap: 8 },
-  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.three, marginBottom: Spacing.two },
-  balanceInput: { width: 110, fontSize: 16, paddingVertical: 14, textAlign: 'right' },
+  goal: { width: '48%', borderRadius: Radius.lg, padding: Spacing.three, alignItems: 'center', gap: 8 },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.three, marginBottom: Spacing.two },
+  balanceInput: { width: 110, fontSize: FontSize.body, paddingVertical: 14, textAlign: 'right' },
   dayInput: { width: 56 },
   nameInput: { flex: 1, width: undefined, textAlign: 'left' },
   switchRow: { paddingVertical: Spacing.two },
-  tip: { flexDirection: 'row', gap: 12, borderRadius: 16, padding: Spacing.three, marginBottom: Spacing.two },
-  tipIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  tip: { flexDirection: 'row', gap: 12, borderRadius: Radius.lg, padding: Spacing.three, marginBottom: Spacing.two },
+  tipIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   footer: { padding: Spacing.four },
-  button: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
 });
