@@ -12,6 +12,8 @@ import { useTheme } from '@/hooks/use-theme';
 import type { IconName } from '@/constants/categories';
 import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
+import { cycleOf } from '@/utils/cycle';
+import { toDateKey } from '@/utils/dates';
 
 const PEEK = 28; // how much of the next card shows at the right edge
 const GAP = 12;
@@ -37,13 +39,12 @@ type Slide = AccountSlide | AddSlide;
 
 // This month's income/spending, optionally limited to one account.
 function monthTotals(transactions: Transaction[], accountId?: string) {
-  const now = new Date();
+  const nowKey = cycleOf(toDateKey(new Date()));
   let income = 0;
   let spending = 0;
   transactions.forEach((t) => {
     if (accountId && t.accountId !== accountId) return;
-    const d = new Date(t.date);
-    if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return;
+    if (cycleOf(t.date) !== nowKey) return;
     if (t.type === 'credit') income += t.amount;
     else spending += t.amount;
   });
@@ -63,7 +64,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
   const colors = useTheme();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { width } = useWindowDimensions();
-  const { accounts, transactions, accountBalance, balance } = useTransactions();
+  const { selectableAccounts: accounts, transactions, accountBalance, balance } = useTransactions();
   const [index, setIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);

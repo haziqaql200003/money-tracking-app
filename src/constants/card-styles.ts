@@ -49,6 +49,7 @@ export const DEFAULT_DESIGN: CardDesign = 'aurora';
 export const DEFAULT_COLOR: Record<string, string> = {
   bank: '#2563EB',
   cash: '#059669',
+  savings: '#7C3AED',
   other: '#EA580C',
 };
 

@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
+import { TransferModal } from '@/components/transfer-modal';
 import { AddTransactionModal } from '@/components/add-transaction-modal';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TransactionRow } from '@/components/transaction-row';
+import { SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
 import { CategoryBreakdown, SummaryCard } from '@/components/transactions-summary';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
@@ -16,13 +18,16 @@ import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
-import type { Transaction, TransactionType } from '@/context/TransactionsContext';
+import type { Transaction, TransactionType, Transfer } from '@/context/TransactionsContext';
+import { debtEntries, goalEntriesOnly, isDebtEntry, isEditableTransferEntry, isLinkedEntry, savedEntries, savedTransferId } from '@/utils/saved';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { categoryName, accountName } from '@/i18n/data';
-import { dayLabel, monthKeyFromOffset, monthLabel } from '@/utils/dates';
+import { cycleOf } from '@/utils/cycle';
+import { cycleRangeLabel, dayLabel, monthKeyFromOffset, monthLabel } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
+import { MIN_COMPARE_BASE } from '@/utils/insights';
 
 type TypeFilter = 'all' | TransactionType;
 
@@ -39,7 +44,7 @@ const byDateDesc = (a: Transaction, b: Transaction) => (a.date < b.date ? 1 : a.
 export default function TransactionsScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
-  const { transactions, accounts } = useTransactions();
+  const { transactions, transfers, accounts, selectableAccounts, ready } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { openAddRecord } = useAddRecord();
   const { getCategory } = useCategories();
@@ -50,6 +55,7 @@ export default function TransactionsScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
 
   const currentKey = monthKeyFromOffset(0);
   const monthKey = monthKeyFromOffset(monthOffset);
@@ -57,7 +63,7 @@ export default function TransactionsScreen() {
 
   // Don't let the user page back past the first month that has data.
   const earliestKey = useMemo(
-    () => transactions.reduce((min, t) => (t.date.slice(0, 7) < min ? t.date.slice(0, 7) : min), currentKey),
+    () => transactions.reduce((min, t) => (cycleOf(t.date) < min ? cycleOf(t.date) : min), currentKey),
     [transactions, currentKey],
   );
   const canPrev = monthKey > earliestKey;
@@ -68,7 +74,32 @@ export default function TransactionsScreen() {
     () => transactions.filter((t) => !accountId || t.accountId === accountId),
     [transactions, accountId],
   );
-  const monthTxns = useMemo(() => inAccount.filter((t) => t.date.startsWith(monthKey)), [inAccount, monthKey]);
+  const monthTxns = useMemo(() => inAccount.filter((t) => cycleOf(t.date) === monthKey), [inAccount, monthKey]);
+
+  // Savings transfers that count in the budget: listed with the records, but never part of income or spending.
+  const monthSaved = useMemo(
+    () =>
+      savedEntries(
+        transfers.filter((tr) => cycleOf(tr.date) === monthKey && (!accountId || tr.fromAccountId === accountId || tr.toAccountId === accountId)),
+      ),
+    [transfers, monthKey, accountId],
+  );
+  const monthDebt = useMemo(
+    () =>
+      debtEntries(
+        transfers.filter((tr) => cycleOf(tr.date) === monthKey && (!accountId || tr.fromAccountId === accountId || tr.toAccountId === accountId)),
+        new Set(accounts.filter((a) => a.hidden).map((a) => a.id)),
+      ),
+    [transfers, accounts, monthKey, accountId],
+  );
+  const monthGoal = useMemo(
+    () =>
+      goalEntriesOnly(
+        transfers.filter((tr) => cycleOf(tr.date) === monthKey && (!accountId || tr.fromAccountId === accountId || tr.toAccountId === accountId)),
+      ),
+    [transfers, monthKey, accountId],
+  );
+  const savedTotal = [...monthSaved, ...monthGoal].reduce((sum, e) => sum + e.amount, 0);
 
   const stats = useMemo(() => {
     let income = 0;
@@ -83,12 +114,12 @@ export default function TransactionsScreen() {
       }
     });
     const prevSpending = inAccount
-      .filter((t) => t.type === 'debit' && t.date.startsWith(prevKey))
+      .filter((t) => t.type === 'debit' && cycleOf(t.date) === prevKey)
       .reduce((sum, t) => sum + t.amount, 0);
     const slices = Array.from(byCategory.entries())
       .map(([id, value]) => ({ categoryId: id, value, percent: spending > 0 ? (value / spending) * 100 : 0 }))
       .sort((a, b) => b.value - a.value);
-    const deltaPercent = prevSpending > 0 ? ((spending - prevSpending) / prevSpending) * 100 : null;
+    const deltaPercent = prevSpending >= MIN_COMPARE_BASE ? ((spending - prevSpending) / prevSpending) * 100 : null;
     return { income, spending, slices, deltaPercent };
   }, [monthTxns, inAccount, prevKey]);
 
@@ -96,7 +127,7 @@ export default function TransactionsScreen() {
   const q = query.trim().toLowerCase();
   const filtered = useMemo(
     () =>
-      monthTxns
+      [...monthTxns, ...(type === 'all' ? [...monthSaved, ...monthGoal, ...monthDebt] : [])]
         .filter((t) => {
           if (type !== 'all' && t.type !== type) return false;
           if (categoryId && t.categoryId !== categoryId) return false;
@@ -104,7 +135,7 @@ export default function TransactionsScreen() {
           return true;
         })
         .sort(byDateDesc),
-    [monthTxns, type, categoryId, q],
+    [monthTxns, monthSaved, monthGoal, monthDebt, type, categoryId, q],
   );
 
   const sections = useMemo(() => {
@@ -116,7 +147,7 @@ export default function TransactionsScreen() {
     });
     return Array.from(groups.entries()).map(([date, data]) => ({
       title: date,
-      net: data.reduce((sum, t) => sum + (t.type === 'credit' ? t.amount : -t.amount), 0),
+      net: data.reduce((sum, t) => (isLinkedEntry(t) ? sum : sum + (t.type === 'credit' ? t.amount : -t.amount)), 0),
       data,
     }));
   }, [filtered]);
@@ -166,7 +197,7 @@ export default function TransactionsScreen() {
   
   const accountOptions: { id: string | null; label: string; icon: IconName }[] = [
     { id: null, label: t('tx.list.allAccounts'), icon: 'apps' },
-    ...accounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon })),
+    ...selectableAccounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon })),
   ];
 
   const header = (
@@ -191,6 +222,7 @@ export default function TransactionsScreen() {
       {/* Month switcher */}
       <MonthSwitcher
         label={monthLabel(monthKey)}
+        range={cycleRangeLabel(monthKey)}
         isCurrent={monthOffset === 0}
         canPrev={canPrev}
         canNext={canNext}
@@ -207,6 +239,18 @@ export default function TransactionsScreen() {
         hidden={hideAmounts}
         onToggleHidden={toggleHideAmounts}
       />
+
+      {savedTotal > 0 ? (
+        <View style={[styles.savedRow, { backgroundColor: colors.backgroundElement }]}>
+          <Ionicons name="wallet-outline" size={18} color={colors.accent} />
+          <ThemedText type="small" style={styles.savedLabel}>
+            {t('tx.saved.thisMonth')}
+          </ThemedText>
+          <ThemedText type="smallBold" style={{ color: colors.accent }}>
+            {hideAmounts ? MASK : formatMoney(savedTotal)}
+          </ThemedText>
+        </View>
+      ) : null}
 
       <CategoryBreakdown
         slices={stats.slices}
@@ -245,7 +289,7 @@ export default function TransactionsScreen() {
       </View>
 
       {/* Account filter (only useful with 2+ accounts) */}
-      {accounts.length > 1 ? (
+      {selectableAccounts.length > 1 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -298,8 +342,9 @@ export default function TransactionsScreen() {
     </View>
   );
 
-  const empty =
-    monthTxns.length === 0 ? (
+  const empty = !ready ? (
+    <ScreenSkeleton rows={8} />
+  ) : monthTxns.length + monthSaved.length + monthGoal.length + monthDebt.length === 0 ? (
       <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
         <Ionicons name="receipt-outline" size={32} color={colors.textSecondary} />
         <ThemedText style={styles.emptyTitle}>{t('tx.list.emptyMonth', { month: monthLabel(monthKey) })}</ThemedText>
@@ -330,11 +375,19 @@ export default function TransactionsScreen() {
           sections={sections}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <TransactionRow
+            <SwipeableTransactionRow
               item={item}
               showAccount={!accountId}
               hidden={hideAmounts}
-              onPress={() => setEditing(item)}
+              onOpen={() =>
+                isDebtEntry(item)
+                  ? Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'))
+                  : isEditableTransferEntry(item)
+                  ? setEditingTransfer(transfers.find((tr) => tr.id === savedTransferId(item)) ?? null)
+                  : item.debtId
+                    ? Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'))
+                    : setEditing(item)
+              }
             />
           )}
           renderSectionHeader={({ section }) => (
@@ -361,6 +414,8 @@ export default function TransactionsScreen() {
           contentContainerStyle={styles.listContent}
         />
 
+        <TransferModal visible={!!editingTransfer} onClose={() => setEditingTransfer(null)} editing={editingTransfer} />
+
         <AddTransactionModal
           visible={!!editing}
           onClose={() => setEditing(null)}
@@ -372,6 +427,8 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: 14, marginBottom: Spacing.three },
+  savedLabel: { flex: 1 },
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   listContent: { paddingBottom: 120 },

@@ -2,6 +2,9 @@ import { t, tp, type TKey } from '@/i18n';
 import type { RecurringRule, Transaction } from '@/context/TransactionsContext';
 import { addDays, upcomingOccurrences } from '@/utils/bills';
 import { budgetStatus } from '@/utils/budget';
+import { instalmentAmount, nextCreditDue, unpaid, type Debt } from '@/utils/debts';
+import { activeGoals, goalMonthSaved, type GoalEntry, type SavingsGoal } from '@/utils/goals';
+import { addDays as addDateDays, cycleOf, cycleRange, usesCalendarMonths } from '@/utils/cycle';
 
 export type ReminderPrefs = {
   enabled: boolean;
@@ -44,8 +47,15 @@ export function buildReminders(args: {
   todayKey: string;
   daysBefore: number;
   money: (n: number) => string;
+  /** Instalments, loans and credit lines (see Debts). */
+  debts?: Debt[];
+  /** Amount used on each credit line, by debt id. */
+  creditUsed?: Record<string, number>;
+  /** Savings goals with a monthly plan, and everything saved so far. */
+  goals?: SavingsGoal[];
+  goalEntries?: GoalEntry[];
 }): PlannedReminder[] {
-  const { rules, now, todayKey, daysBefore, money } = args;
+  const { rules, now, todayKey, daysBefore, money, debts = [], creditUsed = {}, goals = [], goalEntries = [] } = args;
   const out: PlannedReminder[] = [];
 
   for (const o of upcomingOccurrences(rules, todayKey, HORIZON_DAYS + daysBefore)) {
@@ -80,6 +90,53 @@ export function buildReminders(args: {
     });
   }
 
+  const horizon = addDays(todayKey, HORIZON_DAYS + daysBefore);
+  for (const d of debts) {
+    if (d.status === 'done') continue;
+    const dues: { key: string; date: string; title: string; body: string; today: boolean }[] = [];
+    if (d.kind === 'credit') {
+      const used = creditUsed[d.id] ?? 0;
+      if (d.dueDay && used > 0) {
+        const date = nextCreditDue(d.dueDay, todayKey);
+        dues.push({ key: date, date, title: t('debt.reminder.creditTitle', { name: d.name }), body: t('debt.reminder.creditBody', { used: money(used), date }), today: false });
+      }
+    } else {
+      // Only the next few unpaid instalments: reminders for the far future are replanned as they get close.
+      for (const s of unpaid(d).slice(0, 3)) {
+        if (s.dueDate > horizon) continue;
+        dues.push({
+          key: String(s.n),
+          date: s.dueDate,
+          title: t(daysBefore === 0 ? 'debt.reminder.titleToday' : 'debt.reminder.title', { name: d.name }),
+          body: t('debt.reminder.body', { amount: money(instalmentAmount(s)), name: d.name }),
+          today: daysBefore === 0,
+        });
+      }
+    }
+    for (const due of dues) {
+      const fireAt = at9(addDays(due.date, -daysBefore));
+      if (fireAt.getTime() <= now.getTime()) continue;
+      out.push({ id: `rem_debt_${d.id}_${due.key}`, fireAt, title: due.title, body: due.body });
+    }
+  }
+
+  // A nudge on the 25th when this month's saving for a goal is still short. Goals that save automatically are left alone.
+  const monthKey = cycleOf(todayKey);
+  for (const g of activeGoals(goals, goalEntries)) {
+    if (!g.monthly || g.monthly <= 0 || g.recurringId) continue;
+    const short = Math.round((g.monthly - goalMonthSaved(goalEntries, g.id, monthKey)) * 100) / 100;
+    if (short <= 0) continue;
+    // Six days before the financial month ends (the 25th of a calendar month, as before, when payday is 1).
+    const fireAt = at9(usesCalendarMonths() ? `${monthKey}-25` : addDateDays(cycleRange(monthKey).to, -6));
+    if (fireAt.getTime() <= now.getTime()) continue;
+    out.push({
+      id: `rem_goal_${g.id}_${monthKey}`,
+      fireAt,
+      title: t('plan.reminder.goalTitle', { name: g.name }),
+      body: t('plan.reminder.goalBody', { amount: money(short) }),
+    });
+  }
+
   return out.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime()).slice(0, MAX_SCHEDULED);
 }
 
@@ -100,7 +157,7 @@ export function budgetAlertsToSend(args: {
   const { transactions, monthKey, warnPercent, budgets, sent, money } = args;
   const spent = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== 'debit' || !t.date.startsWith(monthKey)) continue;
+    if (t.type !== 'debit' || cycleOf(t.date) !== monthKey) continue;
     spent.set(t.categoryId, (spent.get(t.categoryId) ?? 0) + t.amount);
   }
 

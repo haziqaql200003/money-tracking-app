@@ -10,6 +10,7 @@ export const enHome = {
   'home.carousel.accountCount.other': '{count} accounts',
   'home.carousel.type.bank': 'Bank',
   'home.carousel.type.cash': 'Cash',
+  'home.carousel.type.savings': 'Savings',
   'home.carousel.type.other': 'Other',
   'home.carousel.addTitle': 'Add a new account',
   'home.carousel.addHint': 'Bank, cash, e-wallet or savings. Track each one separately.',

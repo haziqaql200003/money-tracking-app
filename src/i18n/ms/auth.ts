@@ -129,6 +129,7 @@ export const msAuth: Record<keyof typeof enAuth, string> = {
   // cloud account errors
   'auth.error.network': 'Tiada sambungan internet. Sila cuba lagi.',
   'auth.error.generic': 'Sesuatu tidak kena. Sila cuba lagi.',
+  'auth.error.emailSend': 'E-mel tidak dapat dihantar buat masa ini. Sila tunggu beberapa minit dan cuba lagi.',
   'auth.error.codeInvalid': 'Kod salah atau telah tamat tempoh.',
   'auth.error.rateLimit': 'Terlalu banyak percubaan. Sila tunggu sebentar.',
   'auth.error.samePassword': 'Kata laluan baharu mesti berbeza daripada yang lama.',

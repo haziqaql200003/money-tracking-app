@@ -1,6 +1,6 @@
 import { t, tp } from '@/i18n';
 import type { RecurringRule } from '@/context/TransactionsContext';
-import { isAsk, isEnded, nextOccurrence } from '@/utils/recurring';
+import { isAsk, isEnded, isTransfer, nextOccurrence } from '@/utils/recurring';
 
 export type UpcomingBill = {
   /** Unique per rule + date. */
@@ -42,7 +42,7 @@ export function upcomingOccurrences(rules: RecurringRule[], todayKey: string, ho
   const out: UpcomingBill[] = [];
 
   for (const rule of rules) {
-    if (!rule.active || isEnded(rule)) continue;
+    if (!rule.active || isEnded(rule) || isTransfer(rule)) continue; // moving money between your own accounts is not a bill
     let date = rule.nextDate;
     let steps = 0;
     while (date <= last && steps < MAX_STEPS) {

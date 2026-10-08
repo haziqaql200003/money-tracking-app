@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, ScrollView, Pressable, View, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,12 +10,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { BalanceCarousel } from '@/components/balance-carousel';
+import { SyncPill } from '@/components/sync-pill';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { PendingBanner } from '@/components/pending-banner';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
-import { AccountModal } from '@/components/account-modal';
 import { isLightColor } from '@/constants/card-styles';
 import { useProfile } from '@/context/ProfileContext';
 import { useT } from '@/i18n';
@@ -22,15 +24,15 @@ import { accountName } from '@/i18n/data';
 
 export default function HomeScreen() {
   const { t } = useT();
-  const { accounts } = useTransactions();
+  const { accounts, ready } = useTransactions();
   const colors = useTheme();
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
+  const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
   const { displayName, avatarColor } = useProfile();
-  const [accountModalVisible, setAccountModalVisible] = useState(false);
 
   function showComingSoon() {
     Alert.alert(t('home.index.notifications'), t('home.index.comingSoon'));
@@ -42,7 +44,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
           <View style={styles.headerRow}>
-            <Pressable style={styles.headerLeft} onPress={() => setAccountModalVisible(true)}>
+            <Pressable style={styles.headerLeft} onPress={() => router.push('/more/profile')}>
               <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
                 <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
               </View>
@@ -58,8 +60,13 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
+          <SyncPill />
           <PendingBanner />
 
+          {!ready ? (
+            <ScreenSkeleton variant="home" rows={4} />
+          ) : (
+            <>
           <BalanceCarousel onSelectAccount={setSelectedAccountId} />
 
           <View style={styles.chartBlock}>
@@ -67,9 +74,10 @@ export default function HomeScreen() {
           </View>
 
           <RecentTransactions accountId={selectedAccount?.id} accountName={selectedAccount ? accountName(selectedAccount) : undefined} />
+            </>
+          )}
         </ScrollView>
 
-        <AccountModal visible={accountModalVisible} onClose={() => setAccountModalVisible(false)} />
       </SafeAreaView>
     </ThemedView>
   );

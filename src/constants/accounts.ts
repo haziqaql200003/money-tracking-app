@@ -2,11 +2,12 @@ import { t, type TKey } from '@/i18n';
 
 import type { IconName } from './categories';
 
-type AccountTypeKey = 'bank' | 'cash' | 'other';
+type AccountTypeKey = 'bank' | 'cash' | 'savings' | 'other';
 
 const ACCOUNT_TYPE_LABEL_KEY: Record<AccountTypeKey, TKey> = {
   bank: 'acct.type.bank',
   cash: 'acct.type.cash',
+  savings: 'acct.type.savings',
   other: 'acct.type.other',
 };
 
@@ -15,9 +16,10 @@ export function accountTypeLabel(type: AccountTypeKey): string {
   return t(ACCOUNT_TYPE_LABEL_KEY[type]);
 }
 
-export const DEFAULT_ACCOUNT_ICON: Record<'bank' | 'cash' | 'other', IconName> = {
+export const DEFAULT_ACCOUNT_ICON: Record<'bank' | 'cash' | 'savings' | 'other', IconName> = {
   bank: 'business',
   cash: 'cash',
+  savings: 'save',
   other: 'wallet',
 };
 

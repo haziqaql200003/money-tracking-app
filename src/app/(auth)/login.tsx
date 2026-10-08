@@ -5,6 +5,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth-field';
+import { SocialButtons } from '@/components/social-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_NAME, MOTTO, SLOGAN_KEY } from '@/constants/brand';
@@ -94,6 +95,8 @@ export default function LoginScreen() {
                 {busy ? t('auth.login.wait') : t('auth.login.submit')}
               </ThemedText>
             </Pressable>
+
+            <SocialButtons onError={setError} />
 
             <View style={styles.footer}>
               <ThemedText type="small" style={{ color: colors.textSecondary }}>

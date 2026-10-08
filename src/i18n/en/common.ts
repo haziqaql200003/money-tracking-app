@@ -2,6 +2,8 @@
 export const enCommon = {
   'common.save': 'Save',
   'common.cancel': 'Cancel',
+  'common.undo': 'Undo',
+  'common.copy': 'Copy',
   'common.delete': 'Delete',
   'common.edit': 'Edit',
   'common.add': 'Add',
@@ -32,6 +34,8 @@ export const enCommon = {
   'common.optional': 'Optional',
   'common.name': 'Name',
   'common.loading': 'Loading…',
+  'common.syncing': 'Syncing…',
+  'common.syncOffline': 'Offline · will sync later',
   'common.error': 'Something went wrong',
   'common.seeAll': 'See all',
   'common.reset': 'Reset',

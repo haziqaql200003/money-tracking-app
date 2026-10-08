@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
-import { TransactionRow } from '@/components/transaction-row';
+import { SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
 import { Spacing } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
 import { useT, type TKey } from '@/i18n';
 import { mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
+import { cycleOf } from '@/utils/cycle';
 
 
 type Filter = 'all' | 'debit' | 'credit';
@@ -72,11 +73,11 @@ export function RecentTransactions({ accountId, accountName }: Props) {
 
   // Summary line (not affected by the chip filter).
   const summary = useMemo(() => {
-    const monthKey = toKey(new Date()).slice(0, 7);
+    const monthKey = cycleOf(toKey(new Date()));
     let count = 0;
     let spent = 0;
     accountTxns.forEach((t) => {
-      if (t.date.slice(0, 7) !== monthKey) return;
+      if (cycleOf(t.date) !== monthKey) return;
       count += 1;
       if (t.type === 'debit') spent += t.amount;
     });
@@ -158,12 +159,12 @@ export function RecentTransactions({ accountId, accountName }: Props) {
               </ThemedText>
             </View>
             {section.items.map((item) => (
-              <TransactionRow
+              <SwipeableTransactionRow
                 key={item.id}
                 item={item}
                 showAccount={!accountId}
                 hidden={hideAmounts}
-                onPress={() => setEditing(item)}
+                onOpen={() => setEditing(item)}
               />
             ))}
           </View>

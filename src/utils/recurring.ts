@@ -1,4 +1,4 @@
-import type { PendingEntry, RecurringFrequency, RecurringRule, Transaction } from '@/context/TransactionsContext';
+import type { PendingEntry, RecurringFrequency, RecurringRule, Transaction, Transfer } from '@/context/TransactionsContext';
 import { t, tp, type TKey } from '@/i18n';
 import { formatDate } from '@/i18n/format';
 import { toDateKey } from '@/utils/dates';
@@ -70,7 +70,13 @@ export function isAsk(rule: Pick<RecurringRule, 'amountMode'>) {
   return rule.amountMode === 'ask';
 }
 
+/** True for rules that move money between two of the user's own accounts. */
+export function isTransfer(rule: Pick<RecurringRule, 'kind'>) {
+  return rule.kind === 'transfer';
+}
+
 export const transactionIdFor = (ruleId: string, date: string) => `rec_${ruleId}_${date}`;
+export const transferIdFor = (ruleId: string, date: string) => `rectr_${ruleId}_${date}`;
 export const pendingIdFor = (ruleId: string, date: string) => `pend_${ruleId}_${date}`;
 
 /**
@@ -91,9 +97,23 @@ export function confirmedTransaction(rule: RecurringRule, entry: PendingEntry, a
   };
 }
 
+/** The real transfer created when the user confirms a pending entry of a transfer rule (same id rule as above). */
+export function confirmedTransfer(rule: RecurringRule, entry: PendingEntry, amount: number, date: string): Transfer {
+  return {
+    id: transferIdFor(rule.id, entry.date),
+    fromAccountId: rule.accountId,
+    toAccountId: rule.toAccountId ?? '',
+    amount: Math.round(amount * 100) / 100,
+    date,
+    note: rule.title,
+    recurringId: rule.id,
+    ...(rule.goalId ? { goalId: rule.goalId } : {}),
+  };
+}
+
 /**
  * Turn every occurrence that is due (nextDate <= today) into either
- *  - a real transaction (fixed-amount rules), or
+ *  - a real transaction, or a real transfer for transfer rules (fixed-amount rules), or
  *  - a PENDING entry waiting for the user to enter the real amount ('ask' rules).
  *
  * - Pure: returns the new rules plus what to add; nothing is mutated.
@@ -106,28 +126,46 @@ export function materializeRecurring(
   transactions: Transaction[],
   todayKey: string,
   pendingEntries: PendingEntry[] = [],
-): { rules: RecurringRule[]; created: Transaction[]; pending: PendingEntry[] } {
+  existingTransfers: Transfer[] = [],
+): { rules: RecurringRule[]; created: Transaction[]; pending: PendingEntry[]; transfers: Transfer[] } {
   const existing = new Set(transactions.map((t) => t.id));
   const existingPending = new Set(pendingEntries.map((p) => p.id));
+  const existingTr = new Set(existingTransfers.map((t) => t.id));
   const created: Transaction[] = [];
   const pending: PendingEntry[] = [];
+  const madeTransfers: Transfer[] = [];
   let changed = false;
 
   const nextRules = rules.map((rule) => {
     if (!rule.active) return rule;
+    const transfer = isTransfer(rule);
+    if (transfer && !rule.toAccountId) return rule; // damaged rule: never guess where the money goes
 
     let next = rule.nextDate;
     let count = 0;
     while (next <= todayKey && (!rule.endDate || next <= rule.endDate) && count < MAX_PER_RUN) {
-      const id = transactionIdFor(rule.id, next);
+      const id = transfer ? transferIdFor(rule.id, next) : transactionIdFor(rule.id, next);
+      const already = transfer ? existingTr.has(id) : existing.has(id);
       if (isAsk(rule)) {
-        // Already confirmed (a transaction exists) or already waiting => nothing to add.
+        // Already confirmed (a transaction/transfer exists) or already waiting => nothing to add.
         const pid = pendingIdFor(rule.id, next);
-        if (!existing.has(id) && !existingPending.has(pid)) {
+        if (!already && !existingPending.has(pid)) {
           existingPending.add(pid);
           pending.push({ id: pid, ruleId: rule.id, date: next });
         }
-      } else if (!existing.has(id)) {
+      } else if (!already && transfer) {
+        existingTr.add(id);
+        madeTransfers.push({
+          id,
+          fromAccountId: rule.accountId,
+          toAccountId: rule.toAccountId ?? '',
+          amount: rule.amount,
+          date: next,
+          note: rule.title,
+          recurringId: rule.id,
+          ...(rule.goalId ? { goalId: rule.goalId } : {}),
+        });
+      } else if (!already) {
         existing.add(id);
         created.push({
           id,
@@ -150,7 +188,7 @@ export function materializeRecurring(
     return { ...rule, nextDate: next };
   });
 
-  return { rules: changed ? nextRules : rules, created, pending };
+  return { rules: changed ? nextRules : rules, created, pending, transfers: madeTransfers };
 }
 
 /** Approximate monthly amount of a rule, for the "per month" summary. */

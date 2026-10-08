@@ -31,6 +31,11 @@ export interface LocalStore {
 export type ReconcileSource = 'local' | 'remote' | 'offline';
 export type ReconcileResult = { value: unknown | null; source: ReconcileSource };
 
+/** Where the phone's own copy is kept when the cloud's copy replaces it. */
+export const backupKeyOf = (key: string) => `${key}.bak`;
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 /** The phone changed `key`: store it and remember that the cloud has not seen it yet. */
 export async function markEdited(local: LocalStore, key: string, value: unknown, now: string): Promise<void> {
   const meta = await local.readMeta(key);
@@ -71,7 +76,9 @@ export async function reconcile(local: LocalStore, remote: RemoteStore, key: str
     return { value, source: 'offline' };
   }
 
-  const adopt = async (d: RemoteDoc): Promise<ReconcileResult> => {
+  const adopt = async (d: RemoteDoc, risky = false): Promise<ReconcileResult> => {
+    // The cloud's copy is about to replace something the phone holds that the cloud never saw: keep that copy aside.
+    if (risky && value !== null && !sameJson(value, d.value)) await local.write(backupKeyOf(key), value);
     await local.write(key, d.value);
     await local.writeMeta(key, { base: d.updatedAt, dirty: false, editedAt: d.updatedAt });
     return { value: d.value, source: 'remote' };
@@ -92,7 +99,7 @@ export async function reconcile(local: LocalStore, remote: RemoteStore, key: str
   // The cloud has a copy.
   if (value === null) return adopt(doc);
 
-  if (!meta) return adopt(doc); // phone has data but never synced it: protect what is in the cloud
+  if (!meta) return adopt(doc, true); // phone has data but never synced it: protect what is in the cloud (and keep the phone's copy aside)
 
   if (!meta.dirty) {
     return meta.base === doc.updatedAt ? { value, source: 'local' } : adopt(doc);
@@ -101,7 +108,7 @@ export async function reconcile(local: LocalStore, remote: RemoteStore, key: str
   // The phone has unsent edits.
   if (meta.base === doc.updatedAt) return keepAndPush(); // cloud untouched since: just send
   // Both sides changed since they last agreed. The more recent edit wins.
-  return Date.parse(meta.editedAt) >= Date.parse(doc.updatedAt) ? keepAndPush() : adopt(doc);
+  return Date.parse(meta.editedAt) >= Date.parse(doc.updatedAt) ? keepAndPush() : adopt(doc, true);
 }
 
 /** Pull every document the cloud holds for this user (first sign-in on a phone). */
@@ -113,6 +120,8 @@ export async function adoptAll(
   for (const d of docs) {
     const meta = await local.readMeta(d.key);
     if (meta?.dirty) continue; // never overwrite unsent edits
+    const existing = await local.read(d.key);
+    if (!meta && existing !== null && !sameJson(existing, d.value)) await local.write(backupKeyOf(d.key), existing);
     await local.write(d.key, d.value);
     await local.writeMeta(d.key, { base: d.updatedAt, dirty: false, editedAt: d.updatedAt });
     n++;

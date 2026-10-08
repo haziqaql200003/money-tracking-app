@@ -8,6 +8,8 @@ import { useT } from '@/i18n';
 
 type Props = {
   label: string;
+  /** Shown under the label when the financial month is not a calendar month, e.g. "25 Sep - 24 Oct". */
+  range?: string;
   isCurrent: boolean;
   canPrev: boolean;
   canNext: boolean;
@@ -18,7 +20,7 @@ type Props = {
 
 // Fixed row height: the "Back to this month" caption appearing/disappearing
 // no longer nudges the chevrons or the content underneath.
-export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNext, onReset }: Props) {
+export function MonthSwitcher({ label, range, isCurrent, canPrev, canNext, onPrev, onNext, onReset }: Props) {
   const { t } = useT();
   const colors = useTheme();
   return (
@@ -38,6 +40,10 @@ export function MonthSwitcher({ label, isCurrent, canPrev, canNext, onPrev, onNe
         {!isCurrent ? (
           <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
             {t('home.month.backToCurrent')}
+          </ThemedText>
+        ) : range ? (
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+            {range}
           </ThemedText>
         ) : null}
       </Pressable>

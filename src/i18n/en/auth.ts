@@ -127,6 +127,7 @@ export const enAuth = {
   // cloud account errors
   'auth.error.network': 'No internet connection. Please try again.',
   'auth.error.generic': 'Something went wrong. Please try again.',
+  'auth.error.emailSend': 'We could not send the email right now. Please wait a few minutes and try again.',
   'auth.error.codeInvalid': 'The code is wrong or has expired.',
   'auth.error.rateLimit': 'Too many attempts. Please wait a moment.',
   'auth.error.samePassword': 'The new password must be different from the old one.',

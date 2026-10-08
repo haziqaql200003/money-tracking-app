@@ -14,6 +14,7 @@ import { loadJSON, removeUserData, saveJSON } from '@/services/storage';
 import {
   AuthContext,
   normEmail,
+  passwordOk,
   notCloud,
   validateSignUp,
   type AuthContextValue,
@@ -120,6 +121,21 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, [sessionId, users, signOut, persistUsers]);
 
+  const changePassword = useCallback<AuthContextValue['changePassword']>(
+    async (current, next) => {
+      const me = users.find((u) => u.id === sessionId);
+      if (!me) return { ok: false, error: t('auth.error.generic') };
+      if (!passwordOk(next)) return { ok: false, error: t('auth.error.passwordWeak') };
+      if ((await hashPassword(me.salt, current)) !== me.passwordHash) return { ok: false, error: t('more.security.pw.wrongCurrent') };
+      if (current === next) return { ok: false, error: t('auth.error.samePassword') };
+      const salt = Crypto.randomUUID();
+      const passwordHash = await hashPassword(salt, next);
+      persistUsers(users.map((u) => (u.id === me.id ? { ...u, salt, passwordHash } : u)));
+      return { ok: true };
+    },
+    [users, sessionId, persistUsers],
+  );
+
   const user = useMemo<AuthUser | null>(() => {
     const s = users.find((u) => u.id === sessionId);
     if (!s) return null;
@@ -145,6 +161,14 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateProfile,
       deleteAccount,
+      changePassword,
+      signOutOthers: async () => notCloud,
+      signInWithProvider: async () => notCloud,
+      linkProvider: async () => notCloud,
+      unlinkProvider: async () => notCloud,
+      getLogins: async () => [],
+      hasPassword: async () => true,
+      acceptConsent: async () => ({ ok: true }),
       verifyCode: async () => notCloud,
       resendCode: async () => notCloud,
       requestPasswordReset: async () => notCloud,
@@ -155,7 +179,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       importLegacy: async () => notCloud,
       skipImport: () => {},
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount],
+    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

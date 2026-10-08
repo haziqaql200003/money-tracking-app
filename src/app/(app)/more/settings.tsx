@@ -1,30 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
-import { useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { setGyroEnabled, useGyroEnabled } from '@/components/cards/motion';
 import { ScreenHeader } from '@/components/screen-header';
+import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { isLightColor } from '@/constants/card-styles';
-import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
-import { useCategories } from '@/context/CategoriesContext';
-import { usePrivacy } from '@/context/PrivacyContext';
-import { useProfile } from '@/context/ProfileContext';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';
-import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
-import { toCsv } from '@/utils/csv';
 import { useAuth } from '@/context/AuthContext';
-import { usePlan } from '@/context/PlanContext';
-import { accountName, categoryName } from '@/i18n/data';
+import { weekdayLong } from '@/i18n/format';
 import { setLanguage, useT, type Lang, type TKey } from '@/i18n';
-import { formatDate, weekdayLong } from '@/i18n/format';
-import { useSyncStatus } from '@/services/cloud-sync';
 
 const THEMES: { key: ThemePreference; labelKey: TKey }[] = [
   { key: 'system', labelKey: 'more.settings.theme.system' },
@@ -38,120 +28,20 @@ const LANGUAGES: { key: Lang; label: string }[] = [
 ];
 const WARN_OPTIONS = [70, 80, 90];
 
-function Section({ title, footer, children }: { title: string; footer?: string; children: ReactNode }) {
-  const colors = useTheme();
-  return (
-    <View style={styles.section}>
-      <ThemedText type="small" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        {title.toUpperCase()}
-      </ThemedText>
-      <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>{children}</View>
-      {footer ? (
-        <ThemedText type="small" style={[styles.footer, { color: colors.textSecondary }]}>
-          {footer}
-        </ThemedText>
-      ) : null}
-    </View>
-  );
-}
-
-type RowProps = {
-  icon: IconName;
-  label: string;
-  subtitle?: string;
-  value?: string;
-  right?: ReactNode;
-  onPress?: () => void;
-  danger?: boolean;
-  first?: boolean;
-};
-
-function Row({ icon, label, subtitle, value, right, onPress, danger, first }: RowProps) {
-  const colors = useTheme();
-  const tint = danger ? colors.negative : colors.accent;
-  return (
-    <Pressable
-      disabled={!onPress}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-        pressed && { opacity: 0.6 },
-      ]}
-    >
-      <View style={[styles.rowIcon, { backgroundColor: `${tint}26` }]}>
-        <Ionicons name={icon} size={18} color={tint} />
-      </View>
-      <View style={styles.flex}>
-        <ThemedText style={danger ? { color: colors.negative } : undefined}>{label}</ThemedText>
-        {subtitle ? (
-          <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {subtitle}
-          </ThemedText>
-        ) : null}
-      </View>
-      {value ? (
-        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          {value}
-        </ThemedText>
-      ) : null}
-      {right}
-    </Pressable>
-  );
-}
-
 export default function SettingsScreen() {
   const colors = useTheme();
-  const { t, tp, lang } = useT();
-  const { displayName, setDisplayName, avatarColor } = useProfile();
-  const { hideAmounts, toggleHideAmounts } = usePrivacy();
+  const router = useRouter();
+  const { t, lang } = useT();
   const gyroEnabled = useGyroEnabled();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
-  const { transactions, accounts, resetAllData } = useTransactions();
-  const { getCategory, resetCategories } = useCategories();
-  const { resetPlan } = usePlan();
-
-  const { user, signOut, deleteAccount, updateProfile, cloud, syncNow } = useAuth();
-  const sync = useSyncStatus();
-  const syncText = (() => {
-    if (sync.state === 'syncing') return t('more.settings.syncSyncing');
-    if (sync.state === 'offline') return t('more.settings.syncOffline');
-    if (sync.pending > 0) return tp('more.settings.syncPending', sync.pending);
-    if (!sync.lastSyncedAt) return t('more.settings.syncNever');
-    const d = new Date(sync.lastSyncedAt);
-    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    return t('more.settings.syncLast', { time: `${formatDate(d)}, ${hhmm}` });
-  })();
-
+  const { user, signOut, updateProfile } = useAuth();
   function changeLanguage(language: Lang) {
     if (language === lang) return;
     updateProfile({ language });
     setLanguage(language);
   }
 
-  function confirmDelete() {
-    Alert.alert(t('more.settings.deleteAccountTitle'), t('more.settings.deleteAccountMsg'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: () => {
-          deleteAccount().then((res) => {
-            if (!res.ok) Alert.alert(t('more.settings.deleteFailedTitle'), res.error);
-          });
-        },
-      },
-    ]);
-  }
-
-  const [name, setName] = useState(displayName);
   const [dailyLimitText, setDailyLimitText] = useState(dailyLimit > 0 ? String(dailyLimit) : '');
-
-  function commitName() {
-    const trimmed = name.trim();
-    if (trimmed) setDisplayName(trimmed);
-    else setName(displayName);
-  }
 
   function applyDailyLimit(n: number) {
     const rounded = Math.round(n * 100) / 100;
@@ -164,90 +54,17 @@ export default function SettingsScreen() {
     applyDailyLimit(Number.isFinite(n) ? n : 0);
   }
 
-  async function exportAll() {
-    if (transactions.length === 0) {
-      Alert.alert(t('more.settings.exportEmptyTitle'), t('more.settings.exportEmptyMsg'));
-      return;
-    }
-    const csv = toCsv(
-      [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
-      (id) => {
-        const a = accounts.find((x) => x.id === id);
-        return a ? accountName(a) : id;
-      },
-      (id) => {
-        const c = getCategory(id);
-        return c ? categoryName(c) : id;
-      },
-    );
-    try {
-      await Share.share({ message: csv, title: 'transactions.csv' /* i18n-ignore */ });
-    } catch {
-      // sheet dismissed
-    }
-  }
-
-  function confirmReset() {
-    Alert.alert(
-      t('more.settings.resetTitle'),
-      t('more.settings.resetMsg'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.reset'),
-          style: 'destructive',
-          onPress: () => {
-            resetAllData();
-            resetCategories();
-            resetPlan();
-          },
-        },
-      ],
-    );
-  }
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ScreenHeader title={t('more.settings.title')} />
 
-          <Section title={t('more.settings.profile')}>
-            <View style={styles.nameRow}>
-              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{(name || '?').charAt(0).toUpperCase()}</ThemedText>
-              </View>
-              <View style={styles.flex}>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {t('more.settings.displayName')}
-                </ThemedText>
-                <TextInput
-                  style={[styles.nameInput, { color: colors.text }]}
-                  value={name}
-                  onChangeText={setName}
-                  onEndEditing={commitName}
-                  placeholder={t('more.settings.namePlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  returnKeyType="done"
-                  maxLength={24}
-                />
-              </View>
-            </View>
-          </Section>
-
           <Section title={t('more.settings.account')}>
             <Row first icon="mail-outline" label={t('more.settings.email')} value={user?.email} />
             <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={() => updateProfile({ hasOnboarded: false })} />
             <Row icon="log-out-outline" label={t('more.settings.logOut')} onPress={signOut} />
-            <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={confirmDelete} />
           </Section>
-
-          {cloud ? (
-            <Section title={t('more.settings.cloudSync')}>
-              <Row first icon="cloud-done-outline" label={t('more.settings.cloudSync')} subtitle={syncText} />
-              <Row icon="sync-outline" label={t('more.settings.syncNow')} subtitle={t('more.settings.syncNowSub')} onPress={() => void syncNow()} />
-            </Section>
-          ) : null}
 
           <Section title={t('more.settings.appearance')}>
             <View style={styles.pad}>
@@ -277,21 +94,6 @@ export default function SettingsScreen() {
               icon="phone-portrait-outline"
               label={t('more.settings.tiltWithPhone')}
               right={<Switch value={gyroEnabled} onValueChange={setGyroEnabled} trackColor={{ true: colors.accent }} />}
-            />
-          </Section>
-
-          <Section title={t('more.settings.privacy')} footer={t('more.settings.privacyFooter')}>
-            <Row
-              first
-              icon="eye-off-outline"
-              label={t('more.settings.hideAmounts')}
-              right={
-                <Switch
-                  value={hideAmounts}
-                  onValueChange={toggleHideAmounts}
-                  trackColor={{ true: colors.accent }}
-                />
-              }
             />
           </Section>
 
@@ -373,18 +175,10 @@ export default function SettingsScreen() {
             <Row icon="calendar-outline" label={t('more.settings.weekStarts')} value={weekdayLong(0)} />
           </Section>
 
-          <Section title={t('more.settings.data')}>
-            <Row first icon="download-outline" label={t('more.settings.export')} subtitle={t('more.settings.exportSub')} onPress={exportAll} />
-            <Row icon="trash-outline" label={t('more.settings.resetData')} subtitle={t('more.settings.resetDataSub')} danger onPress={confirmReset} />
-          </Section>
-
-          <Section title={t('more.settings.about')}>
-            <Row
-              first
-              icon="information-circle-outline"
-              label="WaKira" // i18n-ignore
-              value={`v${Constants.expoConfig?.version ?? '1.0.0'}`}
-            />
+          <Section title={t('more.settings.more')}>
+            <Row first icon="person-circle-outline" label={t('more.profile.title')} subtitle={t('more.settings.profileSub')} onPress={() => router.push('/more/profile')} />
+            <Row icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} onPress={() => router.push('/more/data')} />
+            <Row icon="information-circle-outline" label={t('more.about.title')} subtitle={t('more.settings.aboutSub')} onPress={() => router.push('/more/about')} />
           </Section>
         </ScrollView>
       </SafeAreaView>
@@ -398,19 +192,9 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   flex: { flex: 1 },
 
-  section: { marginBottom: Spacing.four },
-  sectionTitle: { fontSize: 12, lineHeight: 16, letterSpacing: 0.6, marginBottom: 6, marginLeft: 4 },
-  card: { borderRadius: 20, overflow: 'hidden' },
-  footer: { fontSize: 12, lineHeight: 16, marginTop: 6, marginLeft: 4 },
   pad: { padding: Spacing.three },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.three, paddingVertical: 12 },
-  rowIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontSize: 20, fontWeight: '700' },
-  nameInput: { fontSize: 18, fontWeight: '600', paddingVertical: 2 },
 
 
   chipRow: { flexDirection: 'row', gap: Spacing.two },

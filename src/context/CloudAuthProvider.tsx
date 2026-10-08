@@ -7,6 +7,10 @@
  * - An old phone-only account can be imported once into a brand-new cloud account.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { isAuthRetryableFetchError, type AuthError, type Session } from '@supabase/supabase-js';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -14,6 +18,7 @@ import { CARD_COLORS } from '@/constants/card-styles';
 import { setLanguage, t } from '@/i18n';
 import { flushAll, forgetUser, initialPull, reloadAll, startForegroundSync } from '@/services/cloud-sync';
 import { loadJSON, removeUserData, saveJSON } from '@/services/storage';
+import { OAUTH_REDIRECT, parseAuthUrl } from '@/services/social-auth';
 import { supabase } from '@/services/supabase';
 
 import {
@@ -26,11 +31,14 @@ import {
   type AuthUser,
   type Language,
   type LegacyAccount,
+  type LinkedLogin,
   type ProfilePatch,
   type Result,
   type StoredUser,
 } from './auth-shared';
 import { hashPassword, LANGUAGE_KEY, SESSION_KEY, USERS_KEY } from './LocalAuthProvider';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const CACHED_USER_KEY = 'auth:cloudUser';
 const pendingPatchKey = (id: string) => `auth:profilePending:${id}`;
@@ -65,10 +73,28 @@ function explain(error: AuthError | { code?: string; message?: string; name?: st
     case 'signup_disabled':
     case 'email_provider_disabled':
       return t('auth.error.signupDisabled');
-    default:
+    case 'provider_disabled':
+    case 'validation_failed_provider':
+      return t('more.security.err.providerOff');
+    case 'manual_linking_disabled':
+      return t('more.security.err.linkingOff');
+    case 'identity_already_exists':
+      return t('more.security.err.alreadyUsed');
+    case 'single_identity_not_deletable':
+      return t('more.security.err.lastLogin');
+    case 'email_address_invalid':
+      return t('auth.error.emailInvalid');
+    default: {
       if (msg.includes('token') && (msg.includes('expired') || msg.includes('invalid'))) return t('auth.error.codeInvalid');
       if (msg.includes('invalid login credentials')) return t('auth.error.badCredentials');
+      if (msg.includes('sending') && msg.includes('email')) return t('auth.error.emailSend');
+      // While developing (Expo Go / dev build) show what Supabase really said, so the cause is easy to find.
+      if (__DEV__) {
+        console.warn('[cloud] auth error', error);
+        return `${t('auth.error.generic')} [${code ?? (error as { status?: number }).status ?? 'no code'}: ${error.message ?? ''}]`;
+      }
       return t('auth.error.generic');
+    }
   }
 }
 
@@ -90,13 +116,22 @@ const toColumns = (p: ProfilePatch) => ({
   ...(p.hasOnboarded !== undefined && { has_onboarded: p.hasOnboarded }),
 });
 
+/** Name from the sign-up form, or the one Google / Apple handed over. */
+function metaName(meta: Record<string, unknown>): string {
+  for (const k of ['display_name', 'full_name', 'name']) {
+    const v = meta[k];
+    if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 24);
+  }
+  return '';
+}
+
 function buildUser(id: string, email: string, row: Partial<ProfileRow> | null, meta: Record<string, unknown>): AuthUser {
   const lang = (row?.language ?? meta.language) === 'en' ? 'en' : 'ms';
   const goal = row?.goal;
   return {
     id,
     email,
-    displayName: row?.display_name || (typeof meta.display_name === 'string' ? meta.display_name : ''),
+    displayName: row?.display_name || metaName(meta),
     avatarColor: row?.avatar_color || CARD_COLORS[0],
     language: lang,
     goal: goal === 'save' || goal === 'debt' || goal === 'budget' || goal === 'track' ? goal : undefined,
@@ -179,7 +214,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
           if (__DEV__) console.warn('[cloud] sign-in could not finish. Did you run supabase/001_wakira_init.sql?', e);
           await sb().auth.signOut().catch(() => {});
           const why = explain(e as AuthError);
-          return { ok: false, error: why === t('auth.error.generic') ? t('auth.error.syncFailed') : why };
+          return { ok: false, error: why.startsWith(t('auth.error.generic')) ? t('auth.error.syncFailed') + (__DEV__ ? ` [${(e as Error).message}]` : '') : why };
         } finally {
           completing.current.delete(id);
         }
@@ -375,6 +410,148 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, [commitUser]);
 
+  const getLogins = useCallback<AuthContextValue['getLogins']>(async () => {
+    const [{ data: idData }, { data: userData }] = await Promise.all([sb().auth.getUserIdentities(), sb().auth.getUser()]);
+    const out: LinkedLogin[] = [];
+    for (const i of idData?.identities ?? []) {
+      if (i.provider === 'google' || i.provider === 'apple' || i.provider === 'email') {
+        out.push({ provider: i.provider, email: (i.identity_data as { email?: string } | undefined)?.email });
+      }
+    }
+    // A password set later on a Google / Apple account is listed in app_metadata even when there is no email identity.
+    const providers = ((userData.user?.app_metadata as { providers?: string[] } | undefined)?.providers ?? []) as string[];
+    if (providers.includes('email') && !out.some((o) => o.provider === 'email')) out.push({ provider: 'email', email: userData.user?.email });
+    return out;
+  }, []);
+
+  const hasPassword = useCallback<AuthContextValue['hasPassword']>(async () => {
+    try {
+      return (await getLogins()).some((l) => l.provider === 'email');
+    } catch {
+      return true; // offline: ask for the current password, which is the safe default
+    }
+  }, [getLogins]);
+
+  const changePassword = useCallback<AuthContextValue['changePassword']>(async (current, next) => {
+    const email = userRef.current?.email;
+    if (!email) return { ok: false, error: t('auth.error.generic') };
+    if (!passwordOk(next)) return { ok: false, error: t('auth.error.passwordWeak') };
+    if (current === next) return { ok: false, error: t('auth.error.samePassword') };
+    // Prove it is really the owner: the current password must still sign in.
+    // An account that only ever used Google / Apple has no password yet, so there is nothing to check.
+    if (await hasPassword()) {
+      const check = await sb().auth.signInWithPassword({ email, password: current });
+      if (check.error) {
+        const code = (check.error as { code?: string }).code;
+        return { ok: false, error: code === 'invalid_credentials' ? t('more.security.pw.wrongCurrent') : explain(check.error) };
+      }
+    }
+    const { error } = await sb().auth.updateUser({ password: next });
+    if (error) return { ok: false, error: explain(error) };
+    return { ok: true };
+  }, [hasPassword]);
+
+  const signOutOthers = useCallback<AuthContextValue['signOutOthers']>(async () => {
+    const { error } = await sb().auth.signOut({ scope: 'others' });
+    return error ? { ok: false, error: explain(error) } : { ok: true };
+  }, []);
+
+  /** Opens the browser for Google (or Apple on Android), then returns the one-time code. '' means the person closed it. */
+  const browserCode = useCallback(async (url: string): Promise<{ code?: string; error?: string; cancelled?: boolean }> => {
+    const res = await WebBrowser.openAuthSessionAsync(url, OAUTH_REDIRECT);
+    if (res.type !== 'success') return { cancelled: true };
+    const parsed = parseAuthUrl(res.url);
+    if (parsed.error) return { error: parsed.error };
+    return parsed.code ? { code: parsed.code } : { error: t('auth.error.generic') };
+  }, []);
+
+  const signInWithProvider = useCallback<AuthContextValue['signInWithProvider']>(
+    async (provider) => {
+      try {
+        let session: Session | null = null;
+        let appleName = '';
+        if (provider === 'apple' && Platform.OS === 'ios') {
+          const raw = Crypto.randomUUID() + Crypto.randomUUID();
+          const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, raw);
+          let cred: AppleAuthentication.AppleAuthenticationCredential;
+          try {
+            cred = await AppleAuthentication.signInAsync({
+              requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+              nonce: hashed,
+            });
+          } catch (e) {
+            if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return { ok: false, error: '' };
+            throw e;
+          }
+          if (!cred.identityToken) return { ok: false, error: t('auth.error.generic') };
+          // Apple only tells us the name the very first time, so keep it now.
+          appleName = [cred.fullName?.givenName, cred.fullName?.familyName].filter(Boolean).join(' ');
+          const { data, error } = await sb().auth.signInWithIdToken({ provider: 'apple', token: cred.identityToken, nonce: raw });
+          if (error) return { ok: false, error: explain(error) };
+          session = data.session;
+        } else {
+          const { data, error } = await sb().auth.signInWithOAuth({
+            provider,
+            options: { redirectTo: OAUTH_REDIRECT, skipBrowserRedirect: true, queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined },
+          });
+          if (error || !data.url) return { ok: false, error: error ? explain(error) : t('auth.error.generic') };
+          const got = await browserCode(data.url);
+          if (got.cancelled) return { ok: false, error: '' };
+          if (!got.code) return { ok: false, error: got.error ?? t('auth.error.generic') };
+          const ex = await sb().auth.exchangeCodeForSession(got.code);
+          if (ex.error) return { ok: false, error: explain(ex.error) };
+          session = ex.data.session;
+        }
+        if (!session) return { ok: false, error: t('auth.error.generic') };
+        const res = await completeSignIn(session);
+        if (res.ok && appleName && !userRef.current?.displayName) updateProfile({ displayName: appleName.slice(0, 24) });
+        return res;
+      } catch (e) {
+        return { ok: false, error: explain(e as AuthError) };
+      }
+    },
+    [browserCode, completeSignIn, updateProfile],
+  );
+
+  const linkProvider = useCallback<AuthContextValue['linkProvider']>(
+    async (provider) => {
+      try {
+        const { data, error } = await sb().auth.linkIdentity({
+          provider,
+          options: { redirectTo: OAUTH_REDIRECT, skipBrowserRedirect: true },
+        });
+        if (error || !data.url) return { ok: false, error: error ? explain(error) : t('auth.error.generic') };
+        const got = await browserCode(data.url);
+        if (got.cancelled) return { ok: false, error: '' };
+        if (!got.code) return { ok: false, error: got.error ?? t('auth.error.generic') };
+        const ex = await sb().auth.exchangeCodeForSession(got.code);
+        if (ex.error) return { ok: false, error: explain(ex.error) };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: explain(e as AuthError) };
+      }
+    },
+    [browserCode],
+  );
+
+  const unlinkProvider = useCallback<AuthContextValue['unlinkProvider']>(async (provider) => {
+    const { data, error } = await sb().auth.getUserIdentities();
+    if (error) return { ok: false, error: explain(error) };
+    const identity = data.identities.find((i) => i.provider === provider);
+    if (!identity) return { ok: true };
+    const res = await sb().auth.unlinkIdentity(identity);
+    return res.error ? { ok: false, error: explain(res.error) } : { ok: true };
+  }, []);
+
+  const acceptConsent = useCallback<AuthContextValue['acceptConsent']>(async () => {
+    const current = userRef.current;
+    if (!current) return { ok: false, error: t('auth.error.generic') };
+    const { error } = await sb().rpc('record_consent');
+    if (error) return { ok: false, error: explain(error) };
+    commitUser({ ...current, consentAt: new Date().toISOString() });
+    return { ok: true };
+  }, [commitUser]);
+
   const syncNow = useCallback(async () => {
     const id = userRef.current?.id;
     if (!id) return true;
@@ -441,6 +618,14 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateProfile,
       deleteAccount,
+      changePassword,
+      signOutOthers,
+      signInWithProvider,
+      linkProvider,
+      unlinkProvider,
+      getLogins,
+      hasPassword,
+      acceptConsent,
       verifyCode,
       resendCode,
       requestPasswordReset,
@@ -451,7 +636,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       importLegacy,
       skipImport,
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
+    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, signOutOthers, signInWithProvider, linkProvider, unlinkProvider, getLogins, hasPassword, acceptConsent, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

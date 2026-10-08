@@ -53,6 +53,7 @@ type Props = {
 const TYPE_OPTIONS: { type: AccountType; labelKey: TKey; hintKey: TKey }[] = [
   { type: 'bank', labelKey: 'acct.type.bank', hintKey: 'acct.type.bankHint' },
   { type: 'cash', labelKey: 'acct.type.cash', hintKey: 'acct.type.cashHint' },
+  { type: 'savings', labelKey: 'acct.type.savings', hintKey: 'acct.type.savingsHint' },
   { type: 'other', labelKey: 'acct.type.other', hintKey: 'acct.type.otherHint' },
 ];
 

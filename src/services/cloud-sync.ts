@@ -10,6 +10,7 @@ import { loadJSON, saveJSON, userKey } from '@/services/storage';
 import { CLOUD_ENABLED, supabase } from '@/services/supabase';
 import {
   adoptAll,
+  backupKeyOf,
   markEdited,
   pushIfDirty,
   reconcile,
@@ -182,6 +183,29 @@ export async function flushAll(userId: string): Promise<boolean> {
   const left = (await dirtyKeys(userId)).length;
   setStatus(ok ? { state: 'idle', pending: left, lastSyncedAt: new Date().toISOString() } : { state: 'offline', pending: left });
   return ok;
+}
+
+/* ---------------- copies kept aside when the cloud replaced the phone's data ---------------- */
+
+/** Keys whose older phone copy was kept aside (see backupKeyOf in sync-core). */
+export async function listBackups(userId: string): Promise<string[]> {
+  const prefix = userKey(userId, '');
+  const all = await AsyncStorage.getAllKeys();
+  return all.filter((k) => k.startsWith(prefix) && k.endsWith('.bak')).map((k) => k.slice(prefix.length, -4));
+}
+
+/** Put the kept-aside copies back as the current data (and send them to the cloud). */
+export async function restoreBackups(userId: string): Promise<number> {
+  const keys = await listBackups(userId);
+  for (const key of keys) {
+    const bak = userKey(userId, backupKeyOf(key));
+    const value = await loadJSON<unknown>(bak);
+    if (value !== null) await saveKey(userId, key, value);
+    await AsyncStorage.removeItem(bak);
+  }
+  await reloadAll(userId);
+  await flushAll(userId);
+  return keys.length;
 }
 
 /** First sign-in on a phone: download everything the cloud holds. Throws when it cannot be reached. */

@@ -3,6 +3,8 @@ import type { enCommon } from '../en/common';
 export const msCommon: Record<keyof typeof enCommon, string> = {
   'common.save': 'Simpan',
   'common.cancel': 'Batal',
+  'common.undo': 'Buat asal',
+  'common.copy': 'Salin',
   'common.delete': 'Padam',
   'common.edit': 'Ubah',
   'common.add': 'Tambah',
@@ -33,6 +35,8 @@ export const msCommon: Record<keyof typeof enCommon, string> = {
   'common.optional': 'Pilihan',
   'common.name': 'Nama',
   'common.loading': 'Memuatkan…',
+  'common.syncing': 'Menyelaraskan…',
+  'common.syncOffline': 'Luar talian · akan diselaraskan nanti',
   'common.error': 'Sesuatu tidak kena',
   'common.seeAll': 'Lihat semua',
   'common.reset': 'Set semula',

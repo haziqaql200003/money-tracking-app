@@ -6,7 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { GoalDetailModal, STATUS_KEY } from '@/components/goal-detail-modal';
+import { TabungAllocation } from '@/components/tabung-allocation';
+import { SwipeRow } from '@/components/ui/swipe-row';
 import { GoalFormModal } from '@/components/goal-form-modal';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -35,19 +38,21 @@ export default function RancangScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
   const router = useRouter();
-  const { transactions, recurringRules, pendingEntries } = useTransactions();
+  const { recurringRules, pendingEntries, budgetEntries, ready: txReady } = useTransactions();
   const { expenseCategories, getCategory } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
   const {
     goals,
     goalEntries,
+    deleteGoal,
     reminderPrefs,
     permission,
     enableReminders,
     disableReminders,
     setDaysBefore,
     setBudgetAlerts,
+    ready: planReady,
   } = usePlan();
 
   const [formVisible, setFormVisible] = useState(false);
@@ -58,7 +63,7 @@ export default function RancangScreen() {
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
   // Budgets
-  const spent = spentByCategory(transactions, monthKeyFromOffset(0));
+  const spent = spentByCategory(budgetEntries, monthKeyFromOffset(0));
   const budgeted = expenseCategories.filter((c) => c.monthlyLimit > 0);
   const totalLimit = budgeted.reduce((sum, c) => sum + c.monthlyLimit, 0);
   const totalSpent = budgeted.reduce((sum, c) => sum + (spent.get(c.id) ?? 0), 0);
@@ -81,6 +86,13 @@ export default function RancangScreen() {
   function openAdd() {
     setEditingId(null);
     setFormVisible(true);
+  }
+
+  function confirmDeleteGoal(id: string, name: string) {
+    Alert.alert(t('plan.goalForm.deleteTitle'), t('plan.goalForm.deleteBody', { name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteGoal(id) },
+    ]);
   }
 
   function openEdit(id: string) {
@@ -120,6 +132,8 @@ export default function RancangScreen() {
           <ThemedText type="small" style={[styles.tagline, { color: colors.textSecondary }]}>
             {t('plan.rancang.tagline')}
           </ThemedText>
+          {!(txReady && planReady) ? <ScreenSkeleton variant="cards" /> : (
+          <>
 
           {/* Overview */}
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
@@ -202,6 +216,7 @@ export default function RancangScreen() {
               <Ionicons name="add" size={20} color="#fff" />
             </Pressable>
           </View>
+          {goalRows.length > 0 ? <TabungAllocation /> : null}
           {goalRows.length === 0 ? (
             <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="flag-outline" size={30} color={colors.textSecondary} />
@@ -214,7 +229,7 @@ export default function RancangScreen() {
               </Pressable>
             </View>
           ) : (
-            <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
+            <View style={[styles.listCard, styles.listFlush, { backgroundColor: colors.backgroundElement }]}>
               {goalRows.map(({ goal, progress }, i) => {
                 const tone =
                   progress.status === 'done' || progress.status === 'on_track'
@@ -223,13 +238,21 @@ export default function RancangScreen() {
                       ? colors.textSecondary
                       : colors.negative;
                 return (
-                  <Pressable
+                  <SwipeRow
                     key={goal.id}
+                    background={colors.backgroundElement}
+                    rightActions={[
+                      { key: 'edit', label: t('common.edit'), icon: 'create-outline', color: colors.accent, onPress: () => openEdit(goal.id) },
+                      { key: 'delete', label: t('common.delete'), icon: 'trash-outline', color: colors.negative, onPress: () => confirmDeleteGoal(goal.id, goal.name) },
+                    ]}
+                    onFullSwipe={() => confirmDeleteGoal(goal.id, goal.name)}
+                  >
+                  <Pressable
                     onPress={() => setViewingId(goal.id)}
                     style={({ pressed }) => [
                       styles.goalRow,
                       i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                      pressed && { opacity: 0.6 },
+                      (pressed || goal.paused) && { opacity: 0.6 },
                     ]}
                   >
                     <CategoryIcon icon={goal.icon as IconName} color={goal.color} size={42} />
@@ -250,11 +273,12 @@ export default function RancangScreen() {
                           {t('plan.rancang.spentOf', { spent: money(progress.saved), limit: money(goal.target) })}
                         </ThemedText>
                         <ThemedText type="small" style={{ color: tone, fontWeight: '700' }}>
-                          {t(STATUS_KEY[progress.status])}
+                          {goal.paused ? t('plan.goalDetail.pauseBadge') : t(STATUS_KEY[progress.status])}
                         </ThemedText>
                       </View>
                     </View>
                   </Pressable>
+                  </SwipeRow>
                 );
               })}
             </View>
@@ -389,6 +413,8 @@ export default function RancangScreen() {
               </>
             ) : null}
           </View>
+          </>
+          )}
         </ScrollView>
 
         <GoalDetailModal goalId={viewingId} onClose={() => setViewingId(null)} onEdit={openEdit} />
@@ -424,8 +450,9 @@ const styles = StyleSheet.create({
 
   addButton: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
   listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
+  listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
   emptyList: { padding: 20 },
-  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: Spacing.three },
   billRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   more: { textAlign: 'center', paddingBottom: 12 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.three, borderRadius: 16, borderWidth: 1.5, marginBottom: Spacing.two },

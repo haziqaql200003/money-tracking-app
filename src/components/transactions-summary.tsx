@@ -8,6 +8,7 @@ import { useCategories } from '@/context/CategoriesContext';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
+import { formatPct } from '@/utils/insights';
 import { useT } from '@/i18n';
 import { categoryName } from '@/i18n/data';
 
@@ -66,7 +67,7 @@ export function SummaryCard({ income, spending, deltaPercent, prevLabel, hidden,
         {deltaPercent !== null ? (
           <View style={[styles.pill, { backgroundColor: colors.background }]}>
             <ThemedText type="small" style={{ color: up ? colors.negative : colors.positive, fontWeight: '700' }}>
-              {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {Math.abs(Math.round(deltaPercent))}%
+              {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {formatPct(deltaPercent)}
             </ThemedText>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
               {t('home.summary.spendingVs', { label: prevLabel })}

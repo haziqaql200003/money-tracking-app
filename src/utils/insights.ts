@@ -1,6 +1,7 @@
 import type { Transaction } from '@/context/TransactionsContext';
 import { t, tp } from '@/i18n';
 import { weekdayLong } from '@/i18n/format';
+import { cycleOf, cycleRange, shiftCycle } from '@/utils/cycle';
 
 /**
  * Pure analysis helpers for the Faham tab.
@@ -30,18 +31,19 @@ export function shiftMonths(dateKey: string, months: number): string {
   return keyOf(ny, nm, Math.min(d, daysIn(ny, nm)));
 }
 
-/** 'YYYY-MM' keys of the `count` months ending at the month of `todayKey`, oldest first. */
+/** 'YYYY-MM' keys of the `count` financial months ending at the one that holds `todayKey`, oldest first. */
 export function monthKeysEnding(todayKey: string, count: number): string[] {
+  const now = cycleOf(todayKey);
   const out: string[] = [];
-  for (let i = count - 1; i >= 0; i--) out.push(shiftMonths(todayKey, -i).slice(0, 7));
+  for (let i = count - 1; i >= 0; i--) out.push(shiftCycle(now, -i));
   return out;
 }
 
 export type Window = { from: string; to: string };
 
-/** The last `months` calendar months, up to and including today. */
+/** The last `months` financial months, up to and including today. */
 export function currentWindow(todayKey: string, months: number): Window {
-  return { from: `${monthKeysEnding(todayKey, months)[0]}-01`, to: todayKey };
+  return { from: cycleRange(monthKeysEnding(todayKey, months)[0]).from, to: todayKey };
 }
 
 /** The same-length window immediately before, ending the same number of months earlier (like-for-like). */
@@ -56,7 +58,7 @@ export type MonthTotals = { key: string; income: number; spending: number; net: 
 export function monthlyTotals(transactions: Transaction[], keys: string[]): MonthTotals[] {
   const map = new Map<string, MonthTotals>(keys.map((key) => [key, { key, income: 0, spending: 0, net: 0 }]));
   for (const t of transactions) {
-    const row = map.get(t.date.slice(0, 7));
+    const row = map.get(cycleOf(t.date));
     if (!row) continue;
     if (t.type === 'credit') row.income += t.amount;
     else row.spending += t.amount;
@@ -92,10 +94,19 @@ export function windowSummary(transactions: Transaction[], w: Window): Summary {
   return { income, spending, net, savingsRate: income > 0 ? Math.round((net / income) * 100) : null };
 }
 
-/** Percent change from `before` to `now`; null when there is nothing to compare against. */
+/** Below this the "before" figure is too small for a percentage to mean anything (RM 3 -> RM 120 is not "+3900%"). */
+export const MIN_COMPARE_BASE = 10;
+
+/** Percent change from `before` to `now`; null when there is nothing meaningful to compare against. */
 export function pctChange(now: number, before: number): number | null {
-  if (before <= 0) return null;
+  if (before < MIN_COMPARE_BASE) return null;
   return Math.round(((now - before) / before) * 100);
+}
+
+/** Percent text that never runs away: anything beyond 999 reads as "999%+". */
+export function formatPct(n: number): string {
+  const a = Math.abs(Math.round(n));
+  return a > 999 ? '999%+' : `${a}%`;
 }
 
 export type SubRow = { name: string; total: number };

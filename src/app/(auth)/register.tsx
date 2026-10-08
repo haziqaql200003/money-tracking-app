@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth-field';
+import { SocialButtons } from '@/components/social-buttons';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -129,6 +130,8 @@ export default function RegisterScreen() {
                 {busy ? t('auth.register.wait') : t('auth.register.submit')}
               </ThemedText>
             </Pressable>
+
+            <SocialButtons onError={setError} />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

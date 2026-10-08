@@ -202,4 +202,34 @@ await test('adoptAll downloads everything but skips unsent edits', async () => {
   assert.equal(phone.data.get('b'), 'mine');
 });
 
+await test('a never-synced phone copy is kept aside when the cloud replaces it', async () => {
+  const cloud = makeCloud();
+  await cloud.store.push('plan_goals', []);
+  const phone = makePhone();
+  await phone.store.write('plan_goals', [{ id: 'g1' }]); // value but no meta
+  const r = await reconcile(phone.store, cloud.store, 'plan_goals');
+  assert.deepEqual(r.value, []);
+  assert.deepEqual(phone.data.get('plan_goals.bak'), [{ id: 'g1' }]);
+});
+
+await test('a normal newer cloud copy does not leave a backup', async () => {
+  const cloud = makeCloud();
+  const phone = makePhone();
+  await phone.store.write('k', 'old');
+  const stamp = await cloud.store.push('k', 'old');
+  await phone.store.writeMeta('k', { base: stamp, dirty: false, editedAt: stamp });
+  await cloud.store.push('k', 'new');
+  const r = await reconcile(phone.store, cloud.store, 'k');
+  assert.equal(r.value, 'new');
+  assert.equal(phone.data.has('k.bak'), false);
+});
+
+await test('adoptAll keeps a never-synced phone copy aside', async () => {
+  const phone = makePhone();
+  await phone.store.write('a', 'mine');
+  await adoptAll(phone.store, [{ key: 'a', value: 'theirs', updatedAt: '2026-01-01T00:00:00.000Z' }]);
+  assert.equal(phone.data.get('a'), 'theirs');
+  assert.equal(phone.data.get('a.bak'), 'mine');
+});
+
 console.log(process.exitCode ? '\nSync self-test FAILED' : `\nSync self-test OK (${passed} tests)`);

@@ -9,6 +9,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { formatMoney } from '@/utils/currency';
 import { useT } from '@/i18n';
 import { accountName, categoryName, subcategoryName } from '@/i18n/data';
+import { isDebtEntry, isLinkedEntry, savedTransferId } from '@/utils/saved';
 
 type Props = {
   item: Transaction;
@@ -23,10 +24,13 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { getCategory } = useCategories();
   const category = getCategory(item.categoryId);
-  const { accounts } = useTransactions();
+  const { accounts, transfers } = useTransactions();
   const account = accounts.find((a) => a.id === item.accountId);
+  const saved = isLinkedEntry(item);
+  const savedTransfer = saved ? transfers.find((tr) => tr.id === savedTransferId(item)) : undefined;
+  const toAccount = accounts.find((a) => a.id === savedTransfer?.toAccountId);
 
-  const amountColor = item.type === 'debit' ? colors.negative : colors.positive;
+  const amountColor = saved ? (isDebtEntry(item) ? colors.textSecondary : colors.accent) : item.type === 'debit' ? colors.negative : colors.positive;
   const subtitle = (item.subcategory ? subcategoryName(item.subcategory) : '') ||
     (category ? categoryName(category) : '') ||
     t('home.row.uncategorized');
@@ -40,17 +44,17 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
       <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} />
 
       <View style={styles.details}>
-        <ThemedText numberOfLines={1}>{item.title}</ThemedText>
+        <ThemedText numberOfLines={1}>{item.title || (saved ? t(isDebtEntry(item) ? 'tx.saved.debtTitle' : 'tx.saved.rowTitle') : '')}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
           {subtitle}
-          {showAccount && account ? ` · ${accountName(account)}` : ''}
+          {saved && account && toAccount ? ` · ${t('tx.saved.rowSub', { from: accountName(account), to: accountName(toAccount) })}` : showAccount && account ? ` · ${accountName(account)}` : ''}
           {item.items && item.items.length > 0 ? ` · ${tp('home.row.items', item.items.length)}` : ''}
           {item.recurringId ? ` · ${t('home.row.recurring')}` : ''}
         </ThemedText>
       </View>
 
       <ThemedText style={{ color: amountColor, fontWeight: '700' }}>
-        {hidden ? 'RM ••••' : formatMoney(item.amount, { signed: true, type: item.type })}
+        {hidden ? 'RM ••••' : saved ? formatMoney(item.amount) : formatMoney(item.amount, { signed: true, type: item.type })}
       </ThemedText>
     </Pressable>
   );

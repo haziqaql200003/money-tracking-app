@@ -12,6 +12,7 @@ export const msHome: Record<keyof typeof enHome, string> = {
   'home.carousel.accountCount.other': '{count} akaun',
   'home.carousel.type.bank': 'Bank',
   'home.carousel.type.cash': 'Tunai',
+  'home.carousel.type.savings': 'Tabung',
   'home.carousel.type.other': 'Lain-lain',
   'home.carousel.addTitle': 'Tambah akaun baharu',
   'home.carousel.addHint': 'Bank, tunai, e-dompet atau simpanan. Jejaki setiap satu secara berasingan.',

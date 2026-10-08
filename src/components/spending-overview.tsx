@@ -11,6 +11,7 @@ import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
+import { formatPct, MIN_COMPARE_BASE } from '@/utils/insights';
 import { useSettings } from '@/context/SettingsContext';
 import { useT, type TKey } from '@/i18n';
 
@@ -64,7 +65,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
   if (period === 'week') {
     const previous = getWeekChartData(weekOffset - 1, accountId).slice(0, elapsed.length);
     const previousTotal = sum(previous);
-    if (previousTotal > 0) deltaPercent = ((total - previousTotal) / previousTotal) * 100;
+    if (previousTotal >= MIN_COMPARE_BASE) deltaPercent = ((total - previousTotal) / previousTotal) * 100;
   }
 
   const currentYear = new Date().getFullYear();
@@ -116,7 +117,7 @@ export function SpendingOverview({ accountId, accountName }: Props) {
           {deltaPercent !== null && (
             <View style={[styles.deltaPill, { backgroundColor: colors.background }]}>
               <ThemedText type="small" style={[styles.deltaText, { color: deltaColor }]}>
-                {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {Math.abs(Math.round(deltaPercent))}%
+                {up ? '▲' : deltaPercent < 0 ? '▼' : '•'} {formatPct(deltaPercent)}
               </ThemedText>
               <ThemedText type="small" style={[styles.deltaCaption, { color: colors.textSecondary }]}>
                 {t('home.overview.vsPriorWeek')}

@@ -10,13 +10,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
-import type { RecurringAmountMode, RecurringFrequency, RecurringRule, TransactionType } from '@/context/TransactionsContext';
+import type { Account, RecurringAmountMode, RecurringFrequency, RecurringRule, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { accountName, categoryName, subcategoryName } from '@/i18n/data';
 import { toDateKey } from '@/utils/dates';
-import { FREQUENCIES, materializeRecurring } from '@/utils/recurring';
+import { FREQUENCIES, isTransfer, materializeRecurring } from '@/utils/recurring';
 
 type Props = {
   visible: boolean;
@@ -59,10 +59,37 @@ export function RecurringModal({ visible, onClose, editing }: Props) {
   );
 }
 
+type Kind = TransactionType | 'transfer';
+
+function AccountChips({ accounts, selectedId, accent, onSelect }: { accounts: Account[]; selectedId: string; accent: string; onSelect: (id: string) => void }) {
+  const colors = useTheme();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+      {accounts.map((acc) => {
+        const on = selectedId === acc.id;
+        return (
+          <Pressable
+            key={acc.id}
+            style={[styles.chip, { backgroundColor: on ? accent : colors.backgroundElement, borderColor: on ? accent : colors.divider }]}
+            onPress={() => onSelect(acc.id)}
+          >
+            <View style={styles.chipInner}>
+              <Ionicons name={acc.icon} size={15} color={on ? '#fff' : colors.text} />
+              <ThemedText type="small" style={on ? styles.chipTextActive : { color: colors.text }}>
+                {accountName(acc)}
+              </ThemedText>
+            </View>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; onDone: () => void }) {
   const colors = useTheme();
   const { t, tp } = useT();
-  const { accounts, addRecurring, updateRecurring, deleteRecurring, setRecurringActive } = useTransactions();
+  const { selectableAccounts: accounts, addRecurring, updateRecurring, deleteRecurring, setRecurringActive } = useTransactions();
   const { expenseCategories, incomeCategories, getCategory } = useCategories();
 
   const initialType: TransactionType = editing?.type ?? 'debit';
@@ -72,7 +99,11 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
   const [title, setTitle] = useState(editing?.title ?? '');
   const [amount, setAmount] = useState(editing && editing.amount > 0 ? String(editing.amount) : '');
   const [mode, setMode] = useState<RecurringAmountMode>(editing?.amountMode ?? 'fixed');
+  const [transfer, setTransfer] = useState(editing ? isTransfer(editing) : false);
   const [accountId, setAccountId] = useState(editing?.accountId ?? accounts[0]?.id ?? '');
+  const [toAccountId, setToAccountId] = useState(
+    editing?.toAccountId ?? accounts.find((a) => a.id !== (editing?.accountId ?? accounts[0]?.id))?.id ?? '',
+  );
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? firstCategory?.id ?? '');
   const [subcategory, setSubcategory] = useState(editing?.subcategory ?? firstCategory?.subcategories[0] ?? '');
   const [frequency, setFrequency] = useState<RecurringFrequency>(editing?.frequency ?? 'monthly');
@@ -84,14 +115,15 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
 
   const visibleCategories = type === 'credit' ? incomeCategories : expenseCategories;
   const selectedCategory = getCategory(categoryId) ?? visibleCategories[0];
-  const typeAccent = type === 'debit' ? colors.negative : colors.positive;
+  const typeAccent = transfer ? colors.accent : type === 'debit' ? colors.negative : colors.positive;
 
   const asking = mode === 'ask';
   const parsed = parseFloat(amount.replace(',', '.'));
   // 'ask' rules only need an EXPECTED amount, and it may be left empty (the real amount comes later).
   const amountValid = asking ? amount.trim() === '' || (Number.isFinite(parsed) && parsed > 0) : Number.isFinite(parsed) && parsed > 0;
   const endValid = !hasEnd || endDate >= date;
-  const canSave = amountValid && endValid && !!accountId && !!selectedCategory;
+  const canSave =
+    amountValid && endValid && !!accountId && (transfer ? accounts.length >= 2 && !!toAccountId && toAccountId !== accountId : !!selectedCategory);
 
   // How many entries would appear straight away (a start date in the past back-fills up to today):
   // recorded transactions for fixed rules, or entries waiting for confirmation for 'ask' rules.
@@ -102,6 +134,8 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       amount: 1,
       amountMode: mode,
       type,
+      kind: transfer ? 'transfer' : undefined,
+      toAccountId: transfer ? toAccountId : undefined,
       categoryId,
       subcategory,
       accountId,
@@ -112,8 +146,27 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       active: true,
     };
     const result = materializeRecurring([preview], [], toDateKey(new Date()));
-    return mode === 'ask' ? result.pending.length : result.created.length;
-  }, [mode, type, categoryId, subcategory, accountId, frequency, date, hasEnd, endDate]);
+    return mode === 'ask' ? result.pending.length : transfer ? result.transfers.length : result.created.length;
+  }, [mode, type, transfer, toAccountId, categoryId, subcategory, accountId, frequency, date, hasEnd, endDate]);
+
+  function changeKind(next: Kind) {
+    if (next === 'transfer') {
+      setTransfer(true);
+      return;
+    }
+    setTransfer(false);
+    changeType(next);
+  }
+
+  // Picking the account that is already on the other side swaps them, so the form can never be invalid.
+  function pickFrom(id: string) {
+    if (id === toAccountId) setToAccountId(accountId);
+    setAccountId(id);
+  }
+  function pickTo(id: string) {
+    if (id === accountId) setAccountId(toAccountId);
+    setToAccountId(id);
+  }
 
   function changeType(next: TransactionType) {
     setType(next);
@@ -137,19 +190,40 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
   }
 
   function save() {
-    if (!canSave || !selectedCategory) return;
+    if (!canSave) return;
     const rounded = Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
-    const base = {
-      title: title.trim() || (subcategory ? subcategoryName(subcategory) : categoryName(selectedCategory)),
-      amount: rounded,
-      amountMode: mode,
-      type,
-      categoryId: selectedCategory.id,
-      subcategory,
-      accountId,
-      frequency,
-      endDate: hasEnd ? endDate : undefined,
-    };
+    const fromAcc = accounts.find((a) => a.id === accountId);
+    const toAcc = accounts.find((a) => a.id === toAccountId);
+    const base = transfer
+      ? {
+          title: title.trim() || (fromAcc && toAcc ? `${accountName(fromAcc)} → ${accountName(toAcc)}` : t('common.transfer')),
+          amount: rounded,
+          amountMode: mode,
+          kind: 'transfer' as const,
+          type: 'debit' as const, // unused for transfers; kept so older code never meets a missing field
+          categoryId: '',
+          subcategory: '',
+          accountId,
+          toAccountId,
+          frequency,
+          endDate: hasEnd ? endDate : undefined,
+        }
+      : selectedCategory
+        ? {
+            title: title.trim() || (subcategory ? subcategoryName(subcategory) : categoryName(selectedCategory)),
+            amount: rounded,
+            amountMode: mode,
+            kind: undefined,
+            toAccountId: undefined,
+            type,
+            categoryId: selectedCategory.id,
+            subcategory,
+            accountId,
+            frequency,
+            endDate: hasEnd ? endDate : undefined,
+          }
+        : null;
+    if (!base) return;
 
     if (editing) {
       // The "day of month" anchor only changes when the schedule itself is moved.
@@ -185,9 +259,10 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
           options={[
             { key: 'debit', label: t('common.expense'), color: colors.negative },
             { key: 'credit', label: t('common.income'), color: colors.positive },
+            { key: 'transfer', label: t('common.transfer'), color: colors.accent },
           ]}
-          value={type}
-          onChange={changeType}
+          value={(transfer ? 'transfer' : type) as Kind}
+          onChange={changeKind}
         />
       </View>
 
@@ -206,9 +281,13 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
         />
       </View>
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
-        {asking
-          ? t('tx.rec.hintAsk')
-          : t('tx.rec.hintFixed')}
+        {transfer
+          ? asking
+            ? t('tx.rec.hintAskTransfer')
+            : t('tx.rec.hintFixedTransfer')
+          : asking
+            ? t('tx.rec.hintAsk')
+            : t('tx.rec.hintFixed')}
       </ThemedText>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
@@ -229,7 +308,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-        placeholder={t('tx.rec.titlePlaceholder')}
+        placeholder={transfer ? t('tx.rec.titlePlaceholderTransfer') : t('tx.rec.titlePlaceholder')}
         placeholderTextColor={colors.textSecondary}
         value={title}
         onChangeText={setTitle}
@@ -265,7 +344,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       <DateField value={date} onChange={setDate} accent={typeAccent} />
       {backfill > 0 ? (
         <ThemedText type="small" style={{ color: backfill > 12 ? colors.negative : colors.textSecondary, marginTop: Spacing.one }}>
-          {asking ? tp('tx.rec.backfillAsk', backfill) : tp('tx.rec.backfillRecord', backfill)}
+          {asking ? tp('tx.rec.backfillAsk', backfill) : tp(transfer ? 'tx.rec.backfillTransfer' : 'tx.rec.backfillRecord', backfill)}
         </ThemedText>
       ) : null}
 
@@ -290,30 +369,39 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
         </View>
       ) : null}
 
-      {/* Account */}
-      <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {t('common.account')}
-      </ThemedText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-        {accounts.map((acc) => {
-          const on = accountId === acc.id;
-          return (
-            <Pressable
-              key={acc.id}
-              style={[styles.chip, { backgroundColor: on ? typeAccent : colors.backgroundElement, borderColor: on ? typeAccent : colors.divider }]}
-              onPress={() => setAccountId(acc.id)}
-            >
-              <View style={styles.chipInner}>
-                <Ionicons name={acc.icon} size={15} color={on ? '#fff' : colors.text} />
-                <ThemedText type="small" style={on ? styles.chipTextActive : { color: colors.text }}>
-                  {accountName(acc)}
-                </ThemedText>
-              </View>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* Account(s) */}
+      {transfer ? (
+        accounts.length < 2 ? (
+          <View style={[styles.info, { backgroundColor: colors.backgroundElement }]}>
+            <Ionicons name="swap-horizontal" size={28} color={colors.textSecondary} />
+            <ThemedText type="smallBold">{t('tx.transfer.needAccountTitle')}</ThemedText>
+            <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
+              {t('tx.transfer.needAccountBody')}
+            </ThemedText>
+          </View>
+        ) : (
+          <>
+            <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
+              {t('tx.rec.fromAccount')}
+            </ThemedText>
+            <AccountChips accounts={accounts} selectedId={accountId} accent={typeAccent} onSelect={pickFrom} />
+            <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
+              {t('tx.rec.toAccount')}
+            </ThemedText>
+            <AccountChips accounts={accounts} selectedId={toAccountId} accent={typeAccent} onSelect={pickTo} />
+          </>
+        )
+      ) : (
+        <>
+          <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
+            {t('common.account')}
+          </ThemedText>
+          <AccountChips accounts={accounts} selectedId={accountId} accent={typeAccent} onSelect={setAccountId} />
+        </>
+      )}
 
+      {transfer ? null : (
+        <>
       {/* Category */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('common.category')}
@@ -361,6 +449,8 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
           </View>
         </>
       ) : null}
+        </>
+      )}
 
       {/* Pause */}
       {editing ? (
@@ -444,4 +534,5 @@ const styles = StyleSheet.create({
   saveButton: { padding: 16, borderRadius: 14, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   removeButton: { padding: 14, alignItems: 'center' },
+  info: { alignItems: 'center', gap: Spacing.two, borderRadius: 16, padding: Spacing.four, marginTop: Spacing.three },
 });

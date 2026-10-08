@@ -16,6 +16,7 @@ import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel } from '@/utils/dates';
+import { isTransfer } from '@/utils/recurring';
 
 type Props = {
   /** The entry being confirmed. null = closed. */
@@ -82,7 +83,9 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
 
   const category = getCategory(rule.categoryId);
   const account = accounts.find((a) => a.id === rule.accountId);
-  const income = rule.type === 'credit';
+  const transfer = isTransfer(rule);
+  const toAccount = accounts.find((a) => a.id === rule.toAccountId);
+  const income = !transfer && rule.type === 'credit';
   const parsed = parseFloat(amount.replace(',', '.'));
   const valid = Number.isFinite(parsed) && parsed > 0;
 
@@ -109,16 +112,24 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
   return (
     <View>
       <View style={styles.summary}>
-        <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={56} />
+        {transfer ? (
+          <CategoryIcon icon="swap-horizontal" color={colors.accent} size={56} />
+        ) : (
+          <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={56} />
+        )}
         <ThemedText style={styles.title}>{rule.title}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }}>
           {t('tx.confirm.due', { date: dayLabel(entry.date) })}
-          {account ? ` · ${accountName(account)}` : ''}
+          {transfer
+            ? ` · ${account ? accountName(account) : '?'} → ${toAccount ? accountName(toAccount) : '?'}`
+            : account
+              ? ` · ${accountName(account)}`
+              : ''}
         </ThemedText>
       </View>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {income ? t('tx.confirm.amountReceived') : t('tx.confirm.amountPaid')}
+        {transfer ? t('tx.confirm.amountMoved') : income ? t('tx.confirm.amountReceived') : t('tx.confirm.amountPaid')}
       </ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
@@ -131,14 +142,12 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
         accessibilityLabel={t('tx.confirm.amountA11y')}
       />
       <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
-        {income
-          ? t('tx.confirm.hintIncome')
-          : t('tx.confirm.hintExpense')}
+        {transfer ? t('tx.confirm.hintTransfer') : income ? t('tx.confirm.hintIncome') : t('tx.confirm.hintExpense')}
         {rule.amount > 0 ? ` ${t('tx.confirm.expected', { amount: formatMoney(rule.amount) })}` : ''}
       </ThemedText>
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {income ? t('tx.confirm.dateReceived') : t('tx.confirm.datePaid')}
+        {transfer ? t('tx.confirm.dateMoved') : income ? t('tx.confirm.dateReceived') : t('tx.confirm.datePaid')}
       </ThemedText>
       <DateField value={date} onChange={setDate} showQuick maxToday />
 

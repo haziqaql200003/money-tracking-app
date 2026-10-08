@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AccountModal } from '@/components/account-modal';
 import { isLightColor } from '@/constants/card-styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,6 +10,7 @@ import type { IconName } from '@/constants/categories';
 import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useDebts } from '@/context/DebtsContext';
 import { usePlan } from '@/context/PlanContext';
 import { useProfile } from '@/context/ProfileContext';
 import { useSettings } from '@/context/SettingsContext';
@@ -19,7 +18,8 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { budgetStatus, spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
-import { monthKeyFromOffset } from '@/utils/dates';
+import { daysToPayday, usesCalendarMonths } from '@/utils/cycle';
+import { monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { useT } from '@/i18n';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { useUpdates } from '@/context/UpdatesContext';
@@ -27,22 +27,22 @@ import { useUpdates } from '@/context/UpdatesContext';
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
   const router = useRouter();
   const { displayName, avatarColor } = useProfile();
-  const { transactions, recurringRules, pendingEntries, accountBalances } = useTransactions();
+  const { budgetEntries, recurringRules, pendingEntries, accountBalances } = useTransactions();
   const { goals } = usePlan();
+  const { debts } = useDebts();
   const { categories, expenseCategories } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
-  const [profileVisible, setProfileVisible] = useState(false);
   const { hasUnseenUpdate } = useUpdates();
 
-  const spent = spentByCategory(transactions, monthKeyFromOffset(0));
+  const spent = spentByCategory(budgetEntries, monthKeyFromOffset(0));
   const budgeted = expenseCategories.filter((c) => c.monthlyLimit > 0);
   const totalLimit = budgeted.reduce((sum, c) => sum + c.monthlyLimit, 0);
   const totalSpent = budgeted.reduce((sum, c) => sum + (spent.get(c.id) ?? 0), 0);
@@ -92,6 +92,13 @@ export default function MoreScreen() {
       badge: pendingEntries.length > 0,
     },
     {
+      icon: 'card-outline',
+      label: t('more.index.menu.debts'),
+      subtitle: debts.length > 0 ? tp('more.index.debts.sub', debts.length) : t('more.index.debts.empty'),
+      tint: '#F97316',
+      href: '/more/debts',
+    },
+    {
       icon: 'pricetags-outline',
       label: t('more.index.menu.categories'),
       subtitle: tp('more.index.categories.sub', categories.length),
@@ -128,7 +135,7 @@ export default function MoreScreen() {
           {/* Profile */}
           <Pressable
             style={[styles.card, styles.profileRow, { backgroundColor: colors.backgroundElement }]}
-            onPress={() => setProfileVisible(true)}
+            onPress={() => router.push('/more/profile')}
           >
             <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
               <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
@@ -186,6 +193,7 @@ export default function MoreScreen() {
                 </View>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
                   {t('more.index.budget.spentOf', { spent: money(totalSpent), total: money(totalLimit) })}
+                  {!usesCalendarMonths() ? ` · ${tp('more.index.budget.payday', daysToPayday(toDateKey(new Date())))}` : ''}
                 </ThemedText>
               </>
             ) : (
@@ -231,11 +239,10 @@ export default function MoreScreen() {
           </View>
 
           <ThemedText type="small" style={[styles.about, { color: colors.textSecondary }]}>
-            {t('more.index.about')}
+            {t('more.index.about', { version: CURRENT_VERSION })}
           </ThemedText>
         </ScrollView>
 
-        <AccountModal visible={profileVisible} onClose={() => setProfileVisible(false)} />
       </SafeAreaView>
     </ThemedView>
   );
@@ -268,4 +275,4 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderWidth: 1.5 },
   bannerIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-});
+});

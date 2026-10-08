@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BudgetLimitModal } from '@/components/budget-limit-modal';
 import { CategoryIcon } from '@/components/category-icon';
 import { MonthSwitcher } from '@/components/month-switcher';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -20,7 +21,8 @@ import { useT, type TKey } from '@/i18n';
 import { categoryName } from '@/i18n/data';
 import { budgetStatus, spentByCategory, type BudgetStatus } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
-import { monthKeyFromOffset, monthLabel } from '@/utils/dates';
+import { cycleInfo, cycleOf } from '@/utils/cycle';
+import { cycleRangeLabel, monthKeyFromOffset, monthLabel, toDateKey } from '@/utils/dates';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
@@ -48,7 +50,7 @@ function Bar({ ratio, color, track, height = 8 }: { ratio: number; color: string
 export default function BudgetsScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
-  const { transactions } = useTransactions();
+  const { transactions, budgetEntries, ready } = useTransactions();
   const { expenseCategories, updateCategory } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
@@ -61,12 +63,12 @@ export default function BudgetsScreen() {
   const isCurrent = monthOffset === 0;
 
   const earliestKey = useMemo(
-    () => transactions.reduce((min, t) => (t.date.slice(0, 7) < min ? t.date.slice(0, 7) : min), currentKey),
+    () => transactions.reduce((min, t) => (cycleOf(t.date) < min ? cycleOf(t.date) : min), currentKey),
     [transactions, currentKey],
   );
   const canPrev = monthKey > earliestKey;
 
-  const spent = useMemo(() => spentByCategory(transactions, monthKey), [transactions, monthKey]);
+  const spent = useMemo(() => spentByCategory(budgetEntries, monthKey), [budgetEntries, monthKey]);
 
   const budgeted = expenseCategories
     .filter((c) => c.monthlyLimit > 0)
@@ -82,10 +84,10 @@ export default function BudgetsScreen() {
   const totalStatus = budgetStatus(totalSpent, totalLimit, warnPercent);
 
   // Pacing (current month only)
-  const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const today = now.getDate();
-  const daysLeft = daysInMonth - today + 1;
+  const cycle = cycleInfo(toDateKey(new Date()));
+  const daysInMonth = cycle.length;
+  const today = cycle.dayIndex;
+  const daysLeft = cycle.daysAfterToday + 1;
   const daily = isCurrent && remaining > 0 ? remaining / daysLeft : 0;
   const projected = isCurrent && today >= 3 ? (totalSpent / today) * daysInMonth : 0;
   const projectedOver = totalLimit > 0 && projected > totalLimit && totalSpent <= totalLimit;
@@ -94,7 +96,7 @@ export default function BudgetsScreen() {
   const statusColor = (s: BudgetStatus) => (s === 'over' ? colors.negative : s === 'warn' ? WARN_COLOR : colors.positive);
 
   function suggest() {
-    const past = [-1, -2, -3].map((o) => spentByCategory(transactions, monthKeyFromOffset(o)));
+    const past = [-1, -2, -3].map((o) => spentByCategory(budgetEntries, monthKeyFromOffset(o)));
     const suggestions = unbudgeted
       .map((cat) => {
         const months = past.map((m) => m.get(cat.id) ?? 0).filter((v) => v > 0);
@@ -142,10 +144,13 @@ export default function BudgetsScreen() {
               ) : null
             }
           />
+          {!(ready) ? <ScreenSkeleton variant="cards" /> : (
+          <>
 
           {/* Month switcher */}
           <MonthSwitcher
             label={monthLabel(monthKey)}
+            range={cycleRangeLabel(monthKey)}
             isCurrent={isCurrent}
             canPrev={canPrev}
             canNext={!isCurrent}
@@ -325,6 +330,8 @@ export default function BudgetsScreen() {
           <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary, textAlign: 'center' }]}>
             {t('plan.budget.footnote')}
           </ThemedText>
+          </>
+          )}
         </ScrollView>
 
         <BudgetLimitModal
@@ -375,4 +382,4 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
-});
+});

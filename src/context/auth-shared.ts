@@ -26,6 +26,10 @@ export type StoredUser = {
 };
 
 export type AuthUser = Omit<StoredUser, 'passwordHash' | 'salt'>;
+export type SocialProvider = 'google' | 'apple';
+/** A sign-in method attached to the account. */
+export type LinkedLogin = { provider: SocialProvider | 'email'; email?: string };
+
 export type ProfilePatch = Partial<Pick<AuthUser, 'displayName' | 'avatarColor' | 'language' | 'goal' | 'hasOnboarded'>>;
 
 /** `needsCode`: the server e-mailed a 6-digit code that must be entered before the account is active. */
@@ -51,6 +55,21 @@ export type AuthContextValue = {
   signOut: () => void;
   updateProfile: (patch: ProfilePatch) => void;
   deleteAccount: () => Promise<Result>;
+  /** Checks the current password, then sets a new one. */
+  changePassword: (current: string, next: string) => Promise<Result>;
+  /** Cloud only: ends the sign-in on every other device and keeps this one. */
+  signOutOthers: () => Promise<Result>;
+  /** Cloud only. An empty `error` means the person closed the sheet, so nothing should be shown. */
+  signInWithProvider: (provider: SocialProvider) => Promise<Result>;
+  /** Adds Google / Apple to the account that is signed in now. */
+  linkProvider: (provider: SocialProvider) => Promise<Result>;
+  unlinkProvider: (provider: SocialProvider) => Promise<Result>;
+  /** Every way this account can sign in. */
+  getLogins: () => Promise<LinkedLogin[]>;
+  /** False for an account that only ever signed in with Google / Apple. */
+  hasPassword: () => Promise<boolean>;
+  /** Records the Privacy Notice consent for an account that started with Google / Apple. */
+  acceptConsent: () => Promise<Result>;
 
   // cloud only (the local provider answers with an error)
   verifyCode: (email: string, code: string) => Promise<Result>;

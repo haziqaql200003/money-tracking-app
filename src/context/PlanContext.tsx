@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
+import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -20,7 +21,7 @@ import {
 } from '@/services/notifications';
 import { formatMoney } from '@/utils/currency';
 import { monthKeyFromOffset, toDateKey } from '@/utils/dates';
-import { goalSaved, type GoalEntry, type SavingsGoal } from '@/utils/goals';
+import { goalSaved, transferEntries, type GoalEntry, type SavingsGoal } from '@/utils/goals';
 import {
   budgetAlertsToSend,
   buildReminders,
@@ -35,7 +36,21 @@ type PlanContextValue = {
 
   goals: SavingsGoal[];
   goalEntries: GoalEntry[];
-  addGoal: (g: Omit<SavingsGoal, 'id' | 'createdAt'>) => void;
+  /** Returns the new goal's id. */
+  addGoal: (g: Omit<SavingsGoal, 'id' | 'createdAt'>) => string;
+  /** Moves a goal up (-1) or down (1) in the priority order. */
+  moveGoal: (id: string, direction: -1 | 1) => void;
+  /**
+   * Makes, changes or removes the monthly transfer that saves toward a goal. `cfg` null removes it.
+   * The transfer shows up in Recurring and counts toward the goal each time it happens.
+   */
+  setGoalAutoSave: (args: {
+    goalId: string;
+    name: string;
+    monthly: number;
+    recurringId?: string;
+    cfg: { fromAccountId: string; toAccountId: string; firstDate: string } | null;
+  }) => void;
   updateGoal: (id: string, patch: Partial<Omit<SavingsGoal, 'id'>>) => void;
   /** Also removes the goal's history. */
   deleteGoal: (id: string) => void;
@@ -66,7 +81,17 @@ const newId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toStr
 export function PlanProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const { ready: txReady, transactions, recurringRules } = useTransactions();
+  const { ready: txReady, recurringRules, budgetEntries, accountBalance, transfers, addRecurring, updateRecurring, deleteRecurring, setRecurringActive } = useTransactions();
+  const { debts } = useDebts();
+  // Amount used on each credit line, kept as a string so the reminder plan only reruns when a figure really changes.
+  const creditUsedKey = debts
+    .filter((d) => d.kind === 'credit')
+    .map((d) => `${d.id}:${Math.max(0, -accountBalance(d.accountId))}`)
+    .join('|');
+  const creditUsed = useMemo(
+    () => Object.fromEntries(creditUsedKey.split('|').filter(Boolean).map((p) => [p.slice(0, p.lastIndexOf(':')), Number(p.slice(p.lastIndexOf(':') + 1))])),
+    [creditUsedKey],
+  );
   const { expenseCategories } = useCategories();
   const { warnPercent } = useSettings();
   const { hideAmounts } = usePrivacy();
@@ -74,7 +99,33 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const { lang } = useT();
 
   const [goals, setGoals, goalsReady] = usePersistedState<SavingsGoal[]>('plan_goals', NO_GOALS, userId);
-  const [goalEntries, setGoalEntries, entriesReady] = usePersistedState<GoalEntry[]>('plan_goal_entries', NO_ENTRIES, userId);
+  const [manualEntries, setGoalEntries, entriesReady] = usePersistedState<GoalEntry[]>('plan_goal_entries', NO_ENTRIES, userId);
+  // Transfers made to a goal count as saved, so the list a screen sees is manual entries plus those.
+  // Goals that follow their account's balance get one extra entry that tops the total up to that balance.
+  const balanceKey = goals
+    .filter((g) => g.useBalance && g.accountId)
+    .map((g) => `${g.id}~${g.createdAt}~${Math.max(0, accountBalance(g.accountId as string))}`)
+    .join('|');
+  const startKey = goals
+    .filter((g) => (g.startAmount ?? 0) > 0)
+    .map((g) => `${g.id}~${g.createdAt}~${g.startAmount}`)
+    .join('|');
+  const goalEntries = useMemo(() => {
+    const base = [...manualEntries, ...transferEntries(transfers)];
+    const extra: GoalEntry[] = [];
+    for (const p of startKey.split('|').filter(Boolean)) {
+      const [id, createdAt, amt] = p.split('~');
+      base.push({ id: `st:${id}`, goalId: id, amount: Number(amt), date: createdAt, fromTransfer: true });
+    }
+    for (const p of balanceKey.split('|').filter(Boolean)) {
+      const [id, createdAt, bal] = p.split('~');
+      const balance = Number(bal);
+      const have = base.filter((e) => e.goalId === id).reduce((s, e) => s + e.amount, 0);
+      const gap = Math.round((balance - have) * 100) / 100;
+      if (gap !== 0) extra.push({ id: `bal:${id}`, goalId: id, amount: gap, date: createdAt, fromTransfer: true });
+    }
+    return [...base, ...extra];
+  }, [manualEntries, transfers, balanceKey, startKey]);
   const [reminderPrefs, setReminderPrefs, prefsReady] = usePersistedState<ReminderPrefs>('plan_reminders', DEFAULT_REMINDER_PREFS, userId);
   const [sentAlerts, setSentAlerts, alertsReady] = usePersistedState<string[]>('plan_alerts_sent', NO_KEYS, userId);
 
@@ -125,13 +176,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       }
       if (cancelled) return;
       await replaceScheduled(
-        buildReminders({ rules: recurringRules, now: new Date(), todayKey, daysBefore: reminderPrefs.daysBefore, money }),
+        buildReminders({ rules: recurringRules, now: new Date(), todayKey, daysBefore: reminderPrefs.daysBefore, money, debts, creditUsed, goals, goalEntries }),
       );
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, recurringRules, todayKey, money, foregroundTick, lang]);
+  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, recurringRules, debts, creditUsed, goals, goalEntries, todayKey, money, foregroundTick, lang]);
 
   // --- budget alerts: when a category reaches its warning level or goes over, tell the user once ---
   const monthKey = monthKeyFromOffset(0);
@@ -139,7 +190,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     if (!ready || !txReady || !reminderPrefs.enabled || !reminderPrefs.budgetAlerts || permission !== 'granted') return;
     const sent = new Set(sentAlerts);
     for (const k of inFlightAlerts.current) sent.add(k);
-    const alerts = budgetAlertsToSend({ transactions, monthKey, warnPercent, budgets, sent, money });
+    const alerts = budgetAlertsToSend({ transactions: budgetEntries, monthKey, warnPercent, budgets, sent, money });
     if (alerts.length === 0) return;
 
     // Remember them straight away so a quick re-render can never announce the same thing twice.
@@ -153,30 +204,86 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       });
       for (const a of alerts) inFlightAlerts.current.delete(a.key);
     })();
-  }, [ready, txReady, reminderPrefs.enabled, reminderPrefs.budgetAlerts, permission, transactions, monthKey, warnPercent, budgets, sentAlerts, money, setSentAlerts]);
+  }, [ready, txReady, reminderPrefs.enabled, reminderPrefs.budgetAlerts, permission, budgetEntries, monthKey, warnPercent, budgets, sentAlerts, money, setSentAlerts]);
 
   /** Marks everything that is already over/near budget as announced, so switching alerts on is not noisy. */
   const seedAlerts = useCallback(() => {
-    const keys = currentAlertKeys({ transactions, monthKey, warnPercent, budgets, sent: new Set(), money });
+    const keys = currentAlertKeys({ transactions: budgetEntries, monthKey, warnPercent, budgets, sent: new Set(), money });
     setSentAlerts((prev) => Array.from(new Set([...prev.filter((k) => k.startsWith(`${monthKey}:`)), ...keys])));
-  }, [transactions, monthKey, warnPercent, budgets, money, setSentAlerts]);
+  }, [budgetEntries, monthKey, warnPercent, budgets, money, setSentAlerts]);
 
   const value = useMemo<PlanContextValue>(
     () => ({
       ready,
       goals,
       goalEntries,
-      addGoal: (g) =>
-        setGoals((prev) => [...prev, { ...g, id: newId('goal'), createdAt: toDateKey(new Date()) }]),
-      updateGoal: (id, patch) => setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g))),
+      addGoal: (g) => {
+        const id = newId('goal');
+        setGoals((prev) => [...prev, { ...g, id, createdAt: toDateKey(new Date()) }]);
+        return id;
+      },
+      moveGoal: (id, direction) =>
+        setGoals((prev) => {
+          const i = prev.findIndex((g) => g.id === id);
+          const j = i + direction;
+          if (i < 0 || j < 0 || j >= prev.length) return prev;
+          const next = [...prev];
+          [next[i], next[j]] = [next[j], next[i]];
+          return next;
+        }),
+      updateGoal: (id, patch) => {
+        const goal = goals.find((g) => g.id === id);
+        setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+        // Keep the monthly transfer in step with the goal.
+        if (goal?.recurringId) {
+          if (patch.paused !== undefined) setRecurringActive(goal.recurringId, !patch.paused);
+          if (patch.name !== undefined || patch.monthly !== undefined) {
+            updateRecurring(goal.recurringId, {
+              ...(patch.name !== undefined ? { title: patch.name } : {}),
+              ...(patch.monthly !== undefined ? { amount: patch.monthly } : {}),
+            });
+          }
+        }
+      },
       deleteGoal: (id) => {
+        const goal = goals.find((g) => g.id === id);
+        if (goal?.recurringId) deleteRecurring(goal.recurringId);
         setGoals((prev) => prev.filter((g) => g.id !== id));
         setGoalEntries((prev) => prev.filter((e) => e.goalId !== id));
+      },
+      setGoalAutoSave: ({ goalId, name, monthly, recurringId, cfg }) => {
+        const exists = !!recurringId && recurringRules.some((r) => r.id === recurringId);
+        if (!cfg) {
+          if (exists && recurringId) deleteRecurring(recurringId);
+          setGoals((prev) => prev.map((g) => (g.id === goalId ? { ...g, recurringId: undefined } : g)));
+          return;
+        }
+        if (exists && recurringId) {
+          updateRecurring(recurringId, { title: name, amount: monthly, accountId: cfg.fromAccountId, toAccountId: cfg.toAccountId });
+          return;
+        }
+        const id = addRecurring({
+          title: name,
+          kind: 'transfer',
+          amount: monthly,
+          amountMode: 'fixed',
+          type: 'debit',
+          categoryId: '',
+          subcategory: '',
+          accountId: cfg.fromAccountId,
+          toAccountId: cfg.toAccountId,
+          frequency: 'monthly',
+          startDate: cfg.firstDate,
+          nextDate: cfg.firstDate,
+          active: true,
+          goalId,
+        });
+        setGoals((prev) => prev.map((g) => (g.id === goalId ? { ...g, recurringId: id } : g)));
       },
       addGoalEntry: (goalId, amount, date, note) =>
         setGoalEntries((prev) => {
           let value = Math.round(amount * 100) / 100;
-          if (value < 0) value = -Math.min(-value, goalSaved(prev, goalId));
+          if (value < 0) value = -Math.min(-value, goalSaved([...prev, ...transferEntries(transfers)], goalId));
           if (value === 0) return prev;
           return [...prev, { id: newId('ge'), goalId, amount: value, date, note: note?.trim() || undefined }];
         }),
@@ -206,7 +313,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         setSentAlerts(NO_KEYS);
       },
     }),
-    [ready, goals, goalEntries, reminderPrefs, permission, seedAlerts, setGoals, setGoalEntries, setReminderPrefs, setSentAlerts],
+    [ready, goals, goalEntries, transfers, recurringRules, addRecurring, updateRecurring, deleteRecurring, setRecurringActive, reminderPrefs, permission, seedAlerts, setGoals, setGoalEntries, setReminderPrefs, setSentAlerts],
   );
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;

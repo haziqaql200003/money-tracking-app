@@ -1,12 +1,13 @@
 import type { Transaction } from '@/context/TransactionsContext';
+import { cycleOf } from '@/utils/cycle';
 
 export type BudgetStatus = 'ok' | 'warn' | 'over';
 
-/** Total spending (debits) per category for a 'YYYY-MM' month. */
+/** Total spending (debits) per category for a 'YYYY-MM' financial month. */
 export function spentByCategory(transactions: Transaction[], monthKey: string) {
   const map = new Map<string, number>();
   transactions.forEach((t) => {
-    if (t.type !== 'debit' || !t.date.startsWith(monthKey)) return;
+    if (t.type !== 'debit' || cycleOf(t.date) !== monthKey) return;
     map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount);
   });
   return map;

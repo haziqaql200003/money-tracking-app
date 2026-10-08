@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { ConfirmPendingModal } from '@/components/confirm-pending-modal';
 import { RecurringModal } from '@/components/recurring-modal';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,22 +15,27 @@ import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { PendingEntry, RecurringRule } from '@/context/TransactionsContext';
+import { usePlan } from '@/context/PlanContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
 import { dayLabel, toDateKey } from '@/utils/dates';
-import { frequencyLabel, isAsk, isEnded, monthlyEquivalent, relativeDay } from '@/utils/recurring';
+import { activeGoals, goalMonthSaved } from '@/utils/goals';
+import { frequencyLabel, isAsk, isEnded, isTransfer, monthlyEquivalent, relativeDay } from '@/utils/recurring';
+import { cycleOf } from '@/utils/cycle';
 
 const MASK = 'RM ••••';
 
 export default function RecurringScreen() {
   const colors = useTheme();
   const { t } = useT();
-  const { recurringRules, accounts, pendingEntries } = useTransactions();
+  const { recurringRules, accounts, pendingEntries, ready } = useTransactions();
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
+  const router = useRouter();
+  const { goals, goalEntries } = usePlan();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<RecurringRule | null>(null);
@@ -42,8 +49,22 @@ export default function RecurringScreen() {
 
   const waiting = [...pendingEntries].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-  const monthlyOut = running.filter((r) => r.type === 'debit').reduce((sum, r) => sum + monthlyEquivalent(r), 0);
-  const monthlyIn = running.filter((r) => r.type === 'credit').reduce((sum, r) => sum + monthlyEquivalent(r), 0);
+  // Transfers only move money between your own accounts, so they are not part of what you owe or earn.
+  const monthlyOut = running.filter((r) => !isTransfer(r) && r.type === 'debit').reduce((sum, r) => sum + monthlyEquivalent(r), 0);
+  const monthlyIn = running.filter((r) => !isTransfer(r) && r.type === 'credit').reduce((sum, r) => sum + monthlyEquivalent(r), 0);
+  const hasTransfers = running.some(isTransfer);
+
+  // Goals with a monthly plan are a commitment too: money you have promised to put aside.
+  const goalPlans = activeGoals(goals, goalEntries).filter((g) => (g.monthly ?? 0) > 0);
+  const goalSaving = goalPlans.reduce((sum, g) => sum + (g.monthly ?? 0), 0);
+  const monthKeyNow = cycleOf(toDateKey(new Date()));
+  // A goal that saves automatically already has its own row below; the others are listed here.
+  const manualGoalPlans = goalPlans.filter((g) => !(g.recurringId && recurringRules.some((r) => r.id === g.recurringId)));
+
+  const accountLabel = (id?: string) => {
+    const a = accounts.find((x) => x.id === id);
+    return a ? accountName(a) : '?';
+  };
 
   function openAdd() {
     setEditing(null);
@@ -64,7 +85,8 @@ export default function RecurringScreen() {
       : !rule.active
         ? t('tx.recurring.paused')
         : t('tx.recurring.next', { when: relativeDay(rule.nextDate, today) });
-    const amountColor = rule.type === 'debit' ? colors.negative : colors.positive;
+    const transfer = isTransfer(rule);
+    const amountColor = transfer ? colors.accent : rule.type === 'debit' ? colors.negative : colors.positive;
     const ask = isAsk(rule);
 
     return (
@@ -77,12 +99,16 @@ export default function RecurringScreen() {
           { opacity: pressed ? 0.6 : dimmed ? 0.55 : 1 },
         ]}
       >
-        <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
+        {transfer ? (
+          <CategoryIcon icon="swap-horizontal" color={colors.accent} size={42} />
+        ) : (
+          <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
+        )}
         <View style={styles.flex}>
           <ThemedText numberOfLines={1}>{rule.title}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
             {frequencyLabel(rule.frequency)} · {status}
-            {account ? ` · ${accountName(account)}` : ''}
+            {transfer ? ` · ${accountLabel(rule.accountId)} → ${accountLabel(rule.toAccountId)}` : account ? ` · ${accountName(account)}` : ''}
             {ask ? ` · ${t('tx.rec.modeAsk')}` : ''}
           </ThemedText>
         </View>
@@ -93,7 +119,9 @@ export default function RecurringScreen() {
               ? rule.amount > 0
                 ? `~${formatMoney(rule.amount)}`
                 : t('tx.recurring.varies')
-              : formatMoney(rule.amount, { signed: true, type: rule.type })}
+              : transfer
+                ? formatMoney(rule.amount)
+                : formatMoney(rule.amount, { signed: true, type: rule.type })}
         </ThemedText>
       </Pressable>
     );
@@ -103,6 +131,7 @@ export default function RecurringScreen() {
     const rule = recurringRules.find((r) => r.id === entry.ruleId);
     if (!rule) return null;
     const category = getCategory(rule.categoryId);
+    const transfer = isTransfer(rule);
     return (
       <Pressable
         key={entry.id}
@@ -113,7 +142,11 @@ export default function RecurringScreen() {
           pressed && { opacity: 0.6 },
         ]}
       >
-        <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
+        {transfer ? (
+          <CategoryIcon icon="swap-horizontal" color={colors.accent} size={42} />
+        ) : (
+          <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
+        )}
         <View style={styles.flex}>
           <ThemedText numberOfLines={1}>{rule.title}</ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
@@ -148,6 +181,8 @@ export default function RecurringScreen() {
               </Pressable>
             }
           />
+          {!(ready) ? <ScreenSkeleton variant="list" /> : (
+          <>
 
           {waiting.length > 0 ? (
             <>
@@ -192,13 +227,22 @@ export default function RecurringScreen() {
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
                       {t('tx.recurring.leftAfter')}
                     </ThemedText>
-                    <ThemedText style={[styles.tileValue, monthlyIn - monthlyOut < 0 && { color: colors.negative }]}>
-                      {hideAmounts ? MASK : `${monthlyIn - monthlyOut < 0 ? '-' : ''}${formatMoney(monthlyIn - monthlyOut)}`}
+                    <ThemedText style={[styles.tileValue, monthlyIn - monthlyOut - goalSaving < 0 && { color: colors.negative }]}>
+                      {hideAmounts ? MASK : `${monthlyIn - monthlyOut - goalSaving < 0 ? '-' : ''}${formatMoney(monthlyIn - monthlyOut - goalSaving)}`}
                     </ThemedText>
                   </View>
                 </View>
+                {goalSaving > 0 ? (
+                  <View style={[styles.goalLine, { borderTopColor: colors.divider }]}>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      {t('tx.recurring.goalSaving')}
+                    </ThemedText>
+                    <ThemedText type="smallBold">{money(goalSaving)}</ThemedText>
+                  </View>
+                ) : null}
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
                   {t('tx.recurring.estimate')}
+                  {hasTransfers ? ` ${t('tx.recurring.transfersNote')}` : ''}
                 </ThemedText>
               </View>
 
@@ -214,6 +258,31 @@ export default function RecurringScreen() {
                   </View>
                   <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                     {running.map((r, i) => renderRow(r, i, false))}
+                  </View>
+                </>
+              ) : null}
+
+              {manualGoalPlans.length > 0 ? (
+                <>
+                  <ThemedText type="smallBold" style={styles.sectionTitle}>
+                    {t('tx.recurring.goalsTitle')}
+                  </ThemedText>
+                  <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
+                    {manualGoalPlans.map((g, i) => (
+                      <Pressable
+                        key={g.id}
+                        onPress={() => router.push('/more/rancang')}
+                        style={[styles.goalRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }]}
+                      >
+                        <View style={styles.goalText}>
+                          <ThemedText numberOfLines={1}>{g.name}</ThemedText>
+                          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                            {t('tx.recurring.goalMonth', { saved: money(goalMonthSaved(goalEntries, g.id, monthKeyNow)), plan: money(g.monthly ?? 0) })}
+                          </ThemedText>
+                        </View>
+                        <ThemedText type="smallBold">{money(g.monthly ?? 0)}</ThemedText>
+                      </Pressable>
+                    ))}
                   </View>
                 </>
               ) : null}
@@ -234,6 +303,8 @@ export default function RecurringScreen() {
           <ThemedText type="small" style={[styles.footnote, styles.center, { color: colors.textSecondary }]}>
             {t('tx.recurring.footer')}
           </ThemedText>
+          </>
+          )}
         </ScrollView>
 
         <RecurringModal visible={modalVisible} onClose={() => setModalVisible(false)} editing={editing} />
@@ -244,6 +315,9 @@ export default function RecurringScreen() {
 }
 
 const styles = StyleSheet.create({
+  goalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  goalText: { flex: 1 },
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },

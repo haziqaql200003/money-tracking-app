@@ -1,4 +1,5 @@
 import { t } from '@/i18n';
+import { cycleOf, cycleRange, shiftCycle, usesCalendarMonths } from '@/utils/cycle';
 import { formatMonthYear, mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
 
 export function toDateKey(d: Date) {
@@ -8,12 +9,17 @@ export function toDateKey(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-/** 'YYYY-MM' for the month `offset` months from now (0 = this month, -1 = last month). */
+/** 'YYYY-MM' of the financial month `offset` months from now (0 = this one, -1 = the one before). */
 export function monthKeyFromOffset(offset: number) {
-  const d = new Date();
-  d.setDate(1); // avoid overflow, e.g. 31 Oct -> "31 Nov"
-  d.setMonth(d.getMonth() + offset);
-  return toDateKey(d).slice(0, 7);
+  return shiftCycle(cycleOf(toDateKey(new Date())), offset);
+}
+
+/** "25 Sep - 24 Oct" for a financial month, or '' when months are plain calendar months (payday 1). */
+export function cycleRangeLabel(key: string) {
+  if (usesCalendarMonths()) return '';
+  const { from, to } = cycleRange(key);
+  const part = (k: string) => `${Number(k.slice(8, 10))} ${monthShort(Number(k.slice(5, 7)) - 1)}`;
+  return `${part(from)} - ${part(to)}`;
 }
 
 export function monthLabel(key: string, variant: 'long' | 'short' = 'long') {
@@ -30,4 +36,4 @@ export function dayLabel(iso: string) {
   if (iso === toDateKey(yesterday)) return t('common.yesterday');
   const [y, m, d] = iso.split('-').map(Number);
   return `${weekdayShort(mondayIndex(new Date(y, m - 1, d)))}, ${d} ${monthShort(m - 1)}`;
-}
+}

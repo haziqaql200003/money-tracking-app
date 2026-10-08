@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { AccountDonutChart, type DonutSlice } from '@/components/account-donut-chart';
 import { AddAccountModal } from '@/components/add-account-modal';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -22,6 +23,9 @@ import { accountName } from '@/i18n/data';
 import { dayLabel, monthKeyFromOffset } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { CategoryIcon } from '@/components/category-icon';
+import { ReorderList } from '@/components/reorder-list';
+import { SwipeRow } from '@/components/ui/swipe-row';
+import { cycleOf } from '@/utils/cycle';
 
 type Mode = 'account' | 'type';
 
@@ -34,10 +38,12 @@ const MASK = 'RM ••••••';
 
 const colorOf = (a: Account) => a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other;
 
+const ACCOUNT_ROW_H = 72;
+
 export default function AssetsScreen() {
   const { t } = useT();
   const colors = useTheme();
-  const { accountBalances, balance, transactions, transfers } = useTransactions();
+  const { accountBalances, balance, transactions, transfers, ready, deleteAccount, reorderAccounts } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
 
   const [mode, setMode] = useState<Mode>('account');
@@ -46,6 +52,8 @@ export default function AssetsScreen() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [transferVisible, setTransferVisible] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
+  // While a row is being dragged the page must not scroll.
+  const [sorting, setSorting] = useState(false);
 
   const accounts = accountBalances();
 
@@ -53,12 +61,13 @@ export default function AssetsScreen() {
   const monthKey = monthKeyFromOffset(0);
   const monthNet = useMemo(() => {
     let net = 0;
+    const visible = new Set(accounts.map((a) => a.id));
     transactions.forEach((tx) => {
-      if (!tx.date.startsWith(monthKey)) return;
+      if (cycleOf(tx.date) !== monthKey || !visible.has(tx.accountId)) return;
       net += tx.type === 'credit' ? tx.amount : -tx.amount;
     });
     return net;
-  }, [transactions, monthKey]);
+  }, [transactions, monthKey, accounts]);
 
   // The donut only shows positive balances. Overdrawn accounts are listed separately.
   const positive = accounts.filter((a) => a.balance > 0);
@@ -100,6 +109,13 @@ export default function AssetsScreen() {
     setModalVisible(true);
   }
 
+  function confirmDeleteAccount(account: Account) {
+    Alert.alert(t('acct.add.deleteTitle'), t('acct.add.deleteMsg', { name: accountName(account) }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteAccount(account.id) },
+    ]);
+  }
+
   function openTransfer(transfer: Transfer | null = null) {
     if (!transfer && accounts.length < 2) {
       Alert.alert(t('acct.assets.alertTitle'), t('acct.assets.alertBody'));
@@ -113,7 +129,10 @@ export default function AssetsScreen() {
     const a = accounts.find((x) => x.id === id);
     return a ? accountName(a) : t('acct.assets.deletedAccount');
   };
-  const recentTransfers = [...transfers].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
+  const shownIds = new Set(accounts.map((a) => a.id));
+  const recentTransfers = [...transfers]
+    .filter((tr) => shownIds.has(tr.fromAccountId) && shownIds.has(tr.toAccountId))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5);
 
   const flowUp = monthNet > 0;
   const flowColor = monthNet < 0 ? colors.negative : monthNet > 0 ? colors.positive : colors.textSecondary;
@@ -121,7 +140,7 @@ export default function AssetsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} scrollEnabled={!sorting}>
           <ScreenHeader
             title={t('acct.assets.title')}
             right={
@@ -147,6 +166,8 @@ export default function AssetsScreen() {
               </View>
             }
           />
+          {!(ready) ? <ScreenSkeleton variant="cards" /> : (
+          <>
 
           {/* Net worth */}
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
@@ -281,49 +302,71 @@ export default function AssetsScreen() {
                 </ThemedText>
               </View>
 
-              <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
-                {accounts.map((a, i) => {
-                  const color = colorOf(a);
-                  const subtitle = [a.typeLabel ?? accountTypeLabel(a.type), a.provider, a.last4 ? `•••• ${a.last4}` : null]
-                    .filter(Boolean)
-                    .join(' · ');
-                  const negative = a.balance < 0;
-                  return (
-                    <Pressable
-                      key={a.id}
-                      onPress={() => openEdit(a)}
-                      style={({ pressed }) => [
-                        styles.accountRow,
-                        i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                        pressed && { opacity: 0.6 },
-                      ]}
-                    >
-                      <CategoryIcon icon={a.icon} color={color} size={42} />
-                      <View style={styles.flex}>
-                        <ThemedText numberOfLines={1}>{accountName(a)}</ThemedText>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                          {subtitle}
-                        </ThemedText>
-                      </View>
-                      <View style={styles.right}>
-                        <ThemedText style={{ fontWeight: '700', color: negative ? colors.negative : colors.text }}>
-                          {money(a.balance)}
-                        </ThemedText>
-                        <ThemedText
-                          type="small"
-                          style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: 12, lineHeight: 16 }}
+              <View style={[styles.listCard, styles.listFlush, { backgroundColor: colors.backgroundElement }]}>
+                <ReorderList
+                  items={accounts}
+                  keyOf={(a) => a.id}
+                  rowHeight={ACCOUNT_ROW_H}
+                  background={colors.backgroundElement}
+                  onReorder={reorderAccounts}
+                  onDragChange={setSorting}
+                  renderRow={(a, i, dragging) => {
+                    const color = colorOf(a);
+                    const subtitle = [a.typeLabel ?? accountTypeLabel(a.type), a.provider, a.last4 ? `•••• ${a.last4}` : null]
+                      .filter(Boolean)
+                      .join(' · ');
+                    const negative = a.balance < 0;
+                    return (
+                      <SwipeRow
+                        background={colors.backgroundElement}
+                        disabled={dragging}
+                        rightActions={[
+                          { key: 'edit', label: t('common.edit'), icon: 'create-outline', color: colors.accent, onPress: () => openEdit(a) },
+                          { key: 'delete', label: t('common.delete'), icon: 'trash-outline', color: colors.negative, onPress: () => confirmDeleteAccount(a) },
+                        ]}
+                        onFullSwipe={() => confirmDeleteAccount(a)}
+                      >
+                        <Pressable
+                          onPress={() => openEdit(a)}
+                          style={({ pressed }) => [
+                            styles.accountRow,
+                            i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+                            pressed && { opacity: 0.6 },
+                          ]}
                         >
-                          {negative
-                            ? t('acct.assets.overdrawn')
-                            : a.balance > 0
-                              ? t('acct.assets.percentOfAssets', { percent: percentOf(a.balance) })
-                              : t('acct.assets.empty')}
-                        </ThemedText>
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                          <CategoryIcon icon={a.icon} color={color} size={42} />
+                          <View style={styles.flex}>
+                            <ThemedText numberOfLines={1}>{accountName(a)}</ThemedText>
+                            <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                              {subtitle}
+                            </ThemedText>
+                          </View>
+                          <View style={styles.right}>
+                            <ThemedText style={{ fontWeight: '700', color: negative ? colors.negative : colors.text }}>
+                              {money(a.balance)}
+                            </ThemedText>
+                            <ThemedText
+                              type="small"
+                              style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: 12, lineHeight: 16 }}
+                            >
+                              {negative
+                                ? t('acct.assets.overdrawn')
+                                : a.balance > 0
+                                  ? t('acct.assets.percentOfAssets', { percent: percentOf(a.balance) })
+                                  : t('acct.assets.empty')}
+                            </ThemedText>
+                          </View>
+                        </Pressable>
+                      </SwipeRow>
+                    );
+                  }}
+                />
               </View>
+              {accounts.length > 1 ? (
+                <ThemedText type="small" style={[styles.sortHint, { color: colors.textSecondary }]}>
+                  {t('acct.assets.sortHint')}
+                </ThemedText>
+              ) : null}
 
               <Pressable
                 onPress={openAdd}
@@ -369,6 +412,7 @@ export default function AssetsScreen() {
                           <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
                             {dayLabel(tr.date)}
                             {tr.note ? ` · ${tr.note}` : ''}
+                            {tr.recurringId ? ` · ${t('home.row.recurring')}` : ''}
                           </ThemedText>
                         </View>
                         <ThemedText style={{ fontWeight: '700' }}>{money(tr.amount)}</ThemedText>
@@ -378,6 +422,8 @@ export default function AssetsScreen() {
                 </>
               ) : null}
             </>
+          )}
+          </>
           )}
         </ScrollView>
 
@@ -436,7 +482,9 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 16, marginBottom: Spacing.two },
   listCard: { borderRadius: 20, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: ACCOUNT_ROW_H, paddingHorizontal: Spacing.three },
+  listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
+  sortHint: { textAlign: 'center', marginTop: -Spacing.two, marginBottom: Spacing.three },
   avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   avatarIcon: { fontSize: 20 },
   right: { alignItems: 'flex-end' },

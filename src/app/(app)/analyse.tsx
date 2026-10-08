@@ -3,8 +3,12 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnalyseDeep } from '@/components/analyse-deep';
+import { AnalyseForecast } from '@/components/analyse-forecast';
+import { AnalyseInsight } from '@/components/analyse-insight';
 import { CategoryIcon } from '@/components/category-icon';
 import { IncomeSpendingChart } from '@/components/income-spending-chart';
+import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -16,6 +20,7 @@ import { useT } from '@/i18n';
 import { categoryName as categoryLabel, subcategoryName } from '@/i18n/data';
 import { weekdayLong, weekdayShort } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
+import { formatPct } from '@/utils/insights';
 import { dayLabel, monthLabel, toDateKey } from '@/utils/dates';
 import {
   biggestExpense,
@@ -37,11 +42,12 @@ const COLLAPSED_CATEGORIES = 5;
 export default function AnalyseScreen() {
   const colors = useTheme();
   const { t, tp, lang } = useT();
-  const { transactions } = useTransactions();
+  const { transactions, ready } = useTransactions();
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
 
   const [months, setMonths] = useState<(typeof RANGES)[number]>(6);
+  const [tab, setTab] = useState<'overview' | 'deep' | 'forecast' | 'insight'>('overview');
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
 
@@ -92,6 +98,28 @@ export default function AnalyseScreen() {
               {t('plan.analyse.subtitle')}
             </ThemedText>
           </View>
+          {!(ready) ? <ScreenSkeleton variant="cards" /> : (
+          <>
+
+          {/* Overview / Deep dive */}
+          <View style={[styles.segment, { backgroundColor: colors.backgroundElement }]}>
+            {(['overview', 'deep', 'forecast', 'insight'] as const).map((id) => {
+              const active = id === tab;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setTab(id)}
+                  style={[styles.segmentItem, active && { backgroundColor: colors.accent }]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                >
+                  <ThemedText type="small" style={{ fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
+                    {id === 'overview' ? t('plan.analyse.tabOverview') : id === 'deep' ? t('plan.analyse.tabDeep') : id === 'forecast' ? t('fc.tab') : t('fc.insight.tab')}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
 
           {/* Range */}
           <View style={[styles.segment, { backgroundColor: colors.backgroundElement }]}>
@@ -118,7 +146,13 @@ export default function AnalyseScreen() {
             })}
           </View>
 
-          {!hasData ? (
+          {tab === 'insight' ? (
+            <AnalyseInsight todayKey={todayKey} />
+          ) : tab === 'forecast' ? (
+            <AnalyseForecast months={months} todayKey={todayKey} />
+          ) : tab === 'deep' ? (
+            <AnalyseDeep months={months} todayKey={todayKey} />
+          ) : !hasData ? (
             <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
               <Ionicons name="bar-chart-outline" size={32} color={colors.textSecondary} />
               <ThemedText style={styles.emptyTitle}>{t('plan.analyse.emptyTitle')}</ThemedText>
@@ -214,7 +248,7 @@ export default function AnalyseScreen() {
                     const open = openCategory === row.categoryId;
                     // Spending going UP is the bad direction, so up = red, down = green.
                     const changeColor = row.change === null ? colors.textSecondary : row.change > 0 ? colors.negative : row.change < 0 ? colors.positive : colors.textSecondary;
-                    const changeText = row.change === null ? t('plan.analyse.new') : row.change === 0 ? '0%' : `${row.change > 0 ? '▲' : '▼'} ${Math.abs(row.change)}%`;
+                    const changeText = row.change === null ? t('plan.analyse.new') : row.change === 0 ? '0%' : `${row.change > 0 ? '▲' : '▼'} ${formatPct(row.change)}`;
                     return (
                       <View key={row.categoryId} style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }}>
                         <Pressable
@@ -378,6 +412,8 @@ export default function AnalyseScreen() {
           <ThemedText type="small" style={[styles.footnote, styles.center, { color: colors.textSecondary }]}>
             {t('plan.analyse.transfersNote')}
           </ThemedText>
+          </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
