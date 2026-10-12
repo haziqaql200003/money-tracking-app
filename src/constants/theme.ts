@@ -32,6 +32,13 @@ export const Colors = {
     info: '#1F6FA8',
     gold: '#B8891E', // songket thread
     overlay: 'rgba(12,16,32,0.5)',
+    // Spending heatmap (calendar): none -> most. heatInk = day number on the two darkest steps.
+    heat0: '#E5E9F2',
+    heat1: '#C9D0EA',
+    heat2: '#8E9AD0',
+    heat3: '#4F5FAE',
+    heat4: '#26357F',
+    heatInk: '#FFFFFF',
   },
   dark: {
     text: '#F2F4FA',
@@ -50,6 +57,13 @@ export const Colors = {
     info: '#62AEE3',
     gold: '#D9B45A',
     overlay: 'rgba(0,0,0,0.6)',
+    // Dark mode climbs in brightness (deep blue -> cyan -> near white) so busy days glow instead of sinking into the background.
+    heat0: '#1C2440',
+    heat1: '#24407A',
+    heat2: '#2F6DB5',
+    heat3: '#4FA8E8',
+    heat4: '#BEE6FF',
+    heatInk: '#0C111F',
   },
 } as const;
 

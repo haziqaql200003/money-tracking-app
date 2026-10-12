@@ -13,12 +13,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { CategoryIcon } from '@/components/category-icon';
 import { EvenGrid } from '@/components/even-grid';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import {
   CATEGORY_COLORS,
   CATEGORY_ICONS,
@@ -70,7 +71,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
       setKind(editingCategory.kind);
       setIcon(editingCategory.icon);
       setColor(editingCategory.color);
-      setSubs(editingCategory.subcategories);
+      setSubs(Array.from(new Set(editingCategory.subcategories)));
       setLimit(editingCategory.monthlyLimit > 0 ? String(editingCategory.monthlyLimit) : '');
     } else {
       setName('');
@@ -155,7 +156,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={visible} onClose={onClose}
           style={[
             styles.modalBox,
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
@@ -300,8 +301,8 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             </ThemedText>
             {subs.length > 0 ? (
               <View style={styles.subWrap}>
-                {subs.map((s) => (
-                  <View key={s} style={[styles.subChip, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+                {subs.map((s, si) => (
+                  <View key={`${s}-${si}`} style={[styles.subChip, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
                     <ThemedText type="small">{subcategoryName(s)}</ThemedText>
                     <Pressable
                       onPress={() => setSubs(subs.filter((x) => x !== s))}
@@ -344,13 +345,12 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
                 <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
                   {t('acct.catModal.budget')}
                 </ThemedText>
-                <TextInput
+                <AmountInput
                   style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
                   placeholder={t('acct.catModal.budgetPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   value={limit}
-                  onChangeText={setLimit}
-                  keyboardType="decimal-pad"
+                  onChange={setLimit}
                 />
                 {!limitValid ? (
                   <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
@@ -381,7 +381,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
               </ThemedText>
             ) : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );

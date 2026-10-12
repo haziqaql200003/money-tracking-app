@@ -2,11 +2,308 @@ import type { Lang } from '@/i18n';
 
 export type ChangeKind = 'new' | 'improved' | 'fixed';
 export type ChangeEntry = { kind: ChangeKind; text: string; ms: string };
-export type Release = { version: string; date: string; title: string; titleMs: string; changes: ChangeEntry[] };
+/** `silent`: no popup after the update, only the badge on More (used when the news should stay a surprise). */
+/** `highlights`: two or three short points shown before the details are opened (and in the update popup). */
+export type Release = {
+  version: string;
+  date: string;
+  title: string;
+  titleMs: string;
+  highlights?: { text: string; ms: string }[];
+  changes: ChangeEntry[];
+  silent?: boolean;
+};
 
-export const CURRENT_VERSION = '2.0.0';
+export const CURRENT_VERSION = '3.0.6';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.0.6',
+    date: '2026-10-13',
+    title: 'Ready for the web', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Sedia untuk web',
+    highlights: [
+      { text: 'On the web, Add to Home Screen opens WaKira like an app', ms: 'Di web, Tambah ke Skrin Utama membuka WaKira seperti aplikasi' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'new', text: 'Web: WaKira can be added to the home screen of a phone and opens full screen with its own icon and name, without the browser bar.', ms: 'Web: WaKira boleh ditambah ke skrin utama telefon dan dibuka skrin penuh dengan ikon dan nama sendiri, tanpa bar pelayar.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.5',
+    date: '2026-10-12',
+    title: 'Debts sorted by purchase date', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Hutang disusun ikut tarikh beli',
+    highlights: [
+      { text: 'Debts are listed by the date you bought or took them, newest first', ms: 'Hutang disusun ikut tarikh beli atau ambil, terbaru dahulu' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'improved', text: 'Debts: instalments, loans and credit lines are sorted by the date you bought or took them, newest first. This replaces the next-payment order of 3.0.4.', ms: 'Hutang: ansuran, pinjaman dan had kredit disusun ikut tarikh anda beli atau ambil, terbaru dahulu. Ini menggantikan susunan bayaran seterusnya dalam 3.0.4.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.3',
+    date: '2026-10-11',
+    title: 'Debts you can fix, clearer accounts and records', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Hutang boleh dibetulkan, akaun dan rekod lebih jelas',
+    highlights: [
+      { text: 'Edit an instalment or loan you keyed in wrong', ms: 'Sunting ansuran atau pinjaman yang tersilap masuk' }, // i18n-ignore
+      { text: 'Debts in tabs and folding sections, newest first', ms: 'Hutang dalam tab dan bahagian boleh dilipat, terbaru dahulu' }, // i18n-ignore
+      { text: 'Savings and assets kept apart from spendable money', ms: 'Simpanan dan aset diasingkan daripada wang boleh guna' }, // i18n-ignore
+    ],
+    changes:[
+      { kind: 'new', text: 'Debts: Edit an instalment plan or loan. While no payment is recorded in WaKira you can change everything; after that, the name, provider, category and pay-from account.', ms: 'Hutang: Sunting pelan ansuran atau pinjaman. Selagi tiada bayaran direkod dalam WaKira anda boleh ubah semuanya; selepas itu, nama, penyedia, kategori dan akaun bayar.' }, // i18n-ignore
+      { kind: 'improved', text: 'Debts: two tabs, My debts and With people, so neither list has to be scrolled past. Instalments, loans, credit lines and finished ones each fold into their own section, newest first.', ms: 'Hutang: dua tab, Hutang saya dan Dengan orang, supaya tiada senarai perlu ditatal melepasi yang lain. Ansuran, pinjaman, had kredit dan yang selesai masing-masing dalam bahagian boleh dilipat, terbaru dahulu.' }, // i18n-ignore
+      { kind: 'improved', text: 'Transactions: the month is one card, with a donut of where the money went next to the net, income and spending. The biggest categories are chips you can tap to filter.', ms: 'Transaksi: bulan dalam satu kad, dengan donat ke mana wang pergi di sebelah bersih, pendapatan dan perbelanjaan. Kategori terbesar ialah cip yang boleh ditekan untuk menapis.' }, // i18n-ignore
+      { kind: 'improved', text: 'Analyse: 1 month is shown by week; 3, 6 and 12 months by month.', ms: 'Analisis: 1 bulan dipaparkan ikut minggu; 3, 6 dan 12 bulan ikut bulan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Home: savings and asset accounts are one card of their own instead of sitting among your spending accounts.', ms: 'Utama: akaun simpanan dan aset menjadi satu kad sendiri, tidak lagi bercampur dengan akaun belanja.' }, // i18n-ignore
+      { kind: 'improved', text: 'More > Accounts & assets: net worth with money to spend, savings & assets and what you owe, and the accounts listed in those groups.', ms: 'Lagi > Akaun & aset: nilai bersih dengan wang boleh guna, simpanan & aset dan hutang, dan akaun disenaraikan ikut kumpulan itu.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.2',
+    date: '2026-10-11',
+    title: 'Clearer Analyse, tidier records, bills on Home', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Analisis lebih jelas, rekod lebih kemas, bil di Utama',
+    highlights: [
+      { text: 'One month in Analyse now shows weeks or days', ms: 'Satu bulan dalam Analisis kini ikut minggu atau hari' }, // i18n-ignore
+      { text: 'Insight cards with a tip and a button to act', ms: 'Kad Insight dengan tip dan butang untuk bertindak' }, // i18n-ignore
+      { text: 'Bills and income coming up, right on Home', ms: 'Bil dan pendapatan akan datang, terus di Utama' }, // i18n-ignore
+    ],
+    changes:[
+      { kind: 'improved', text: 'Analyse > Overview: 1 month is shown by week, or by day with one tap; 3 months by week; 6 and 12 months by month.', ms: 'Analisis > Gambaran: 1 bulan dipaparkan ikut minggu, atau ikut hari dengan satu tekan; 3 bulan ikut minggu; 6 dan 12 bulan ikut bulan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Overview is shorter: how much you kept and where your income went now sit in one card, and the health score is a single line that opens Insight.', ms: 'Gambaran lebih ringkas: berapa yang disimpan dan ke mana pendapatan pergi kini dalam satu kad, dan skor kesihatan hanya satu baris yang membuka Insight.' }, // i18n-ignore
+      { kind: 'improved', text: 'Insight: a compact score you can open for details, and each finding has a tip and a button that takes you to budgets, Rancang, recurring bills or your records.', ms: 'Insight: skor ringkas yang boleh dibuka untuk butiran, dan setiap dapatan ada tip serta butang ke bajet, Rancang, bil berulang atau rekod anda.' }, // i18n-ignore
+      { kind: 'improved', text: 'Transactions: search and filters come first in one row, the category breakdown starts folded, and each day shows how many records it has.', ms: 'Transaksi: carian dan penapis di atas dalam satu baris, pecahan kategori bermula dilipat, dan setiap hari menunjukkan bilangan rekodnya.' }, // i18n-ignore
+      { kind: 'new', text: 'Home: a Coming up row shows bills, expected income and loan payments due in the next two weeks.', ms: 'Utama: baris Akan datang menunjukkan bil, pendapatan dijangka dan bayaran pinjaman dalam dua minggu akan datang.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.1',
+    date: '2026-10-11',
+    title: 'Fixes for amounts, More and Analyse', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Pembetulan untuk jumlah, Lagi dan Analisis',
+    highlights: [
+      { text: 'Amount fields work again on iPhone', ms: 'Medan jumlah berfungsi semula di iPhone' }, // i18n-ignore
+      { text: 'More always opens on its main page', ms: 'Lagi sentiasa dibuka di halaman utamanya' }, // i18n-ignore
+      { text: 'A shorter, tidier What is New', ms: 'Apa yang baharu lebih ringkas dan kemas' }, // i18n-ignore
+    ],
+    changes:[
+      { kind: 'fixed', text: 'Tapping an amount field now opens the keyboard on iPhone, in every form: records, transfers, accounts, budgets, goals, debts, recurring and the tutorial.', ms: 'Menekan medan jumlah kini membuka papan kekunci di iPhone, dalam setiap borang: rekod, pindahan, akaun, bajet, matlamat, hutang, berulang dan tutorial.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Editing a saved amount keeps its value: typing after RM 15 no longer turns it into RM 1.51.', ms: 'Menyunting jumlah yang disimpan mengekalkan nilainya: menaip selepas RM 15 tidak lagi menjadikannya RM 1.51.' }, // i18n-ignore
+      { kind: 'improved', text: 'Every ringgit field now types the same way: digits slide in from the right, with the thousands comma.', ms: 'Setiap medan ringgit kini ditaip dengan cara yang sama: digit masuk dari kanan, dengan koma ribuan.' }, // i18n-ignore
+      { kind: 'fixed', text: 'After opening a page in More (such as What is New) and switching tabs, tapping More goes back to the main More page.', ms: 'Selepas membuka halaman dalam Lagi (seperti Apa yang baharu) dan bertukar tab, menekan Lagi kembali ke halaman utama Lagi.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Analyse > Overview: the income and spending figures are a readable size again.', ms: 'Analisis > Gambaran: angka pendapatan dan perbelanjaan kembali bersaiz mudah dibaca.' }, // i18n-ignore
+      { kind: 'improved', text: 'What is New shows each version as a short card with its key points and date. Tap it to see every change.', ms: 'Apa yang baharu memaparkan setiap versi sebagai kad ringkas dengan perkara utama dan tarikh. Tekan untuk melihat semua perubahan.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.0',
+    date: '2026-10-11',
+    title: 'A fresh start: welcome, sign-up and a guided tour', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Permulaan baharu: sambutan, daftar dan tunjuk ajar',
+    highlights: [
+      { text: 'A new welcome and step-by-step sign-up', ms: 'Sambutan baharu dan daftar langkah demi langkah' }, // i18n-ignore
+      { text: 'A tutorial to set up your profile, month, accounts and old records', ms: 'Tutorial untuk menyediakan profil, bulan, akaun dan rekod lama' }, // i18n-ignore
+      { text: 'A guided tour of Home', ms: 'Tunjuk ajar di Utama' }, // i18n-ignore
+    ],
+    changes:[
+      { kind: 'new', text: 'A new welcome: a short Kira, Faham, Rancang story, then just two buttons to start or sign in.', ms: 'Sambutan baharu: cerita ringkas Kira, Faham, Rancang, kemudian hanya dua butang untuk mula atau log masuk.' }, // i18n-ignore
+      { kind: 'new', text: 'Sign up with e-mail one step at a time: first and last name, e-mail with quick @gmail, @yahoo and other endings, a password check that refuses easy ones like 12345678, a short privacy summary, then a 6-digit code.', ms: 'Daftar dengan e-mel satu langkah demi satu: nama pertama dan akhir, e-mel dengan hujung @gmail, @yahoo dan lain-lain yang boleh terus ditekan, semakan kata laluan yang menolak yang mudah seperti 12345678, ringkasan privasi, kemudian kod 6 digit.' }, // i18n-ignore
+      { kind: 'new', text: 'Signing up with Apple or Google now shows what we received from them before you agree.', ms: 'Daftar dengan Apple atau Google kini menunjukkan maklumat yang kami terima sebelum anda bersetuju.' }, // i18n-ignore
+      { kind: 'new', text: 'A new tutorial for new accounts: profile, goals, when your month starts (calendar, payday or end of month, with the weekend rule), salary, accounts and balances, bringing in old records from Excel or CSV, and reminders.', ms: 'Tutorial baharu untuk akaun baharu: profil, matlamat, bila bulan anda bermula (kalendar, hari gaji atau hujung bulan, dengan peraturan hujung minggu), gaji, akaun dan baki, membawa masuk rekod lama dari Excel atau CSV, dan peringatan.' }, // i18n-ignore
+      { kind: 'new', text: 'A guided tour on Home shows the + button, your account cards, Analyse and Rancang, and a Start here card lists the first things to try.', ms: 'Tunjuk ajar di Utama menunjukkan butang +, kad akaun, Analisis dan Rancang, dan kad Mulakan di sini menyenaraikan perkara pertama untuk dicuba.' }, // i18n-ignore
+      { kind: 'new', text: 'Signing in on a new phone or after reinstalling: your data comes back, and the tour is offered again.', ms: 'Log masuk di telefon baharu atau selepas pasang semula: data anda kembali, dan tunjuk ajar ditawarkan semula.' }, // i18n-ignore
+      { kind: 'new', text: 'An evening reminder to record, at 9 pm on days with nothing recorded. Turn it on in Rancang > Reminders.', ms: 'Peringatan malam untuk merekod, pukul 9 malam pada hari yang belum ada rekod. Hidupkan di Rancang > Peringatan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Deleting your account now shows what will be removed, offers an export first, and asks you to confirm twice.', ms: 'Memadam akaun kini menunjukkan apa yang akan dipadam, menawarkan export dahulu, dan meminta pengesahan dua kali.' }, // i18n-ignore
+      { kind: 'improved', text: 'What is New now opens by itself after an update: a short sheet for small updates, a highlight for big ones.', ms: 'Apa yang baharu kini terbuka sendiri selepas kemas kini: lembaran ringkas untuk kemas kini kecil, sorotan untuk yang besar.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.2.0',
+    date: '2026-10-10',
+    silent: true,
+    title: 'Small touches', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Sentuhan kecil',
+    changes:[
+      { kind: 'improved', text: 'Small improvements here and there. Keep recording, something may be waiting for you.', ms: 'Penambahbaikan kecil di sana sini. Teruskan merekod, mungkin ada sesuatu yang menanti anda.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.9',
+    date: '2026-10-10',
+    title: 'Forecast amounts back in view', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Jumlah ramalan kembali kelihatan',
+    changes:[
+      { kind: 'fixed', text: 'In Deep dive, a long line such as "Everyday spending, 19 days left" no longer pushes its amount off the edge of the card.', ms: 'Dalam Terperinci, baris panjang seperti "Belanja harian, tinggal 19 hari" tidak lagi menolak jumlahnya keluar dari kad.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.8',
+    date: '2026-10-10',
+    title: 'Smoother amount typing', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Menaip jumlah lebih lancar',
+    changes:[
+      { kind: 'fixed', text: 'Typing an amount no longer flickers. The number you see is drawn separately from the keyboard field, so the phone never has to correct it after each key.', ms: 'Menaip jumlah tidak lagi berkelip. Nombor yang dipaparkan dilukis berasingan daripada medan papan kekunci, jadi telefon tidak perlu membetulkannya selepas setiap kekunci.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Itemised breakdown: the item name now lines up with RM and the amount on every row.', ms: 'Pecahan mengikut item: nama item kini sejajar dengan RM dan jumlah pada setiap baris.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.7',
+    date: '2026-10-10',
+    title: 'Tidier More, clearer amounts, easier entry', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Lagi lebih kemas, jumlah lebih jelas, rekod lebih mudah',
+    changes:[
+      { kind: 'new', text: 'Analyse now has a 1 month range for Overview and Deep dive. The Insights tab looks at fixed stretches, so it has no range.', ms: 'Analisis kini ada julat 1 bulan untuk Ringkasan dan Terperinci. Tab Insight melihat tempoh tetap, jadi ia tiada julat.' }, // i18n-ignore
+      { kind: 'fixed', text: 'The income, spending and net figures under the Home chart no longer get cut off. Each now has its own line with the full amount.', ms: 'Angka pendapatan, perbelanjaan dan bersih di bawah carta Home tidak lagi terpotong. Setiap satu kini ada barisnya sendiri dengan jumlah penuh.' }, // i18n-ignore
+      { kind: 'improved', text: 'The daily limit line on the chart is thinner and dashed, with a small Limit label above it.', ms: 'Garisan had harian pada carta lebih nipis dan putus-putus, dengan label kecil Had di atasnya.' }, // i18n-ignore
+      { kind: 'improved', text: 'More is tidied into Features, Settings and About, with Security and Data one tap away.', ms: 'Lagi dikemas kepada Ciri, Tetapan dan Tentang, dengan Keselamatan dan Data hanya satu ketik.' }, // i18n-ignore
+      { kind: 'improved', text: 'Add and edit transaction: itemised breakdown lines are aligned, subcategories are steady pills that no longer change height when you tap, and Save stays visible at the bottom.', ms: 'Tambah dan ubah transaksi: baris pecahan item sejajar, subkategori berbentuk pil yang tetap dan tidak berubah tinggi bila diketik, dan Simpan sentiasa kelihatan di bawah.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.6',
+    date: '2026-10-09',
+    title: 'Calendar by real month', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Kalendar ikut bulan sebenar',
+    changes:[
+      { kind: 'new', text: 'Choose how your month is counted: Calendar month (1st to the last day, like your phone) or By my payday. Calendar month is now one tap, and it makes budgets, totals, charts and the daily calendar all follow the real month.', ms: 'Pilih cara bulan anda dikira: Bulan kalendar (1hb hingga hari terakhir, seperti telefon) atau Ikut hari gaji. Bulan kalendar kini satu ketik, dan bajet, jumlah, carta serta kalendar harian semuanya mengikut bulan sebenar.' }, // i18n-ignore
+      { kind: 'improved', text: 'With payday months, the daily calendar and its total now show the exact dates of the month (for example 31 Jul - 27 Aug), so nothing looks out of place.', ms: 'Bagi bulan ikut gaji, kalendar harian dan jumlahnya kini menunjukkan tarikh sebenar bulan itu (contoh 31 Jul - 27 Ogo), jadi tiada yang kelihatan pelik.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.5',
+    date: '2026-10-08',
+    title: 'Payday history and a calendar fix', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Sejarah gaji dan pembetulan kalendar',
+    changes:[
+      { kind: 'new', text: 'Payday history: when you change job or how you are paid, start a new payday rule from a date. Earlier months keep the rule they had, and the month in between is made shorter or longer to fit. No regular salary after leaving a job? Add that from your last day.', ms: 'Sejarah gaji: bila bertukar kerja atau cara dibayar, mulakan peraturan gaji baharu dari satu tarikh. Bulan lama kekal dengan peraturan yang ada ketika itu, dan bulan peralihan dipendekkan atau dipanjangkan supaya muat. Tiada gaji tetap selepas berhenti kerja? Tambah itu dari hari terakhir bekerja.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Deep dive no longer shows an error when a financial month runs across two calendar months (payday not on the 1st). The daily calendar now shows the right days.', ms: 'Terperinci tidak lagi menunjukkan ralat apabila bulan kewangan merentasi dua bulan kalendar (gaji bukan pada 1hb). Kalendar harian kini menunjukkan hari yang betul.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.4',
+    date: '2026-10-08',
+    title: 'Adjustments that count', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Pelarasan yang dikira',
+    changes:[
+      { kind: 'improved', text: 'A balance adjustment now counts as income when it adds money and as spending when it takes money off, so your totals and charts match your real balance.', ms: 'Pelarasan baki kini dikira sebagai pendapatan jika menambah wang dan sebagai perbelanjaan jika mengurangkan wang, jadi jumlah dan carta sepadan dengan baki sebenar anda.' }, // i18n-ignore
+      { kind: 'new', text: 'Any adjustment can be changed at any time: amount, add or take off, date and note. Pick the month it belongs to.', ms: 'Mana-mana pelarasan boleh diubah bila-bila masa: jumlah, tambah atau kurang, tarikh dan nota. Pilih bulan yang betul.' }, // i18n-ignore
+      { kind: 'improved', text: 'The 30 second lock is gone. Past adjustments are now counted in the months they belong to.', ms: 'Kunci 30 saat sudah dibuang. Pelarasan lama kini dikira dalam bulan masing-masing.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.3',
+    date: '2026-10-08',
+    title: 'Money to use, money to keep', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Wang guna dan wang simpan',
+    changes:[
+      { kind: 'improved', text: 'The first home card now shows only money you can use (bank, cash and other accounts). Savings are shown apart so the two never mix.', ms: 'Kad pertama di rumah kini hanya menunjukkan wang yang boleh digunakan (bank, tunai dan akaun lain). Simpanan dipaparkan berasingan supaya tidak bercampur.' }, // i18n-ignore
+      { kind: 'improved', text: 'The balance and month-end charts in Deep dive now follow the money you can use. Savings stay in their own section.', ms: 'Carta baki dan hujung bulan dalam Terperinci kini mengikut wang yang boleh digunakan. Simpanan kekal dalam bahagiannya sendiri.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.2',
+    date: '2026-10-08',
+    title: 'Money with people', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Wang dengan orang',
+    changes: [
+      { kind: 'new', text: 'Debts now has a People section for money you owe a friend or that someone owes you, with partial payments and a settled list.', ms: 'Hutang kini ada bahagian Orang untuk wang yang anda hutang kepada kawan atau yang orang hutang kepada anda, dengan bayaran separa dan senarai selesai.' }, // i18n-ignore
+      { kind: 'new', text: 'Reminders for those: before the due date, on the day, and again every week or month if you want.', ms: 'Peringatan untuknya: sebelum tarikh bayar, pada hari itu, dan lagi setiap minggu atau bulan jika anda mahu.' }, // i18n-ignore
+      { kind: 'improved', text: 'Percentages now show one decimal place everywhere, for example 35.4%.', ms: 'Peratus kini dipaparkan dengan satu tempat perpuluhan di mana-mana, contohnya 35.4%.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.1',
+    date: '2026-10-08',
+    title: 'Charts you can feel', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Carta yang boleh dirasa',
+    changes: [
+      { kind: 'new', text: 'Press and drag along a chart to move through the months or days and read each value as you go.', ms: 'Tekan dan seret pada carta untuk bergerak melalui bulan atau hari dan baca setiap nilai semasa menggerakkannya.' }, // i18n-ignore
+      { kind: 'improved', text: 'Forecast now lives inside Deep dive, so there are three tabs: Overview, Deep dive and Insight.', ms: 'Ramalan kini berada dalam Terperinci, jadi ada tiga tab: Ringkasan, Terperinci dan Insight.' }, // i18n-ignore
+      { kind: 'new', text: 'Will your money last? A day-by-day line of your total money this month, with an estimate to month end and the day it could run out.', ms: 'Cukupkah wang anda? Garisan jumlah wang anda setiap hari bulan ini, dengan anggaran hingga hujung bulan dan hari ia mungkin habis.' }, // i18n-ignore
+      { kind: 'improved', text: 'Your total money over time is now a line with an estimate for the month end.', ms: 'Jumlah wang anda dari semasa ke semasa kini berupa garisan dengan anggaran hujung bulan.' }, // i18n-ignore
+      { kind: 'new', text: 'Category heat grid: see which categories rose or fell month by month.', ms: 'Grid haba kategori: lihat kategori mana yang naik atau turun dari bulan ke bulan.' }, // i18n-ignore
+      { kind: 'new', text: 'How big your expenses are: small buys against big ones.', ms: 'Berapa besar belanja anda: pembelian kecil berbanding yang besar.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.1.0',
+    date: '2026-10-08',
+    title: 'A deeper Analyse', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Faham yang lebih mendalam',
+    changes: [
+      { kind: 'new', text: 'Pull a form down by its top bar to close it, as well as tapping Cancel.', ms: 'Tarik borang ke bawah melalui bahagian atasnya untuk menutupnya, selain menekan Batal.' }, // i18n-ignore
+      { kind: 'new', text: 'Financial health score at the top of the Overview, with a ring and what drives it.', ms: 'Skor kesihatan kewangan di atas Ringkasan, dengan gelang dan apa yang mempengaruhinya.' }, // i18n-ignore
+      { kind: 'new', text: 'Where your income went: a donut of fixed bills, everyday spending and what you kept, in percent of income.', ms: 'Ke mana pendapatan pergi: carta donut bil tetap, belanja harian dan yang disimpan, dalam peratus pendapatan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Income vs spending now has a line for the share of income kept each month.', ms: 'Pendapatan berbanding perbelanjaan kini ada garisan bahagian pendapatan yang disimpan setiap bulan.' }, // i18n-ignore
+      { kind: 'new', text: 'Category donut, and a bubble chart that shows how often and how big you spend in each category.', ms: 'Donut kategori, dan carta gelembung yang menunjukkan berapa kerap dan berapa besar anda berbelanja bagi setiap kategori.' }, // i18n-ignore
+      { kind: 'new', text: '11 new insights: income split, habits, small buys, Miscellaneous share, top category, improvements, subscriptions, no-spend days, payday pace, income change and big one-offs.', ms: '11 insight baharu: pembahagian pendapatan, tabiat, pembelian kecil, bahagian Pelbagai, kategori utama, penambahbaikan, langganan, hari tanpa belanja, kadar selepas gaji, perubahan pendapatan dan pembelian besar.' }, // i18n-ignore
+      { kind: 'fixed', text: 'The calendar heatmap is easy to read in dark mode.', ms: 'Peta haba kalendar mudah dibaca dalam mod gelap.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.0.4',
+    date: '2026-10-08',
+    title: 'Balance adjustments you can see', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Pelarasan baki yang boleh dilihat',
+    changes: [
+      { kind: 'new', text: 'After you adjust a balance, a bar offers Undo or Change for 30 seconds. After that the adjustment is locked until you make a new one.', ms: 'Selepas melaraskan baki, satu bar menawarkan Buat asal atau Ubah selama 30 saat. Selepas itu pelarasan terkunci sehingga anda membuat yang baharu.' }, // i18n-ignore
+      { kind: 'new', text: 'Adjustment history for each account, with the balance before and after and an optional note.', ms: 'Sejarah pelarasan bagi setiap akaun, dengan baki sebelum dan selepas serta nota pilihan.' }, // i18n-ignore
+      { kind: 'new', text: 'Adjustments appear in Transactions as their own rows. They are never counted as income or spending, and a switch hides them.', ms: 'Pelarasan muncul dalam Transaksi sebagai baris tersendiri. Ia tidak pernah dikira sebagai pendapatan atau perbelanjaan, dan satu suis boleh menyembunyikannya.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.0.3a',
+    date: '2026-10-08',
+    title: 'Smarter category matching on import', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Padanan kategori import lebih bijak',
+    changes: [
+      { kind: 'improved', text: 'Import now matches names that are a letter off or only part of a name (for example "Utilitis", or "Restaurant" for Restaurant / Dining).', ms: 'Import kini memadankan nama yang salah satu huruf atau hanya sebahagian nama (contohnya "Utilitis", atau "Restaurant" untuk Restaurant / Dining).' }, // i18n-ignore
+      { kind: 'improved', text: 'A clear subcategory wins over a loose category word: Income + Dividen goes to Investment > Dividend, not Salary.', ms: 'Subkategori yang jelas mengatasi perkataan kategori yang longgar: Income + Dividen masuk Investment > Dividend, bukan Salary.' }, // i18n-ignore
+      { kind: 'new', text: 'Names WaKira cannot match get a suggested category on the review screen, and you can put them in an existing category instead of creating a new one.', ms: 'Nama yang tidak dapat dipadankan diberi cadangan kategori pada skrin semakan, dan anda boleh letak dalam kategori sedia ada dan bukan mencipta yang baharu.' }, // i18n-ignore
+      { kind: 'improved', text: 'Subcategories from your file are added to the category, so they also show in More > Categories. Undo removes them again.', ms: 'Subkategori daripada fail anda ditambah pada kategori, jadi ia juga muncul dalam Lagi > Kategori. Buat asal akan membuangnya semula.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.0.3',
+    date: '2026-10-08',
+    title: 'Easier import', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Import lebih mudah',
+    changes: [
+      { kind: 'new', text: 'Import now has two clear options: use the WaKira template, or use your own file.', ms: 'Import kini ada dua pilihan jelas: guna template WaKira, atau guna fail sendiri.' }, // i18n-ignore
+      { kind: 'new', text: 'The template is a real .csv file you can open in Excel or Google Sheets, fill in and choose again. It goes straight to the review with no column matching.', ms: 'Template ialah fail .csv sebenar yang boleh dibuka dalam Excel atau Google Sheets, diisi dan dipilih semula. Ia terus ke semakan tanpa padan lajur.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.0.2',
+    date: '2026-10-08',
+    title: 'A tidier Add account', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Tambah akaun yang lebih kemas',
+    changes: [
+      { kind: 'improved', text: 'Add / Edit account is tidied into Details, Balance and Look.', ms: 'Tambah / Edit akaun dikemaskan kepada Butiran, Baki dan Rupa.' }, // i18n-ignore
+      { kind: 'improved', text: 'Premium card designs are now a swipeable slider.', ms: 'Reka bentuk kad premium kini slider yang boleh diswipe.' }, // i18n-ignore
+      { kind: 'improved', text: 'Starting balance is for new accounts only. For an existing card, use Adjust balance: the difference is saved as an adjustment, not income or spending.', ms: 'Baki permulaan hanya untuk akaun baharu. Untuk kad sedia ada, guna Laraskan baki: perbezaannya disimpan sebagai pelarasan, bukan pendapatan atau perbelanjaan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Delete account is now a trash icon at the top right, like Edit transaction.', ms: 'Padam akaun kini ikon tong sampah di kanan atas, seperti Edit transaksi.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Account Type buttons no longer overlap or wrap ("Saving s").', ms: 'Butang Jenis akaun tidak lagi bertindih atau terpecah ("Saving s").' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '2.0.1',
+    date: '2026-10-08',
+    title: 'Faster entry and tidier Home', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Catat lebih pantas dan Utama lebih kemas',
+    changes: [
+      { kind: 'improved', text: 'Typing an amount works like a card terminal: 1, 0, 0, 0, 0 reads 0.01, 0.10, 1.00, 10.00, 100.00, with a comma from 1,000.', ms: 'Menaip jumlah kini seperti mesin kad: 1, 0, 0, 0, 0 menjadi 0.01, 0.10, 1.00, 10.00, 100.00, dengan koma bermula 1,000.' }, // i18n-ignore
+      { kind: 'new', text: 'Itemised breakdown: add Service charge, SST / Tax, Tip, Delivery and Discount once each, as a % (the app does the maths) or an amount.', ms: 'Pecahan mengikut item: tambah Caj perkhidmatan, SST / Cukai, Tip, Penghantaran dan Diskaun sekali sahaja, sebagai % (apl yang kira) atau jumlah.' }, // i18n-ignore
+      { kind: 'new', text: 'Add your own category and subcategory right inside Record transaction. They also appear in More > Categories, where they can be deleted.', ms: 'Tambah kategori dan subkategori sendiri terus dalam Rekod transaksi. Ia juga muncul dalam Lagi > Kategori, tempat ia boleh dipadam.' }, // i18n-ignore
+      { kind: 'improved', text: 'Record transaction order: amount, title, itemised breakdown, account, category, subcategory, date.', ms: 'Susunan Rekod transaksi: jumlah, tajuk, pecahan item, akaun, kategori, subkategori, tarikh.' }, // i18n-ignore
+      { kind: 'improved', text: 'Home shows the latest 5 transactions with See all underneath.', ms: 'Utama menunjukkan 5 transaksi terkini dengan Lihat semua di bawahnya.' }, // i18n-ignore
+      { kind: 'improved', text: 'The tab bar is icons only; press or hover a tab to see its name.', ms: 'Bar tab kini ikon sahaja; tekan atau hover pada tab untuk lihat namanya.' }, // i18n-ignore
+      { kind: 'fixed', text: 'The balance on Home cards is no longer shrunk to a tiny size.', ms: 'Baki pada kad Utama tidak lagi mengecil sehingga terlalu halus.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Item 1 in the itemised breakdown lines up with the other items.', ms: 'Item 1 dalam pecahan item sejajar dengan item lain.' }, // i18n-ignore
+    ],
+  },
   {
     version: '2.0.0',
     date: '2026-10-08',

@@ -12,6 +12,7 @@ import { isLightColor, isProDesign, shade, type CardDesign } from '@/constants/c
 import { useT } from '@/i18n';
 import { formatMoney } from '@/utils/currency';
 import { FontSize, Radius } from '@/constants/theme';
+import { fitFontSize } from '@/utils/fit-font';
 
 // Bold bands that cut across the bottom-right corner of the Stripes design.
 const BANDS = [
@@ -208,6 +209,10 @@ export function AccountCard({
     );
   }
 
+  // Fixed, worked-out size instead of adjustsFontSizeToFit (which could shrink the number to a speck on iOS).
+  const balanceText = hidden ? MASK_BALANCE : signedMoney(balance);
+  const balanceSize = fitFontSize(balanceText, (width ?? 330) - 40, FontSize.display, 0.6);
+
   return (
     <View style={[styles.card, width ? { width } : styles.stretch]}>
       <CardBackground color={color} design={design} />
@@ -243,12 +248,10 @@ export function AccountCard({
           ) : null}
         </View>
         <Text
-          style={[styles.balanceAmount, { color: ink.main }]}
+          style={[styles.balanceAmount, { color: ink.main, fontSize: balanceSize }]}
           numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.6}
         >
-          {hidden ? MASK_BALANCE : signedMoney(balance)}
+          {balanceText}
         </Text>
       </View>
 

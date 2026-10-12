@@ -4,6 +4,7 @@ import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, TextStyle, Vi
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { useT } from '@/i18n';
+import { fitFontSize } from '@/utils/fit-font';
 
 export type CardSide = 'front' | 'back';
 
@@ -139,21 +140,18 @@ type StatProps = {
   color: string;
   subColor: string;
   textStyle: StyleProp<TextStyle>;
+  /** Width the value can use, so the size is worked out rather than left to the native shrink. */
+  maxWidth: number;
 };
 
-function Stat({ label, icon, value, color, subColor, textStyle }: StatProps) {
+function Stat({ label, icon, value, color, subColor, textStyle, maxWidth }: StatProps) {
   return (
     <View style={styles.stat}>
       <View style={styles.statLabelRow}>
         <Ionicons name={icon} size={12} color={subColor} />
         <Text style={[styles.statLabel, textStyle, { color: subColor }]}>{label}</Text>
       </View>
-      <Text
-        style={[styles.statValue, textStyle, { color }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
-      >
+      <Text style={[styles.statValue, textStyle, { color, fontSize: fitFontSize(value, maxWidth, 20, 0.6) }]} numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -193,8 +191,15 @@ export function CardContent({
   const { t } = useT();
   const back = side === 'back';
   const ts = engraved ? styles.engrave : styles.shadow;
+  const [boxWidth, setBoxWidth] = useState(0);
+  const inner = boxWidth - 40; // content has 20 padding each side
+  const balanceText = hidden ? MASK_BALANCE : formatMoney(balance);
   return (
-    <View style={[styles.content, { paddingBottom: 18 + bottomInset }]} pointerEvents="box-none">
+    <View
+      style={[styles.content, { paddingBottom: 18 + bottomInset }]}
+      pointerEvents="box-none"
+      onLayout={(e) => setBoxWidth(Math.round(e.nativeEvent.layout.width))}
+    >
       <View style={styles.row} pointerEvents="none">
         <View style={styles.bankRow}>
           {icon ? (
@@ -244,6 +249,7 @@ export function CardContent({
               color={color}
               subColor={subColor}
               textStyle={ts}
+              maxWidth={(inner - 15) / 2}
             />
             <View style={[styles.divider, { backgroundColor: subColor }]} />
             <Stat
@@ -253,16 +259,12 @@ export function CardContent({
               color={color}
               subColor={subColor}
               textStyle={ts}
+              maxWidth={(inner - 15) / 2}
             />
           </View>
         ) : (
-          <Text
-            style={[styles.balance, ts, { color }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            pointerEvents="none"
-          >
-            {hidden ? MASK_BALANCE : formatMoney(balance)}
+          <Text style={[styles.balance, ts, { color, fontSize: fitFontSize(balanceText, inner, 28, 0.6) }]} numberOfLines={1} pointerEvents="none">
+            {balanceText}
           </Text>
         )}
       </View>

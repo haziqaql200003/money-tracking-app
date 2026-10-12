@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { CategoryIcon } from '@/components/category-icon';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { Chip } from '@/components/ui/chip';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
 import { GOAL_PRESETS } from '@/constants/goals';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
@@ -41,7 +42,7 @@ export function GoalFormModal({ visible, onClose, editing }: Props) {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <ThemedView
+        <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
@@ -58,7 +59,7 @@ export function GoalFormModal({ visible, onClose, editing }: Props) {
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {visible ? <GoalForm key={editing?.id ?? 'new'} editing={editing} onDone={onClose} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -189,13 +190,12 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('plan.goalForm.target')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={inputStyle}
         placeholder="0.00"
         placeholderTextColor={colors.textSecondary}
         value={target}
-        onChangeText={setTarget}
-        keyboardType="decimal-pad"
+        onChange={setTarget}
       />
 
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
@@ -219,13 +219,12 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('plan.goalForm.monthly')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={inputStyle}
         placeholder={t('plan.goalForm.monthlyPlaceholder')}
         placeholderTextColor={colors.textSecondary}
         value={monthly}
-        onChangeText={setMonthly}
-        keyboardType="decimal-pad"
+        onChange={setMonthly}
       />
       {!monthlyOk ? (
         <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
@@ -236,13 +235,12 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('plan.goalForm.start')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={inputStyle}
         placeholder="0"
         placeholderTextColor={colors.textSecondary}
         value={startAmount}
-        onChangeText={setStartAmount}
-        keyboardType="decimal-pad"
+        onChange={setStartAmount}
       />
       <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.one }}>
         {t('plan.goalForm.startSub')}

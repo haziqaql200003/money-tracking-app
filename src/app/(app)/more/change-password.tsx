@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Swit
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth-field';
+import { PasswordRules } from '@/components/password-rules';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,12 +13,13 @@ import { useAuth } from '@/context/AuthContext';
 import { passwordOk } from '@/context/auth-shared';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { checkPassword } from '@/utils/password';
 
 export default function ChangePasswordScreen() {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
-  const { cloud, changePassword, signOutOthers, hasPassword } = useAuth();
+  const { cloud, changePassword, signOutOthers, hasPassword, user } = useAuth();
   const [hasPw, setHasPw] = useState(true);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -35,11 +37,12 @@ export default function ChangePasswordScreen() {
     };
   }, [hasPassword]);
 
-  const canSubmit = (!hasPw || !!current) && !!next && !!again && !busy && !saved;
+  const check = checkPassword(next, [user?.displayName ?? '', user?.fullName ?? '', user?.email ?? '']);
+  const canSubmit = (!hasPw || !!current) && check.ok && next === again && !busy && !saved;
 
   async function submit() {
     if (!canSubmit) return;
-    if (!passwordOk(next)) return setError(t('auth.error.passwordWeak'));
+    if (!passwordOk(next, [user?.displayName ?? '', user?.fullName ?? '', user?.email ?? ''])) return setError(t('auth.error.passwordWeak'));
     if (next !== again) return setError(t('more.security.pw.mismatch'));
     setBusy(true);
     setError(null);
@@ -66,6 +69,7 @@ export default function ChangePasswordScreen() {
             {hasPw ? <AuthField label={t('more.security.pw.current')} value={current} onChangeText={setCurrent} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="password" /> : null}
             <AuthField label={t('more.security.pw.new')} value={next} onChangeText={setNext} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="newPassword" />
             <AuthField label={t('more.security.pw.again')} value={again} onChangeText={setAgain} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="newPassword" onSubmitEditing={submit} />
+            {next ? <PasswordRules check={check} typed match={next === again && again.length > 0} /> : null}
 
             {cloud ? (
               <View style={styles.switchRow}>

@@ -8,7 +8,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { cycleOf } from '@/utils/cycle';
 import { monthShort, weekdayShort } from '@/i18n/format';
 import { usePersistedState } from '@/hooks/use-persisted-state';
-import { savedEntries } from '@/utils/saved';
+import { adjustmentEntries, isAdjustmentEntry, savedEntries } from '@/utils/saved';
 import { confirmedTransaction, confirmedTransfer, isTransfer, materializeRecurring, skipToUpcoming } from '@/utils/recurring';
 
 
@@ -35,7 +35,23 @@ export type Account = {
   hidden?: boolean;
   /** PayLater-style accounts: the spending limit. Money used = the negative balance. */
   creditLimit?: number;
+  /** Balance corrections made after the account was created. They change the balance but are never income or spending. */
+  adjustments?: AccountAdjustment[];
 };
+
+export type AccountAdjustment = {
+  id: string;
+  date: string;
+  amount: number; // signed: + added, - removed
+  /** Added in 2.0.4. Older adjustments have none of these and are locked. */
+  createdAt?: number;
+  before?: number; // balance just before
+  after?: number; // balance just after
+  note?: string;
+};
+
+/** How long the Undo bar stays up after an adjustment. The adjustment itself can be changed or removed any time. */
+export const ADJUSTMENT_WINDOW_MS = 30_000;
 
 export type TransactionItem = { id: string; label: string; amount: number };
 
@@ -172,6 +188,12 @@ type TransactionsContextValue = {
   addAccount: (a: Omit<Account, 'id'>) => void;
   addAccounts: (list: Omit<Account, 'id'>[]) => string[];
   updateAccount: (id: string, patch: Partial<Omit<Account, 'id'>>) => void;
+  /** Sets the account's balance to `target` by recording the difference as an adjustment, which counts as income (+) or spending (-) on its date. Returns its id, or null when nothing changed. */
+  adjustAccountBalance: (id: string, target: number, note?: string, date?: string) => string | null;
+  /** Changes any adjustment: its signed amount (+ income, - spending), its date and its note. Returns false when it no longer exists. */
+  updateAdjustment: (id: string, adjId: string, patch: { amount: number; date: string; note?: string }) => boolean;
+  /** Removes an adjustment. Returns false when it no longer exists. */
+  removeAdjustment: (id: string, adjId: string) => boolean;
   /** Deletes the account and any transactions tied to it. */
   deleteAccount: (id: string) => void;
   /** New order for the accounts shown in lists and the card carousel. Hidden accounts keep their place. */
@@ -245,8 +267,13 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   const [storedTransactions, setTransactions, transactionsReady] = usePersistedState<Transaction[]>('transactions', initialTransactions, user?.id ?? null);
   // A new array whenever the payday changes, so everything derived from the records (monthly totals, budgets,
   // charts) is worked out again for the new financial month. The records themselves are untouched.
-  const transactions = useMemo(() => (paydayRuleKey ? [...storedTransactions] : storedTransactions), [storedTransactions, paydayRuleKey]);
   const [accounts, setAccounts, accountsReady] = usePersistedState<Account[]>('accounts', initialAccounts, user?.id ?? null);
+  // Balance adjustments count as income (+) or spending (-) on their date, so they are part of this list like any record.
+  // A new array whenever the payday changes, so totals, budgets and charts are worked out again for the new financial month.
+  const transactions = useMemo(() => {
+    void paydayRuleKey;
+    return [...storedTransactions, ...adjustmentEntries(accounts)];
+  }, [storedTransactions, accounts, paydayRuleKey]);
   const [transfers, setTransfers, transfersReady] = usePersistedState<Transfer[]>('transfers', [], user?.id ?? null);
   const [recurringRules, setRecurringRules, recurringReady] = usePersistedState<RecurringRule[]>('recurring', [], user?.id ?? null);
   const [pendingEntries, setPendingEntries, pendingReady] = usePersistedState<PendingEntry[]>('pending', [], user?.id ?? null);
@@ -372,6 +399,46 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     setAccounts((prev) => prev.map((acc) => (acc.id === id ? { ...acc, ...patch } : acc)));
   }
 
+  function adjustAccountBalance(id: string, target: number, note?: string, date?: string) {
+    const current = accountBalance(id);
+    const diff = Math.round((target - current) * 100) / 100;
+    if (diff === 0) return null;
+    const entry: AccountAdjustment = {
+      id: `adj_${Date.now()}`,
+      date: date ?? todayKey,
+      amount: diff,
+      createdAt: Date.now(),
+      before: current,
+      after: Math.round((current + diff) * 100) / 100,
+      note: note?.trim() || undefined,
+    };
+    setAccounts((prev) => prev.map((acc) => (acc.id === id ? { ...acc, adjustments: [...(acc.adjustments ?? []), entry] } : acc)));
+    return entry.id;
+  }
+
+  function updateAdjustment(id: string, adjId: string, patch: { amount: number; date: string; note?: string }) {
+    const account = accounts.find((x) => x.id === id);
+    if (!(account?.adjustments ?? []).some((x) => x.id === adjId)) return false;
+    const amount = Math.round(patch.amount * 100) / 100;
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id !== id) return acc;
+        const list = acc.adjustments ?? [];
+        if (amount === 0) return { ...acc, adjustments: list.filter((x) => x.id !== adjId) };
+        // The balance before and after no longer describes the edited adjustment, so they are dropped.
+        return { ...acc, adjustments: list.map((x) => (x.id === adjId ? { ...x, amount, date: patch.date, before: undefined, after: undefined, note: patch.note?.trim() || undefined } : x)) };
+      }),
+    );
+    return true;
+  }
+
+  function removeAdjustment(id: string, adjId: string) {
+    const account = accounts.find((x) => x.id === id);
+    if (!(account?.adjustments ?? []).some((x) => x.id === adjId)) return false;
+    setAccounts((prev) => prev.map((acc) => (acc.id === id ? { ...acc, adjustments: (acc.adjustments ?? []).filter((x) => x.id !== adjId) } : acc)));
+    return true;
+  }
+
   function deleteAccount(id: string) {
     setAccounts((prev) => prev.filter((acc) => acc.id !== id));
     setTransactions((prev) => prev.filter((t) => t.accountId !== id));
@@ -444,7 +511,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   function accountBalance(accountId: string) {
     const account = accounts.find((a) => a.id === accountId);
-    const base = account?.initialBalance ?? 0;
+    const base = account?.initialBalance ?? 0; // adjustments are in `transactions`
     const fromTransactions = transactions
       .filter((t) => t.accountId === accountId)
       .reduce((sum, t) => sum + (t.type === 'credit' ? t.amount : -t.amount), base);
@@ -462,7 +529,8 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   // Debt accounts hold what you owe; the Home total is only the money you actually have.
   const selectableAccounts = accounts.filter((a) => !a.hidden);
-  const budgetEntries = useMemo(() => [...transactions, ...savedEntries(transfers)], [transactions, transfers]);
+  // Balance adjustments are income or spending but never count against a category budget.
+  const budgetEntries = useMemo(() => [...transactions.filter((t) => !isAdjustmentEntry(t)), ...savedEntries(transfers)], [transactions, transfers]);
   const balance = selectableAccounts.reduce((sum, a) => sum + accountBalance(a.id), 0);
 
   function spentThisMonth(categoryId: string) {
@@ -606,6 +674,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         selectableAccounts,
         addAccount,
         updateAccount,
+        adjustAccountBalance,
+        updateAdjustment,
+        removeAdjustment,
         addAccounts,
         deleteAccount,
         accountBalance,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,10 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccountCard, CardBackground } from '@/components/account-card';
 import { ProCardThumb } from '@/components/cards/thumbs';
+import { AmountInput } from '@/components/amount-input';
 import { EvenGrid } from '@/components/even-grid';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import {
   CARD_COLORS,
   CARD_DESIGNS,
@@ -30,9 +31,11 @@ import {
   PRO_DESIGNS,
   type CardDesign,
 } from '@/constants/card-styles';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import type { Account, AccountType } from '@/context/TransactionsContext';
-import { useTransactions } from '@/context/TransactionsContext';
+import { ADJUSTMENT_WINDOW_MS, useTransactions } from '@/context/TransactionsContext';
+import { useUndo } from '@/context/UndoContext';
+import { AdjustmentsModal } from '@/components/adjustments-modal';
 import { useAuth } from '@/context/AuthContext';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import { useTheme } from '@/hooks/use-theme';
@@ -41,6 +44,7 @@ import { ACCOUNT_ICONS, DEFAULT_ACCOUNT_ICON } from '@/constants/accounts';
 import type { IconName } from '@/constants/categories';
 import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
+import { formatMoney } from '@/utils/currency';
 import type { TKey } from '@/i18n';
 
 type Props = {
@@ -59,6 +63,10 @@ const TYPE_OPTIONS: { type: AccountType; labelKey: TKey; hintKey: TKey }[] = [
 
 type CustomType = { id: string; label: string };
 const MAX_CUSTOM_TYPES = 12;
+
+const PRO_W = 148;
+const PRO_GAP = 12;
+const PRO_STEP = PRO_W + PRO_GAP;
 
 const HUE_STOPS = Array.from({ length: 24 }, (_, i) => hslToHex(i * 15, 72, 50));
 const LIGHT_MIN = 25;
@@ -108,7 +116,9 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const { addAccount, updateAccount, deleteAccount } = useTransactions();
+  const { addAccount, updateAccount, deleteAccount, adjustAccountBalance, removeAdjustment, accountBalance } = useTransactions();
+  const { offer } = useUndo();
+  const proRef = useRef<ScrollView>(null);
   const isEditing = !!editingAccount;
 
   const [name, setName] = useState('');
@@ -120,7 +130,11 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const [newTypeName, setNewTypeName] = useState('');
   const [provider, setProvider] = useState('');
   const [last4, setLast4] = useState('');
-  const [initialBalance, setInitialBalance] = useState('0');
+  const [initialBalance, setInitialBalance] = useState('');
+  const [adjustTo, setAdjustTo] = useState('');
+  const [adjustZero, setAdjustZero] = useState(false);
+  const [adjustNote, setAdjustNote] = useState('');
+  const [adjView, setAdjView] = useState<string | null>(null);
   const [design, setDesign] = useState<CardDesign>(DEFAULT_DESIGN);
   const [color, setColor] = useState(DEFAULT_COLOR.bank);
   const [colorTouched, setColorTouched] = useState(false);
@@ -141,7 +155,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setTypeLabel(editingAccount.typeLabel ?? null);
       setProvider(editingAccount.provider ?? '');
       setLast4(editingAccount.last4 ?? '');
-      setInitialBalance(String(editingAccount.initialBalance));
+      setInitialBalance('');
       setDesign(normalizeDesign(editingAccount.design));
       setColor(c);
       setColorTouched(true);
@@ -154,7 +168,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setTypeLabel(null);
       setProvider('');
       setLast4('');
-      setInitialBalance('0');
+      setInitialBalance('');
       setDesign(DEFAULT_DESIGN);
       setColor(DEFAULT_COLOR.bank);
       setColorTouched(false);
@@ -162,10 +176,22 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       setIcon(DEFAULT_ACCOUNT_ICON.bank);
       setIconTouched(false);
     }
+    setAdjustTo('');
+    setAdjustZero(false);
+    setAdjustNote('');
     setAddingType(false);
     setNewTypeName('');
     setHue(220);
     setLight(50);
+  }, [visible, editingAccount]);
+
+  // Bring the chosen premium design into view when the sheet opens on an existing account.
+  useEffect(() => {
+    if (!visible || !editingAccount) return;
+    const idx = PRO_DESIGNS.findIndex((d) => d.id === normalizeDesign(editingAccount.design));
+    if (idx <= 0) return;
+    const id = setTimeout(() => proRef.current?.scrollTo({ x: idx * PRO_STEP, animated: false }), 60);
+    return () => clearTimeout(id);
   }, [visible, editingAccount]);
 
   // Keep the hex box in sync when the colour changes from swatches/strips.
@@ -176,10 +202,15 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   const typeOption = TYPE_OPTIONS.find((o) => o.type === type)!;
   const showBankFields = type !== 'cash';
   const trimmedName = name.trim();
-  const parsedBalance = parseFloat(initialBalance.replace(',', '.'));
-  const balanceValid = Number.isFinite(parsedBalance);
+  const parsedStart = parseFloat(initialBalance) || 0;
+  const currentBalance = editingAccount ? accountBalance(editingAccount.id) : 0;
+  const adjustTyped = parseFloat(adjustTo);
+  const adjustTarget = adjustZero ? 0 : Number.isFinite(adjustTyped) && adjustTyped > 0 ? adjustTyped : null;
+  const adjustDelta = adjustTarget === null ? 0 : Math.round((adjustTarget - currentBalance) * 100) / 100;
+  const previewBalance = isEditing ? (adjustTarget ?? currentBalance) : parsedStart;
+  const adjustmentCount = editingAccount?.adjustments?.length ?? 0;
   const last4Valid = last4.length === 0 || last4.length === 4;
-  const canSave = trimmedName.length > 0 && balanceValid && last4Valid;
+  const canSave = trimmedName.length > 0 && last4Valid;
   const isCustomColor = !CARD_COLORS.includes(color);
 
   const previewSubtitle = [showBankFields ? provider.trim() : '', typeLabel ?? t(typeOption.labelKey)].filter(Boolean).join(' · ');
@@ -251,7 +282,6 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
       type,
       typeLabel: typeLabel ?? undefined,
       icon,
-      initialBalance: parsedBalance,
       color,
       design,
       provider: showBankFields ? provider.trim() || undefined : undefined,
@@ -260,8 +290,19 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
 
     if (isEditing && editingAccount) {
       updateAccount(editingAccount.id, payload);
+      if (adjustTarget !== null && adjustDelta !== 0) {
+        const accId = editingAccount.id;
+        const adjId = adjustAccountBalance(accId, adjustTarget, adjustNote);
+        if (adjId) {
+          offer(
+            t('acct.adj.done', { amount: formatMoney(adjustDelta, { signed: true, type: adjustDelta > 0 ? 'credit' : 'debit' }) }),
+            () => removeAdjustment(accId, adjId),
+            { durationMs: ADJUSTMENT_WINDOW_MS, actionLabel: t('common.edit'), onAction: () => setAdjView(accId) },
+          );
+        }
+      }
     } else {
-      addAccount(payload);
+      addAccount({ ...payload, initialBalance: parsedStart });
     }
     onClose();
   }
@@ -286,11 +327,12 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
   }
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={visible} onClose={onClose}
           style={[
             styles.modalBox,
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
@@ -307,6 +349,13 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 </ThemedText>
               </Pressable>
             }
+            right={
+              isEditing ? (
+                <Pressable onPress={handleDelete} hitSlop={12} accessibilityLabel={t('acct.add.deleteA11y')}>
+                  <Ionicons name="trash-outline" size={20} color={colors.negative} />
+                </Pressable>
+              ) : null
+            }
           />
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -314,7 +363,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               title={trimmedName || t('acct.add.previewName')}
               subtitle={previewSubtitle}
               icon={icon}
-              balance={balanceValid ? parsedBalance : 0}
+              balance={previewBalance}
               income={0}
               spending={0}
               color={color}
@@ -322,7 +371,247 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               last4={showBankFields && last4.length === 4 ? last4 : undefined}
             />
 
+            {/* ── Details ── */}
+            <ThemedText type="smallBold" style={[styles.section, { color: colors.textSecondary }]}>
+              {t('acct.add.secDetails')}
+            </ThemedText>
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              {t('common.name')}
+            </ThemedText>
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+              placeholder={t('acct.add.namePlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+            />
+
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              {t('acct.add.type')}
+            </ThemedText>
+            <View style={styles.chipRow}>
+              {TYPE_OPTIONS.map((opt) => {
+                const active = type === opt.type && typeLabel === null;
+                return (
+                  <Pressable
+                    key={opt.type}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.backgroundElement,
+                        borderColor: active ? colors.accent : colors.divider,
+                      },
+                    ]}
+                    onPress={() => selectType(opt.type)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
+                    <ThemedText
+                      type="small"
+                      numberOfLines={1}
+                      style={[styles.chipLabel, active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }]}
+                    >
+                      {t(opt.labelKey)}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+              {customTypes.map((c) => {
+                const active = typeLabel === c.label;
+                return (
+                  <Pressable
+                    key={c.id}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.backgroundElement,
+                        borderColor: active ? colors.accent : colors.divider,
+                      },
+                    ]}
+                    onPress={() => selectCustomType(c.label)}
+                    onLongPress={() => removeCustomType(c)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityHint={t('acct.add.removeTypeHint')}
+                  >
+                    <Ionicons name="pricetag" size={16} color={active ? '#fff' : colors.text} />
+                    <ThemedText
+                      type="small"
+                      numberOfLines={1}
+                      style={[styles.chipLabel, active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }]}
+                    >
+                      {c.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+              {customTypes.length < MAX_CUSTOM_TYPES ? (
+                <Pressable
+                  style={[styles.chip, styles.chipIconOnly, { backgroundColor: colors.backgroundElement, borderColor: addingType ? colors.text : colors.divider }]}
+                  onPress={() => setAddingType((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('acct.add.addTypeA11y')}
+                >
+                  <Ionicons name={addingType ? 'close' : 'add'} size={18} color={colors.text} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {addingType ? (
+              <View style={styles.addTypeRow}>
+                <TextInput
+                  style={[styles.input, styles.addTypeInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  value={newTypeName}
+                  onChangeText={setNewTypeName}
+                  placeholder={t('acct.add.typePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  maxLength={20}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={addCustomType}
+                />
+                <Pressable
+                  onPress={addCustomType}
+                  disabled={!newTypeTrimmed || newTypeClash}
+                  style={[styles.addTypeButton, { backgroundColor: newTypeTrimmed && !newTypeClash ? colors.accent : colors.backgroundSelected }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('acct.add.saveTypeA11y')}
+                >
+                  <ThemedText type="small" style={{ color: newTypeTrimmed && !newTypeClash ? '#fff' : colors.textSecondary, fontWeight: '600' }}>
+                    {t('common.add')}
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
+            {addingType && newTypeClash ? (
+              <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                {t('acct.add.typeExists')}
+              </ThemedText>
+            ) : null}
+            <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
+              {typeLabel ? t('acct.add.customTypeNote') : t(typeOption.hintKey)}
+            </ThemedText>
+
+            {showBankFields ? (
+              <>
+                <View style={styles.pairRow}>
+                  <View style={styles.pairWide}>
+                    <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                      {t('acct.add.provider')}
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                      placeholder={t('acct.add.providerPlaceholder')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={provider}
+                      onChangeText={setProvider}
+                    />
+                  </View>
+                  <View style={styles.pairNarrow}>
+                    <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {t('acct.add.last4Short')}
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                      placeholder="1234"
+                      placeholderTextColor={colors.textSecondary}
+                      value={last4}
+                      onChangeText={(v) => setLast4(v.replace(/\D/g, '').slice(0, 4))}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                    />
+                  </View>
+                </View>
+                {!last4Valid ? (
+                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
+                    {t('acct.add.last4Error')}
+                  </ThemedText>
+                ) : null}
+              </>
+            ) : null}
+
+            {/* ── Balance ── */}
+            <ThemedText type="smallBold" style={[styles.section, { color: colors.textSecondary }]}>
+              {t('acct.add.secBalance')}
+            </ThemedText>
+            {isEditing ? (
+              <>
+                <View style={[styles.balanceRow, { backgroundColor: colors.backgroundElement }]}>
+                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                    {t('acct.add.currentBalance')}
+                  </ThemedText>
+                  <ThemedText type="smallBold" style={tabularNums}>
+                    {formatMoney(currentBalance)}
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  {t('acct.add.adjustLabel')}
+                </ThemedText>
+                <AmountInput
+                  value={adjustTo}
+                  onChange={(v) => {
+                    setAdjustZero(false);
+                    setAdjustTo(v);
+                  }}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholderTextColor={colors.textSecondary}
+                />
+                {currentBalance !== 0 ? (
+                  <Pressable onPress={() => { setAdjustTo(''); setAdjustZero((v) => !v); }} hitSlop={8} style={styles.zeroLink}>
+                    <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                      {adjustZero ? t('common.cancel') : t('acct.add.adjustZero')}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+                <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary, textAlign: 'left' }]}>
+                  {adjustTarget === null
+                    ? t('acct.add.adjustHint')
+                    : adjustDelta === 0
+                      ? t('acct.add.adjustNone')
+                      : t('acct.add.adjustPreview', {
+                          amount: formatMoney(adjustDelta, { signed: true, type: adjustDelta > 0 ? 'credit' : 'debit' }),
+                        })}
+                </ThemedText>
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  {t('acct.adj.note')}
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholder={t('acct.adj.notePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={adjustNote}
+                  onChangeText={setAdjustNote}
+                  maxLength={80}
+                />
+                {adjustmentCount > 0 ? (
+                  <Pressable onPress={() => setAdjView(editingAccount?.id ?? null)} style={[styles.historyLink, { backgroundColor: colors.backgroundElement }]} accessibilityRole="button">
+                    <ThemedText type="small" style={{ flex: 1 }}>
+                      {t('acct.adj.historyLink', { count: adjustmentCount })}
+                    </ThemedText>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 0 }]}>
+                  {t('acct.add.startBalance')}
+                </ThemedText>
+                <AmountInput
+                  value={initialBalance}
+                  onChange={setInitialBalance}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </>
+            )}
+
+            {/* ── Look ── */}
+            <ThemedText type="smallBold" style={[styles.section, { color: colors.textSecondary }]}>
+              {t('acct.add.secLook')}
+            </ThemedText>
+            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 0 }]}>
               {t('acct.add.design')}
             </ThemedText>
             <View style={styles.designRow}>
@@ -352,39 +641,49 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               {t('acct.add.premium')}
             </ThemedText>
-            <View style={styles.proGrid}>
-              {[0, 3].map((from) => {
-                const row = PRO_DESIGNS.slice(from, from + 3);
+            <ScrollView
+              ref={proRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={PRO_STEP}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              style={styles.proScroll}
+              contentContainerStyle={styles.proStrip}
+            >
+              {PRO_DESIGNS.map((d) => {
+                const active = design === d.id;
                 return (
-                  <View key={from} style={styles.designRow}>
-                    {row.map((d) => {
-                      const active = design === d.id;
-                      return (
-                        <Pressable key={d.id} style={styles.designItem} onPress={() => setDesign(d.id)}>
-                          <View
-                            style={[
-                              styles.designThumb,
-                              { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
-                            ]}
-                          >
-                            <ProCardThumb design={d.id} />
-                          </View>
-                          <ThemedText
-                            type="small"
-                            style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
-                          >
-                            {d.label}
-                          </ThemedText>
-                        </Pressable>
-                      );
-                    })}
-                    {Array.from({ length: 3 - row.length }, (_, i) => (
-                      <View key={`pad${i}`} style={styles.designItem} />
-                    ))}
-                  </View>
+                  <Pressable
+                    key={d.id}
+                    style={styles.proItem}
+                    onPress={() => setDesign(d.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <View
+                      style={[
+                        styles.proThumb,
+                        { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
+                      ]}
+                    >
+                      <ProCardThumb design={d.id} />
+                      {active ? (
+                        <View style={[styles.proCheck, { backgroundColor: colors.accent }]}>
+                          <Ionicons name="checkmark" size={12} color="#fff" />
+                        </View>
+                      ) : null}
+                    </View>
+                    <ThemedText
+                      type="small"
+                      style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}
+                    >
+                      {d.label}
+                    </ThemedText>
+                  </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
 
             {isProDesign(design) ? (
               <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
@@ -470,107 +769,6 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
             )}
 
             <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              {t('acct.add.type')}
-            </ThemedText>
-            <View style={styles.chipRow}>
-              {TYPE_OPTIONS.map((opt) => {
-                const active = type === opt.type && typeLabel === null;
-                return (
-                  <Pressable
-                    key={opt.type}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.accent : colors.backgroundElement,
-                        borderColor: active ? colors.accent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => selectType(opt.type)}
-                  >
-                    <View style={styles.chipInner}>
-                      <Ionicons name={DEFAULT_ACCOUNT_ICON[opt.type]} size={16} color={active ? '#fff' : colors.text} />
-                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
-                        {t(opt.labelKey)}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-              {customTypes.map((c) => {
-                const active = typeLabel === c.label;
-                return (
-                  <Pressable
-                    key={c.id}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.accent : colors.backgroundElement,
-                        borderColor: active ? colors.accent : colors.divider,
-                      },
-                    ]}
-                    onPress={() => selectCustomType(c.label)}
-                    onLongPress={() => removeCustomType(c)}
-                    accessibilityHint={t('acct.add.removeTypeHint')}
-                  >
-                    <View style={styles.chipInner}>
-                      <Ionicons name="pricetag" size={16} color={active ? '#fff' : colors.text} />
-                      <ThemedText type="small" style={active ? { color: '#fff', fontWeight: '600' } : { color: colors.text }}>
-                        {c.label}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-              {customTypes.length < MAX_CUSTOM_TYPES ? (
-                <Pressable
-                  style={[styles.chip, { backgroundColor: colors.backgroundElement, borderColor: addingType ? colors.text : colors.divider }]}
-                  onPress={() => setAddingType((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('acct.add.addTypeA11y')}
-                >
-                  <View style={styles.chipInner}>
-                    <Ionicons name={addingType ? 'close' : 'add'} size={18} color={colors.text} />
-                  </View>
-                </Pressable>
-              ) : null}
-            </View>
-
-            {addingType ? (
-              <View style={styles.addTypeRow}>
-                <TextInput
-                  style={[styles.input, styles.addTypeInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  value={newTypeName}
-                  onChangeText={setNewTypeName}
-                  placeholder={t('acct.add.typePlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  maxLength={20}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={addCustomType}
-                />
-                <Pressable
-                  onPress={addCustomType}
-                  disabled={!newTypeTrimmed || newTypeClash}
-                  style={[styles.addTypeButton, { backgroundColor: newTypeTrimmed && !newTypeClash ? colors.accent : colors.backgroundSelected }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('acct.add.saveTypeA11y')}
-                >
-                  <ThemedText type="small" style={{ color: newTypeTrimmed && !newTypeClash ? '#fff' : colors.textSecondary, fontWeight: '600' }}>
-                    {t('common.add')}
-                  </ThemedText>
-                </Pressable>
-              </View>
-            ) : null}
-            {addingType && newTypeClash ? (
-              <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                {t('acct.add.typeExists')}
-              </ThemedText>
-            ) : null}
-            <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-              {typeLabel ? t('acct.add.customTypeNote') : t(typeOption.hintKey)}
-            </ThemedText>
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
               {t('acct.add.icon')}
             </ThemedText>
             <View style={[styles.iconBox, { backgroundColor: colors.backgroundElement }]}>
@@ -591,62 +789,6 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               </EvenGrid>
             </View>
 
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              {t('common.name')}
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder={t('acct.add.namePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-            />
-
-            {showBankFields ? (
-              <>
-                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  {t('acct.add.provider')}
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder={t('acct.add.providerPlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={provider}
-                  onChangeText={setProvider}
-                />
-
-                <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                  {t('acct.add.last4')}
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-                  placeholder="1234"
-                  placeholderTextColor={colors.textSecondary}
-                  value={last4}
-                  onChangeText={(v) => setLast4(v.replace(/\D/g, '').slice(0, 4))}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                />
-                {!last4Valid ? (
-                  <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
-                    {t('acct.add.last4Error')}
-                  </ThemedText>
-                ) : null}
-              </>
-            ) : null}
-
-            <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              {t('acct.add.startBalance')}
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              value={initialBalance}
-              onChangeText={setInitialBalance}
-              keyboardType="decimal-pad"
-            />
-
             <View style={[styles.infoBox, { backgroundColor: colors.backgroundElement }]}>
               <ThemedText type="smallBold">{t('acct.add.infoTitle')}</ThemedText>
               <ThemedText type="small" style={[styles.infoLine, { color: colors.textSecondary }]}>
@@ -660,7 +802,6 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
               </ThemedText>
             </View>
 
-
             <Pressable
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.backgroundSelected }]}
               onPress={handleSave}
@@ -670,16 +811,14 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
                 {isEditing ? t('acct.add.saveChanges') : t('acct.add.submit')}
               </ThemedText>
             </Pressable>
-
-            {isEditing ? (
-              <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('acct.add.delete')}</ThemedText>
-              </Pressable>
-            ) : null}
           </ScrollView>
-        </ThemedView>
+          {visible ? <AdjustmentsModal visible={!!adjView} onClose={() => setAdjView(null)} accountId={adjView} /> : null}
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
+    {/* After saving, the sheet is closed: the Change button on the undo bar opens the adjustment on its own. */}
+    {!visible ? <AdjustmentsModal visible={!!adjView} onClose={() => setAdjView(null)} accountId={adjView} /> : null}
+    </>
   );
 }
 
@@ -710,8 +849,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: FontSize.body,
   },
+  section: { marginTop: Spacing.four, textTransform: 'uppercase', letterSpacing: 0.6 },
   chipRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
-  chip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 40, borderRadius: Radius.pill, borderWidth: StyleSheet.hairlineWidth },
+  chipIconOnly: { paddingHorizontal: 12 },
+  chipLabel: { flexShrink: 0 },
+  pairRow: { flexDirection: 'row', gap: Spacing.two },
+  pairWide: { flex: 1, minWidth: 0 },
+  pairNarrow: { width: 112 },
+  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: Radius.md, paddingHorizontal: Spacing.three, paddingVertical: 14 },
+  historyLink: { flexDirection: 'row', alignItems: 'center', padding: Spacing.three, borderRadius: Radius.md, marginTop: Spacing.three },
+  zeroLink: { alignSelf: 'flex-start', marginTop: Spacing.two },
+  proScroll: { marginHorizontal: -Spacing.four },
+  proStrip: { paddingHorizontal: Spacing.four, gap: PRO_GAP },
+  proItem: { width: PRO_W, gap: 6 },
+  proThumb: { width: PRO_W, aspectRatio: 84 / 54, borderRadius: Radius.md, overflow: 'hidden' },
+  proCheck: { position: 'absolute', top: 6, right: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   infoBox: { borderRadius: Radius.md, padding: Spacing.three, marginTop: Spacing.three, gap: 6 },
   infoLine: { lineHeight: 19 },
   designRow: { flexDirection: 'row', gap: Spacing.two },
@@ -746,7 +899,6 @@ const styles = StyleSheet.create({
   },
   saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.four, marginBottom: Spacing.two },
   saveButtonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
-  deleteButton: { padding: 14, alignItems: 'center', marginBottom: Spacing.three },
   addTypeRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two, alignItems: 'center' },
   addTypeInput: { flex: 1, marginTop: 0 },
   addTypeButton: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: Radius.md },

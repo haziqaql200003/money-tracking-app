@@ -74,6 +74,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
         salt,
         passwordHash: await hashPassword(salt, input.password),
         displayName: input.displayName.trim(),
+        ...(input.fullName?.trim() ? { fullName: input.fullName.trim() } : {}),
         avatarColor: CARD_COLORS[0],
         language: input.language,
         hasOnboarded: false,
@@ -136,6 +137,14 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
     [users, sessionId, persistUsers],
   );
 
+  const verifyPassword = useCallback<AuthContextValue['verifyPassword']>(
+    async (password) => {
+      const me = users.find((u) => u.id === sessionId);
+      return !!me && (await hashPassword(me.salt, password)) === me.passwordHash;
+    },
+    [users, sessionId],
+  );
+
   const user = useMemo<AuthUser | null>(() => {
     const s = users.find((u) => u.id === sessionId);
     if (!s) return null;
@@ -162,6 +171,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       updateProfile,
       deleteAccount,
       changePassword,
+      verifyPassword,
       signOutOthers: async () => notCloud,
       signInWithProvider: async () => notCloud,
       linkProvider: async () => notCloud,
@@ -179,7 +189,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       importLegacy: async () => notCloud,
       skipImport: () => {},
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword],
+    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, verifyPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

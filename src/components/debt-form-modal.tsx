@@ -2,23 +2,23 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AccountPicker, DebtInput, FieldLabel, toNumber } from '@/components/debt-ui';
+import { AccountPicker, DebtAmountInput, DebtInput, FieldLabel, toNumber } from '@/components/debt-ui';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { FALLBACK_EXPENSE_ID } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
-import { useDebts } from '@/context/DebtsContext';
+import { canRevisePlan, useDebts } from '@/context/DebtsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { categoryName } from '@/i18n/data';
 import { formatDate } from '@/i18n/format';
-import { addMonths, buildSchedule, installmentTotalFee, instalmentAmount, round2, suggestedLoanPayment, totalToRepayOf, type DebtKind, type FeeMode, type RateType } from '@/utils/debts';
+import { addMonths, buildSchedule, installmentTotalFee, instalmentAmount, round2, suggestedLoanPayment, totalToRepayOf, type Debt, type DebtKind, type FeeMode, type RateType } from '@/utils/debts';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
 
@@ -29,9 +29,10 @@ const PROVIDERS: Record<DebtKind, string[]> = {
 };
 const MONTH_CHOICES = [3, 6, 12, 24, 36, 60];
 
-type Props = { visible: boolean; onClose: () => void };
+/** `editing`: an instalment plan or loan to correct. Credit lines are edited from their own sheet. */
+type Props = { visible: boolean; onClose: () => void; editing?: Debt | null };
 
-export function DebtFormModal({ visible, onClose }: Props) {
+export function DebtFormModal({ visible, onClose, editing }: Props) {
   const colors = useTheme();
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -39,10 +40,10 @@ export function DebtFormModal({ visible, onClose }: Props) {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <ThemedView style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
+        <DragSheet visible={visible} onClose={onClose} style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
-            title={t('debt.form.title')}
+            title={editing ? t('debt.edit.title') : t('debt.form.title')}
             left={
               <Pressable onPress={onClose} hitSlop={12}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
@@ -52,42 +53,46 @@ export function DebtFormModal({ visible, onClose }: Props) {
             }
           />
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {visible ? <DebtForm onDone={onClose} /> : null}
+            {visible ? <DebtForm key={editing?.id ?? 'new'} onDone={onClose} editing={editing ?? null} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-function DebtForm({ onDone }: { onDone: () => void }) {
+function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | null }) {
   const colors = useTheme();
   const { t } = useT();
   const { hideAmounts } = usePrivacy();
-  const { selectableAccounts } = useTransactions();
+  const { selectableAccounts, transactions, transfers } = useTransactions();
   const { expenseCategories } = useCategories();
-  const { createInstalment, createLoan, createCredit } = useDebts();
+  const { createInstalment, createLoan, createCredit, reviseInstalment, reviseLoan, updateDebt } = useDebts();
 
   const today = toDateKey(new Date());
   const firstAccount = selectableAccounts[0]?.id ?? '';
-  const [kind, setKind] = useState<DebtKind>('installment');
-  const [name, setName] = useState('');
-  const [provider, setProvider] = useState('');
-  const [amount, setAmount] = useState('');
-  const [months, setMonths] = useState('6');
-  const [fee, setFee] = useState('');
-  const [feeMode, setFeeMode] = useState<FeeMode>('pctMonth');
-  const [rate, setRate] = useState('');
-  const [rateType, setRateType] = useState<RateType>('flat');
-  const [payment, setPayment] = useState('');
-  const [startDate, setStartDate] = useState(today);
-  const [firstDueEdited, setFirstDueEdited] = useState<string | null>(null);
-  const [receiveId, setReceiveId] = useState(firstAccount);
-  const [payFromId, setPayFromId] = useState(firstAccount);
-  const [categoryId, setCategoryId] = useState(FALLBACK_EXPENSE_ID);
-  const [existing, setExisting] = useState(false);
-  const [paidCount, setPaidCount] = useState('1');
-  const [upfrontFee, setUpfrontFee] = useState('');
+  // Editing starts from what was saved. The plan (amount, months, rate, dates) can only change while no payment was
+  // recorded in WaKira; after that only the name, provider, category and pay-from account can.
+  const [init] = useState(() => (editing ? formValuesOf(editing, transactions, transfers) : null));
+  const locked = !!editing && !canRevisePlan(editing);
+  const [kind, setKind] = useState<DebtKind>(editing?.kind ?? 'installment');
+  const [name, setName] = useState(editing?.name ?? '');
+  const [provider, setProvider] = useState(editing?.provider ?? '');
+  const [amount, setAmount] = useState(init?.amount ?? '');
+  const [months, setMonths] = useState(init?.months ?? '6');
+  const [fee, setFee] = useState(init?.fee ?? '');
+  const [feeMode, setFeeMode] = useState<FeeMode>(init ? 'rmMonth' : 'pctMonth');
+  const [rate, setRate] = useState(init?.rate ?? '');
+  const [rateType, setRateType] = useState<RateType>(editing?.rateType ?? 'flat');
+  const [payment, setPayment] = useState(init?.payment ?? '');
+  const [startDate, setStartDate] = useState(editing?.startDate ?? today);
+  const [firstDueEdited, setFirstDueEdited] = useState<string | null>(init?.firstDue ?? null);
+  const [receiveId, setReceiveId] = useState(init?.receiveId ?? firstAccount);
+  const [payFromId, setPayFromId] = useState(editing?.payFromAccountId ?? firstAccount);
+  const [categoryId, setCategoryId] = useState(editing?.categoryId ?? FALLBACK_EXPENSE_ID);
+  const [existing, setExisting] = useState((init?.paidBefore ?? 0) > 0);
+  const [paidCount, setPaidCount] = useState(init && init.paidBefore > 0 ? String(init.paidBefore) : '1');
+  const [upfrontFee, setUpfrontFee] = useState(init?.upfrontFee ?? '');
   const [limit, setLimit] = useState('');
   const [used, setUsed] = useState('');
   const [dueDay, setDueDay] = useState('');
@@ -121,12 +126,22 @@ function DebtForm({ onDone }: { onDone: () => void }) {
   const valid =
     hasName &&
     firstAccount !== '' &&
-    (kind === 'credit' ? Number.isFinite(limitN) && limitN > 0 && (!dueDay || (dueDayN >= 1 && dueDayN <= 28)) : planValid && existingOk);
+    (locked || (kind === 'credit' ? Number.isFinite(limitN) && limitN > 0 && (!dueDay || (dueDayN >= 1 && dueDayN <= 28)) : planValid && existingOk));
 
   function save() {
     if (!valid) return;
     const base = { name: name.trim(), provider: provider.trim() };
-    if (kind === 'installment') {
+    if (editing && locked) {
+      updateDebt(editing.id, { ...base, payFromAccountId: payFromId, ...(kind === 'installment' ? { categoryId } : {}) });
+    } else if (editing && kind === 'installment') {
+      reviseInstalment(editing.id, { ...base, principal: round2(amountN), months: monthsN, totalFee: totalFeeN, startDate, firstDue, payFromAccountId: payFromId, categoryId, subcategory: editing.subcategory ?? '', paidCount: paidN });
+    } else if (editing && kind === 'loan') {
+      reviseLoan(editing.id, {
+        ...base, principal: round2(amountN), months: monthsN, ratePct: rateN, rateType,
+        monthlyPayment: Number.isFinite(paymentN) && paymentN > 0 ? paymentN : undefined,
+        startDate, firstDue, receiveAccountId: receiveId, payFromAccountId: payFromId, upfrontFee: upfrontN, paidCount: paidN,
+      });
+    } else if (kind === 'installment') {
       createInstalment({ ...base, principal: round2(amountN), months: monthsN, totalFee: totalFeeN, startDate, firstDue, payFromAccountId: payFromId, categoryId, subcategory: '', paidCount: paidN });
     } else if (kind === 'loan') {
       createLoan({
@@ -147,14 +162,31 @@ function DebtForm({ onDone }: { onDone: () => void }) {
 
   return (
     <View>
-      <View style={styles.chips}>
-        <Chip label={t('debt.kind.installment')} active={kind === 'installment'} onPress={() => setKind('installment')} />
-        <Chip label={t('debt.kind.loan')} active={kind === 'loan'} onPress={() => setKind('loan')} />
-        <Chip label={t('debt.kind.credit')} active={kind === 'credit'} onPress={() => setKind('credit')} />
-      </View>
-      <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.two }}>
-        {t(`debt.kind.${kind}Help`)}
-      </ThemedText>
+      {editing ? (
+        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+          {t(`debt.kind.${kind}`)}
+        </ThemedText>
+      ) : (
+        <>
+          <View style={styles.chips}>
+            <Chip label={t('debt.kind.installment')} active={kind === 'installment'} onPress={() => setKind('installment')} />
+            <Chip label={t('debt.kind.loan')} active={kind === 'loan'} onPress={() => setKind('loan')} />
+            <Chip label={t('debt.kind.credit')} active={kind === 'credit'} onPress={() => setKind('credit')} />
+          </View>
+          <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.two }}>
+            {t(`debt.kind.${kind}Help`)}
+          </ThemedText>
+        </>
+      )}
+      {locked ? (
+        <View style={[styles.preview, { backgroundColor: colors.accentSoft }]}>
+          <ThemedText type="small">{t('debt.edit.locked')}</ThemedText>
+        </View>
+      ) : editing ? (
+        <View style={[styles.preview, { backgroundColor: colors.accentSoft }]}>
+          <ThemedText type="small">{t('debt.edit.replan')}</ThemedText>
+        </View>
+      ) : null}
 
       <FieldLabel text={kind === 'installment' ? t('debt.form.whatBought') : t('debt.form.nameLabel')} />
       <DebtInput value={name} onChangeText={setName} placeholder={t(`debt.form.namePlaceholder.${kind}`)} maxLength={40} />
@@ -167,12 +199,27 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         ))}
       </View>
 
-      {kind === 'credit' ? (
+      {locked ? (
+        <>
+          {kind === 'installment' ? (
+            <>
+              <FieldLabel text={t('debt.form.category')} />
+              <View style={styles.chips}>
+                {expenseCategories.map((c) => (
+                  <Chip key={c.id} label={categoryName(c)} active={c.id === categoryId} onPress={() => setCategoryId(c.id)} />
+                ))}
+              </View>
+            </>
+          ) : null}
+          <FieldLabel text={t('debt.form.payFrom')} />
+          <AccountPicker accounts={selectableAccounts} value={payFromId} onChange={setPayFromId} />
+        </>
+      ) : kind === 'credit' ? (
         <>
           <FieldLabel text={t('debt.form.limit')} />
-          <DebtInput value={limit} onChangeText={setLimit} keyboardType="decimal-pad" placeholder="0.00" />
+          <DebtAmountInput value={limit} onChangeText={setLimit} placeholder="0.00" />
           <FieldLabel text={t('debt.form.used')} hint={t('debt.form.usedHint')} />
-          <DebtInput value={used} onChangeText={setUsed} keyboardType="decimal-pad" placeholder="0.00" />
+          <DebtAmountInput value={used} onChangeText={setUsed} placeholder="0.00" />
           <FieldLabel text={t('debt.form.dueDay')} hint={t('debt.form.dueDayHint')} />
           <DebtInput value={dueDay} onChangeText={setDueDay} keyboardType="number-pad" placeholder="15" maxLength={2} />
           <FieldLabel text={t('debt.form.payFrom')} />
@@ -181,7 +228,7 @@ function DebtForm({ onDone }: { onDone: () => void }) {
       ) : (
         <>
           <FieldLabel text={kind === 'installment' ? t('debt.form.price') : t('debt.form.borrowed')} />
-          <DebtInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" />
+          <DebtAmountInput value={amount} onChangeText={setAmount} placeholder="0.00" />
 
           <FieldLabel text={t('debt.form.months')} />
           <View style={styles.chips}>
@@ -213,9 +260,9 @@ function DebtForm({ onDone }: { onDone: () => void }) {
                 {t(`debt.rate.${rateType}Help`)}
               </ThemedText>
               <FieldLabel text={t('debt.form.lenderPayment')} hint={suggested > 0 ? t('debt.form.lenderPaymentHint', { amount: money(suggested) }) : undefined} />
-              <DebtInput value={payment} onChangeText={setPayment} keyboardType="decimal-pad" placeholder={suggested > 0 ? String(suggested) : '0.00'} />
+              <DebtAmountInput value={payment} onChangeText={setPayment} placeholder={suggested > 0 ? String(suggested) : '0.00'} />
               <FieldLabel text={t('debt.form.upfrontFee')} hint={t('debt.form.upfrontFeeHint')} />
-              <DebtInput value={upfrontFee} onChangeText={setUpfrontFee} keyboardType="decimal-pad" placeholder="0.00" />
+              <DebtAmountInput value={upfrontFee} onChangeText={setUpfrontFee} placeholder="0.00" />
             </>
           )}
 
@@ -281,10 +328,32 @@ function DebtForm({ onDone }: { onDone: () => void }) {
       )}
 
       <Pressable style={[styles.saveButton, { backgroundColor: valid ? colors.accent : colors.backgroundSelected }]} onPress={save} disabled={!valid}>
-        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>{t('debt.form.save')}</ThemedText>
+        <ThemedText style={[styles.saveText, !valid && { color: colors.textSecondary }]}>{editing ? t('common.save') : t('debt.form.save')}</ThemedText>
       </Pressable>
     </View>
   );
+}
+
+/** The form's starting values for a saved plan, read back from its schedule and the records it created. */
+function formValuesOf(
+  debt: Debt,
+  transactions: { debtId?: string; subcategory: string; amount: number }[],
+  transfers: { debtId?: string; fromAccountId: string; toAccountId: string }[],
+) {
+  const fees = round2(debt.schedule.reduce((sum, s) => sum + s.interest, 0));
+  const first = debt.schedule[0];
+  return {
+    amount: String(debt.principal),
+    months: String(debt.months),
+    // Instalment fees come back as "RM a month", the one mode that is exact for any plan.
+    fee: debt.kind === 'installment' && fees > 0 ? String(round2(fees / Math.max(1, debt.months))) : '',
+    rate: debt.kind === 'loan' && debt.ratePct > 0 ? String(debt.ratePct) : '',
+    payment: debt.kind === 'loan' && first ? String(instalmentAmount(first)) : '',
+    firstDue: first?.dueDate ?? null,
+    paidBefore: debt.schedule.filter((s) => s.paid?.historic).length,
+    receiveId: transfers.find((x) => x.debtId === debt.id && x.fromAccountId === debt.accountId)?.toAccountId,
+    upfrontFee: String(transactions.find((x) => x.debtId === debt.id && x.subcategory === 'Bank Fees')?.amount ?? ''), // i18n-ignore: stored sub-category id
+  };
 }
 
 const styles = StyleSheet.create({

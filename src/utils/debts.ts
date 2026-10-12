@@ -1,3 +1,4 @@
+import { r1 } from '@/utils/percent';
 /**
  * Debts: instalment purchases (SPayLater, Atome, TikTok PayLater...), loans (SLoan, TikTok Financing...) and
  * PayLater-style credit lines. Pure functions: no React, no storage, so the arithmetic can be tested alone.
@@ -199,7 +200,7 @@ export function progressPercent(debt: Debt): number {
   const total = debt.schedule.reduce((sum, s) => sum + s.principal, 0);
   if (total <= 0) return debt.status === 'done' ? 100 : 0;
   if (debt.status === 'done') return 100;
-  return Math.round(((total - remainingPrincipal(debt)) / total) * 100);
+  return Math.floor(((total - remainingPrincipal(debt)) / total) * 1000) / 10;
 }
 
 /** Done when every instalment is paid or the debt was settled. */
@@ -242,7 +243,7 @@ export type CreditStatus = { used: number; available: number; limit: number; use
 /** `balance` is the debt account's balance (negative when money is owed). */
 export function creditStatus(limit: number, balance: number): CreditStatus {
   const used = round2(Math.max(0, -balance));
-  return { used, available: round2(limit - used), limit, usedPercent: limit > 0 ? Math.round((used / limit) * 100) : 0 };
+  return { used, available: round2(limit - used), limit, usedPercent: limit > 0 ? r1((used / limit) * 100) : 0 };
 }
 
 /** The next time the monthly bill of a credit line falls due, today included. */

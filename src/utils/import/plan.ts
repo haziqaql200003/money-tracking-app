@@ -49,16 +49,61 @@ const ALIASES: Record<string, string[]> = {
   otherincome: ['other income', 'pendapatan lain', 'cashback', 'refund', 'hadiah diterima'],
 };
 
-type Found = { categoryId: string; subcategory: string };
+type Found = { categoryId: string; subcategory: string; exact?: boolean; bySub?: boolean };
+
+/** Edit distance, capped: only used to tell "Utilitis" from "Utilities". */
+function distance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const up = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = up;
+    }
+  }
+  return prev[b.length];
+}
+/** Same word, or one letter off in a word of at least 5 letters. */
+const close = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 5 && distance(a, b) <= 1);
+
+/** "Restaurant / Dining" can be written as "Restaurant" or "Dining". */
+const nameParts = (names: string[]) => names.flatMap((x) => [norm(x), ...x.split('/').map((part) => norm(part))]).filter(Boolean);
+
+function matchSub(c: ImportCategory, n: string, fuzzy: boolean): string | null {
+  for (const s of c.subs) if (nameParts(s.names).includes(n)) return s.name;
+  if (fuzzy) for (const s of c.subs) if (nameParts(s.names).some((x) => close(x, n))) return s.name;
+  return null;
+}
+
+/** Subcategories too vague to decide the category on their own. */
+const GENERIC_SUBS = new Set(['other', 'others', 'lain', 'lain lain', 'misc', 'uncategorized', 'general', 'am']);
+
+function findBySub(text: string, kind: Kind | null, ctx: Context): Found | null {
+  const n = norm(text);
+  if (!n || GENERIC_SUBS.has(n)) return null;
+  const pool = ctx.categories.filter((c) => kind === null || c.kind === kind);
+  for (const fuzzy of [false, true]) {
+    for (const c of pool) {
+      const sub = matchSub(c, n, fuzzy);
+      if (sub) return { categoryId: c.id, subcategory: sub, bySub: true };
+    }
+  }
+  return null;
+}
 
 function findCategory(text: string, kind: Kind | null, ctx: Context): Found | null {
   const n = norm(text);
   if (!n) return null;
   const pool = ctx.categories.filter((c) => kind === null || c.kind === kind);
-  for (const c of pool) if (c.id === n || c.names.some((x) => norm(x) === n)) return { categoryId: c.id, subcategory: '' };
+  for (const c of pool) if (c.names.some((x) => norm(x) === n)) return { categoryId: c.id, subcategory: '', exact: true };
+  for (const c of pool) if (c.id === n) return { categoryId: c.id, subcategory: '' };
   for (const c of pool) {
-    const sub = c.subs.find((s) => s.names.some((x) => norm(x) === n));
-    if (sub) return { categoryId: c.id, subcategory: sub.name };
+    const sub = matchSub(c, n, false);
+    if (sub) return { categoryId: c.id, subcategory: sub, bySub: true };
   }
   for (const c of pool) {
     const words = ALIASES[c.id];
@@ -68,7 +113,28 @@ function findCategory(text: string, kind: Kind | null, ctx: Context): Found | nu
   if (n.length >= 4) {
     for (const c of pool) if (c.names.some((x) => norm(x).split(' ')[0] === n)) return { categoryId: c.id, subcategory: '' };
   }
+  // A letter off: "Utilitis", "Transprt", "Entertainmnt"
+  for (const c of pool) {
+    if (c.names.some((x) => close(norm(x), n) || close(norm(x).split(' ')[0], n)) || (ALIASES[c.id] ?? []).some((w) => close(w, n))) return { categoryId: c.id, subcategory: '' };
+  }
+  for (const c of pool) {
+    const sub = matchSub(c, n, true);
+    if (sub) return { categoryId: c.id, subcategory: sub, bySub: true };
+  }
   return null;
+}
+
+/** For a name WaKira could not match: the existing category that shares a word with it, if any. */
+export function suggestCategory(text: string, kind: Kind, ctx: Context): string | null {
+  const words = norm(text).split(' ').filter((w) => w.length >= 4);
+  if (words.length === 0) return null;
+  let best: { id: string; score: number } | null = null;
+  for (const c of ctx.categories.filter((x) => x.kind === kind)) {
+    const pool = new Set([...c.names.flatMap((x) => norm(x).split(' ')), ...(ALIASES[c.id] ?? []), ...c.subs.flatMap((s) => nameParts(s.names).flatMap((x) => x.split(' ')))]);
+    const score = words.filter((w) => [...pool].some((x) => close(x, w))).length;
+    if (score > 0 && (!best || score > best.score)) best = { id: c.id, score };
+  }
+  return best?.id ?? null;
 }
 
 export function analyze(rows: string[][], headerRow: number, m: Mapping, opt: Options, ctx: Context): { parsed: Parsed[]; problems: Problem[]; total: number } {
@@ -199,7 +265,12 @@ export function finalize(rows: Parsed[], ctx: Context, choices: Choices, skipDup
     const kind = kindOf(p);
     let categoryRef = ctx.fallback[kind];
     let subcategory = '';
-    const found = p.catText ? findCategory(p.catText, kind, ctx) : null;
+    let found = p.catText ? findCategory(p.catText, kind, ctx) : null;
+    // A loose category word ("Income") should not beat a clear subcategory ("Dividen" is Investment, not Salary).
+    if (found && !found.exact && !found.bySub && p.subText) {
+      const better = findBySub(p.subText, kind, ctx);
+      if (better && better.categoryId !== found.categoryId) found = better;
+    }
     const foundBySub = !found && p.subText ? findCategory(p.subText, kind, ctx) : null;
     if (found) {
       categoryRef = found.categoryId;
@@ -218,8 +289,7 @@ export function finalize(rows: Parsed[], ctx: Context, choices: Choices, skipDup
     if (!subcategory && p.subText) {
       const cat = ctx.categories.find((c) => c.id === categoryRef);
       const n = norm(p.subText);
-      const sub = cat?.subs.find((s) => s.names.some((x) => norm(x) === n));
-      subcategory = sub ? sub.name : p.subText;
+      subcategory = (cat ? matchSub(cat, n, true) : null) ?? p.subText;
     }
 
     let accountRef = choices.defaultAccountId;

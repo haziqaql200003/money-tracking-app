@@ -149,8 +149,9 @@ export function SpendingChart({
                   y1={limitY}
                   y2={limitY}
                   stroke={LIMIT_COLOR}
-                  strokeWidth={1.5}
-                  strokeDasharray="5 4"
+                  strokeOpacity={0.6}
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
                 />
               )}
 
@@ -237,9 +238,9 @@ export function SpendingChart({
             {limitY !== null && (
               <View
                 pointerEvents="none"
-                style={[styles.limitLabel, { top: Math.max(limitY - 18, 0), backgroundColor: colors.background }]}
+                style={[styles.limitLabel, { top: Math.max(limitY - 13, 0) }]}
               >
-                <ThemedText type="small" style={{ color: LIMIT_COLOR, fontWeight: '700' }}>
+                <ThemedText type="small" style={styles.limitText}>
                   {t('home.chart.limit', { amount: formatMoney(dailyLimit!) })}
                 </ThemedText>
               </View>
@@ -303,11 +304,7 @@ const styles = StyleSheet.create({
   labelActive: { fontWeight: '700' },
   labelFuture: { opacity: 0.4 },
   labelDense: { fontSize: FontSize.micro },
-  limitLabel: {
-    position: 'absolute',
-    right: 0,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
+  // A small caption sitting just above the dashed line, so the line itself stays quiet.
+  limitLabel: { position: 'absolute', right: 2 },
+  limitText: { color: LIMIT_COLOR, fontSize: 10, lineHeight: 12, fontWeight: '600', opacity: 0.85 },
 });

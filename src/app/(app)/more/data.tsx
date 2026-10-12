@@ -28,7 +28,7 @@ export default function DataPrivacyScreen() {
   const { transactions, accounts, resetAllData } = useTransactions();
   const { getCategory, resetCategories } = useCategories();
   const { resetPlan } = usePlan();
-  const { user, deleteAccount, cloud, syncNow } = useAuth();
+  const { user, cloud, syncNow } = useAuth();
   const sync = useSyncStatus();
 
   const syncText = (() => {
@@ -92,21 +92,6 @@ export default function DataPrivacyScreen() {
     ]);
   }
 
-  function confirmDelete() {
-    Alert.alert(t('more.settings.deleteAccountTitle'), t('more.settings.deleteAccountMsg'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: () => {
-          deleteAccount().then((res) => {
-            if (!res.ok) Alert.alert(t('more.settings.deleteFailedTitle'), res.error);
-          });
-        },
-      },
-    ]);
-  }
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -146,7 +131,7 @@ export default function DataPrivacyScreen() {
 
           <Section title={t('more.data.danger')}>
             <Row first icon="trash-outline" label={t('more.settings.resetData')} subtitle={t('more.settings.resetDataSub')} danger onPress={confirmReset} />
-            <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={confirmDelete} />
+            <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={() => router.push('/more/delete-account')} />
           </Section>
         </ScrollView>
       </SafeAreaView>

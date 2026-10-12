@@ -29,6 +29,7 @@ import { formatMoney } from '@/utils/currency';
 import { dayLabel, monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { goalProgress } from '@/utils/goals';
 import { DAYS_BEFORE_OPTIONS } from '@/utils/reminders';
+import { p1, r1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
@@ -53,6 +54,7 @@ export default function RancangScreen() {
     disableReminders,
     setDaysBefore,
     setBudgetAlerts,
+    setDailyNudge,
     ready: planReady,
   } = usePlan();
 
@@ -70,7 +72,7 @@ export default function RancangScreen() {
   const totalSpent = budgeted.reduce((sum, c) => sum + (spent.get(c.id) ?? 0), 0);
   const status = budgetStatus(totalSpent, totalLimit, warnPercent);
   const statusColor = status === 'over' ? colors.negative : status === 'warn' ? WARN_COLOR : colors.positive;
-  const budgetPercent = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
+  const budgetPercent = totalLimit > 0 ? Math.min(100, r1((totalSpent / totalLimit) * 100)) : 0;
 
   // Goals
   const goalRows = goals.map((g) => ({ goal: g, progress: goalProgress(g, goalEntries, today) }));
@@ -143,7 +145,7 @@ export default function RancangScreen() {
                 <ThemedText type="small" style={[styles.tileLabel, { color: colors.textSecondary }]} numberOfLines={2}>
                   {t('plan.rancang.billsIn', { days: BILLS_HORIZON_DAYS })}
                 </ThemedText>
-                <ThemedText style={[styles.tileValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>
+                <ThemedText style={[styles.tileValue, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                   {money(billsSum)}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -156,7 +158,7 @@ export default function RancangScreen() {
                 <ThemedText type="small" style={[styles.tileLabel, { color: colors.textSecondary }]} numberOfLines={2}>
                   {t('plan.rancang.savedForGoals')}
                 </ThemedText>
-                <ThemedText style={[styles.tileValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>
+                <ThemedText style={[styles.tileValue, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                   {money(totalSaved)}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -263,7 +265,7 @@ export default function RancangScreen() {
                           {goal.name}
                         </ThemedText>
                         <ThemedText type="small" style={{ fontWeight: '700' }}>
-                          {progress.percent}%
+                          {p1(progress.percent)}%
                         </ThemedText>
                       </View>
                       <View style={[styles.track, styles.trackThin, { backgroundColor: colors.backgroundSelected }]}>
@@ -396,6 +398,15 @@ export default function RancangScreen() {
                     </ThemedText>
                   </View>
                   <Switch value={reminderPrefs.budgetAlerts} onValueChange={setBudgetAlerts} trackColor={{ true: colors.accent }} />
+                </View>
+                <View style={[styles.switchRow, { marginTop: Spacing.three }]}>
+                  <View style={styles.flex}>
+                    <ThemedText style={{ fontWeight: '600' }}>{t('plan.rancang.nudge')}</ThemedText>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      {t('plan.rancang.nudgeSub')}
+                    </ThemedText>
+                  </View>
+                  <Switch value={!!reminderPrefs.dailyNudge} onValueChange={setDailyNudge} trackColor={{ true: colors.accent }} />
                 </View>
                 <ThemedText type="small" style={[styles.footnote, { color: colors.textSecondary }]}>
                   {t('plan.rancang.footnote')}

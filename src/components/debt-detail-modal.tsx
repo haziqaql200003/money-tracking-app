@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AccountPicker, DebtInput, FieldLabel, ProgressBar, toNumber } from '@/components/debt-ui';
+import { AccountPicker, DebtAmountInput, DebtInput, FieldLabel, ProgressBar, toNumber } from '@/components/debt-ui';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -26,12 +26,14 @@ import {
   totalInterest,
   type Debt,
 } from '@/utils/debts';
+import { p1 } from '@/utils/percent';
 
 const WARN_COLOR = '#D97706';
 
-type Props = { debt: Debt | null; onClose: () => void };
+/** `onEdit`: open the edit form for an instalment plan or loan (the screen closes this sheet first). */
+type Props = { debt: Debt | null; onClose: () => void; onEdit?: (debt: Debt) => void };
 
-export function DebtDetailModal({ debt, onClose }: Props) {
+export function DebtDetailModal({ debt, onClose, onEdit }: Props) {
   const colors = useTheme();
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -39,7 +41,7 @@ export function DebtDetailModal({ debt, onClose }: Props) {
     <Modal visible={!!debt} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <ThemedView style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
+        <DragSheet visible={!!debt} onClose={onClose} style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           <SheetHeader
             title={debt?.name ?? ''}
@@ -52,9 +54,9 @@ export function DebtDetailModal({ debt, onClose }: Props) {
             }
           />
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {debt ? <DebtDetail key={debt.id} debtId={debt.id} onClose={onClose} /> : null}
+            {debt ? <DebtDetail key={debt.id} debtId={debt.id} onClose={onClose} onEdit={onEdit} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -62,7 +64,7 @@ export function DebtDetailModal({ debt, onClose }: Props) {
 
 type Panel = { type: 'pay'; n: number } | { type: 'settle' } | { type: 'repay' } | { type: 'edit' } | null;
 
-function DebtDetail({ debtId, onClose }: { debtId: string; onClose: () => void }) {
+function DebtDetail({ debtId, onClose, onEdit }: { debtId: string; onClose: () => void; onEdit?: (debt: Debt) => void }) {
   const colors = useTheme();
   const { t } = useT();
   const { hideAmounts } = usePrivacy();
@@ -113,7 +115,7 @@ function DebtDetail({ debtId, onClose }: { debtId: string; onClose: () => void }
           <ThemedText style={styles.big}>{money(status.available)}</ThemedText>
           <ProgressBar percent={status.usedPercent} color={barColor} />
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {t('debt.credit.usedOf', { used: money(status.used), limit: money(status.limit), percent: status.usedPercent })}
+            {t('debt.credit.usedOf', { used: money(status.used), limit: money(status.limit), percent: p1(status.usedPercent) })}
           </ThemedText>
           {debt.dueDay ? (
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -207,11 +209,10 @@ function DebtDetail({ debtId, onClose }: { debtId: string; onClose: () => void }
         );
       })}
 
-      {debt.status === 'active' ? (
-        <View style={styles.actions}>
-          <ActionButton label={t('debt.settle.action')} onPress={() => setPanel({ type: 'settle' })} />
-        </View>
-      ) : null}
+      <View style={styles.actions}>
+        {onEdit ? <ActionButton label={t('debt.edit.action')} onPress={() => onEdit(debt)} /> : null}
+        {debt.status === 'active' ? <ActionButton label={t('debt.settle.action')} onPress={() => setPanel({ type: 'settle' })} /> : null}
+      </View>
       <Pressable style={styles.textButton} onPress={confirmDelete}>
         <ThemedText style={{ color: colors.negative, fontWeight: '600' }}>{t('debt.delete.action')}</ThemedText>
       </Pressable>
@@ -260,7 +261,7 @@ function PayPanel(props: { debt: Debt; mode: 'pay'; n: number; onDone: () => voi
     <View style={[styles.panel, { borderColor: colors.accent }]}>
       <ThemedText type="smallBold">{props.mode === 'pay' ? t('debt.pay.title', { n: props.n }) : t('debt.credit.repayTitle')}</ThemedText>
       <FieldLabel text={t('debt.pay.amount')} />
-      <DebtInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+      <DebtAmountInput value={amount} onChangeText={setAmount} />
       {props.mode === 'pay' ? (
         <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.one }}>
           {extra > 0 ? t('debt.pay.splitHint', { extra: formatMoney(extra) }) : t('debt.pay.noExtra')}
@@ -298,7 +299,7 @@ function SettlePanel({ debt, onDone }: { debt: Debt; onDone: () => void }) {
         {t('debt.settle.body', { amount: formatMoney(remaining) })}
       </ThemedText>
       <FieldLabel text={t('debt.settle.extra')} hint={t('debt.settle.extraHint')} />
-      <DebtInput value={extra} onChangeText={setExtra} keyboardType="decimal-pad" placeholder="0.00" />
+      <DebtAmountInput value={extra} onChangeText={setExtra} placeholder="0.00" />
       <FieldLabel text={t('debt.pay.date')} />
       <DateField value={date} onChange={setDate} />
       <FieldLabel text={t('debt.pay.from')} />
@@ -336,7 +337,7 @@ function EditPanel({ debt, onDone }: { debt: Debt; onDone: () => void }) {
       <FieldLabel text={t('debt.form.nameLabel')} />
       <DebtInput value={name} onChangeText={setName} maxLength={40} />
       <FieldLabel text={t('debt.form.limit')} />
-      <DebtInput value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
+      <DebtAmountInput value={limit} onChangeText={setLimit} />
       <FieldLabel text={t('debt.form.dueDay')} hint={t('debt.form.dueDayHint')} />
       <DebtInput value={dueDay} onChangeText={setDueDay} keyboardType="number-pad" maxLength={2} />
       <View style={styles.actions}>

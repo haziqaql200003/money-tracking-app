@@ -7,6 +7,8 @@ import { enHome } from './home';
 import { enImp } from './imp';
 import { enMore } from './more';
 import { enPlan } from './plan';
+import { enOb } from './ob';
+import { enRpt } from './rpt';
 import { enTx } from './tx';
 
-export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc };
+export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb };

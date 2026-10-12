@@ -1,63 +1,52 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useRouter, type Href } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
-import { useDebts } from '@/context/DebtsContext';
-import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
-import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { categoryName as categoryLabel } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
-import { instalmentAmount, isFinished, nextInstalment } from '@/utils/debts';
-import { goalOutlook, goalProgress, goalProjection } from '@/utils/goals';
-import { aiSummary, buildFeed, monthRows, wakiraScore, type FeedTone, type GoalFacts, type ScoreFactor } from '@/utils/insight-feed';
+import { aiSummary, buildFeed, monthRows, type FeedTone, type ScoreFactor } from '@/utils/insight-feed';
+import { useHealthScore } from '@/hooks/use-health-score';
+import { ScoreRing } from '@/components/charts/score-ring';
 import { monthKeysEnding } from '@/utils/insights';
-import { isEnded, isTransfer, monthlyEquivalent } from '@/utils/recurring';
-import { looksLikeSavings } from '@/utils/saved';
 
 const MASK = 'RM ••••';
+const SHOWN = 4;
+
+/** Where each kind of finding can be acted on, and the button that takes you there. */
+function goFor(id: string): { href: Href; labelKey: TKey } | null {
+  if (['budget', 'creep', 'spike', 'misc', 'why'].includes(id)) return { href: '/more/budgets', labelKey: 'fc.go.budgets' };
+  if (id.startsWith('goal') || ['runway', 'income', 'rate'].includes(id)) return { href: '/more/rancang', labelKey: 'fc.go.rancang' };
+  if (['subs', 'fixed'].includes(id)) return { href: '/more/recurring', labelKey: 'fc.go.recurring' };
+  if (['payday', 'weekend', 'habit', 'small', 'topcat', 'bigone'].includes(id)) return { href: '/transactions', labelKey: 'fc.go.records' };
+  return null;
+}
 
 type Props = { todayKey: string };
 
-/** The "Insights" tab: a score, then short findings with what to do about each. */
+/** The "Insights" tab: a compact score, then short findings, each with a tip and a button to act on it. */
 export function AnalyseInsight({ todayKey }: Props) {
   const colors = useTheme();
   const { t } = useT();
-  const { transactions, accounts, recurringRules, accountBalance } = useTransactions();
-  const { getCategory, totalBudget } = useCategories();
-  const { debts } = useDebts();
-  const { goals, goalEntries } = usePlan();
+  const { transactions } = useTransactions();
+  const { getCategory } = useCategories();
+  const router = useRouter();
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const { hideAmounts } = usePrivacy();
-  const { savingsTarget } = useSettings();
+  const health = useHealthScore(todayKey);
+  const { score, savingsTarget, totalBudget } = health;
+  const { fixedMonthly, debtMonthly, savingsBalance, goalFacts } = health;
+  const data = useMemo(() => ({ fixedMonthly, debtMonthly, savingsBalance, goalFacts }), [fixedMonthly, debtMonthly, savingsBalance, goalFacts]);
 
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
-
-  const data = useMemo(() => {
-    const fixedMonthly = recurringRules
-      .filter((r) => r.active && !isEnded(r) && !isTransfer(r) && r.type === 'debit')
-      .reduce((s, r) => s + monthlyEquivalent(r), 0);
-    const debtMonthly = debts
-      .filter((d) => d.kind !== 'credit' && !isFinished(d))
-      .reduce((s, d) => {
-        const n = nextInstalment(d);
-        return s + (n ? instalmentAmount(n) : 0);
-      }, 0);
-    const savingsBalance = accounts.filter((a) => !a.hidden && looksLikeSavings(a)).reduce((s, a) => s + Math.max(0, accountBalance(a.id)), 0);
-    const goalFacts: GoalFacts[] = goals
-      .filter((g) => !g.paused)
-      .map((g) => {
-        const p = goalProgress(g, goalEntries, todayKey);
-        const proj = goalProjection(g, goalEntries, todayKey);
-        return { name: g.name, outlook: goalOutlook(g, p.status, proj), need: p.perMonth, pace: proj.perMonth };
-      });
-    return { fixedMonthly, debtMonthly, savingsBalance, goalFacts };
-  }, [recurringRules, debts, accounts, accountBalance, goals, goalEntries, todayKey]);
 
   const catName = (id: string) => {
     const c = getCategory(id);
@@ -79,20 +68,6 @@ export function AnalyseInsight({ todayKey }: Props) {
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [transactions, todayKey, data, totalBudget, hideAmounts, getCategory],
-  );
-
-  const score = useMemo(
-    () =>
-      wakiraScore({
-        transactions,
-        todayKey,
-        budget: totalBudget,
-        debtMonthly: data.debtMonthly,
-        savingsBalance: data.savingsBalance,
-        fixedMonthly: data.fixedMonthly,
-        savingsTarget,
-      }),
-    [transactions, todayKey, totalBudget, data, savingsTarget],
   );
 
   const muted = { color: colors.textSecondary };
@@ -117,6 +92,8 @@ export function AnalyseInsight({ todayKey }: Props) {
     </View>
   );
 
+  const shown = showAll ? feed : feed.slice(0, SHOWN);
+
   return (
     <View>
       {!score && feed.length === 0 ? (
@@ -126,26 +103,34 @@ export function AnalyseInsight({ todayKey }: Props) {
       ) : null}
 
       {score ? (
-        <>
-          <ThemedText type="smallBold" style={styles.sectionTitle}>{t('fc.score.title')}</ThemedText>
-          <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
-            <View style={styles.scoreRow}>
-              <ThemedText style={[styles.big, { color: scoreColor }]}>{score.total}</ThemedText>
-              <View style={styles.flex}>
-                <ThemedText type="smallBold" style={{ color: scoreColor }}>{t(`fc.score.grade.${score.grade}` as TKey)}</ThemedText>
-                <ThemedText type="small" style={muted}>/ 100</ThemedText>
-              </View>
+        <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
+          <Pressable
+            onPress={() => setScoreOpen((v) => !v)}
+            style={styles.scoreRow}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: scoreOpen }}
+          >
+            <ScoreRing value={score.total} color={scoreColor} size={84} stroke={10} />
+            <View style={[styles.flex, { gap: 2 }]}>
+              <ThemedText type="small" style={muted}>{t('fc.score.title')}</ThemedText>
+              <ThemedText style={[styles.grade, { color: scoreColor }]}>{t(`fc.score.grade.${score.grade}` as TKey)}</ThemedText>
+              {score.weakest && score.total < 90 ? (
+                <ThemedText type="small" numberOfLines={3}>
+                  {t(`fc.score.tip.${score.weakest}` as TKey, { target: savingsTarget })}
+                </ThemedText>
+              ) : null}
             </View>
-            {score.factors.map(factorBar)}
-            {score.weakest && score.total < 90 ? (
-              <ThemedText type="small">
-                <ThemedText type="smallBold">{t('fc.score.focus')}: </ThemedText>
-                {t(`fc.score.tip.${score.weakest}` as TKey, { target: savingsTarget })}
-              </ThemedText>
-            ) : null}
-            <ThemedText type="small" style={muted}>{t('fc.score.note')}</ThemedText>
-          </View>
-        </>
+            <View style={[styles.chevron, { backgroundColor: colors.backgroundSelected }]}>
+              <Ionicons name={scoreOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+            </View>
+          </Pressable>
+          {scoreOpen ? (
+            <View style={[styles.scoreDetail, { borderTopColor: colors.divider }]}>
+              {score.factors.map(factorBar)}
+              <ThemedText type="small" style={muted}>{t('fc.score.note')}</ThemedText>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {score || feed.length > 0 ? (
@@ -156,29 +141,52 @@ export function AnalyseInsight({ todayKey }: Props) {
               <ThemedText type="small" style={muted}>{t('fc.insight.none')}</ThemedText>
             </View>
           ) : (
-            feed.map((f) => (
-              <View key={f.id} style={[styles.card, { backgroundColor: colors.backgroundElement, borderLeftWidth: 4, borderLeftColor: tone[f.tone] }]}>
-                <View style={styles.head}>
-                  <Ionicons name={toneIcon[f.tone]} size={18} color={tone[f.tone]} />
-                  <ThemedText type="smallBold" style={styles.flex}>{f.title}</ThemedText>
+            shown.map((f) => {
+              const go = goFor(f.id);
+              return (
+                <View key={f.id} style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
+                  <View style={styles.head}>
+                    <View style={[styles.toneIcon, { backgroundColor: `${tone[f.tone]}1F` }]}>
+                      <Ionicons name={toneIcon[f.tone]} size={17} color={tone[f.tone]} />
+                    </View>
+                    <ThemedText type="smallBold" style={[styles.flex, styles.cardTitle]}>{f.title}</ThemedText>
+                  </View>
+                  <ThemedText type="small" style={muted}>{f.body}</ThemedText>
+                  {f.action ? (
+                    <View style={[styles.tip, { backgroundColor: colors.backgroundSelected }]}>
+                      <Ionicons name="bulb-outline" size={15} color={colors.accent} style={styles.tipIcon} />
+                      <ThemedText type="small" style={styles.flex}>{f.action}</ThemedText>
+                    </View>
+                  ) : null}
+                  {go ? (
+                    <Pressable
+                      onPress={() => router.push(go.href)}
+                      style={({ pressed }) => [styles.goButton, { backgroundColor: colors.accentSoft }, pressed && { opacity: 0.7 }]}
+                      accessibilityRole="button"
+                    >
+                      <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>{t(go.labelKey)}</ThemedText>
+                      <Ionicons name="arrow-forward" size={14} color={colors.accent} />
+                    </Pressable>
+                  ) : null}
                 </View>
-                <ThemedText type="small" style={muted}>{f.body}</ThemedText>
-                {f.action ? (
-                  <ThemedText type="small">
-                    <ThemedText type="smallBold" style={{ color: tone[f.tone] }}>{t('fc.insight.action')}: </ThemedText>
-                    {f.action}
-                  </ThemedText>
-                ) : null}
-              </View>
-            ))
+              );
+            })
           )}
+          {feed.length > SHOWN ? (
+            <Pressable onPress={() => setShowAll((v) => !v)} style={styles.moreButton} accessibilityRole="button">
+              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
+                {showAll ? t('plan.analyse.showLess') : t('fc.insight.more', { n: feed.length - SHOWN })}
+              </ThemedText>
+            </Pressable>
+          ) : null}
 
-          <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
-            <ThemedText type="smallBold">{t('fc.ai.title')}</ThemedText>
-            <ThemedText type="small" style={muted}>{t('fc.ai.body')}</ThemedText>
-            <Pressable style={[styles.button, { backgroundColor: colors.accent }]} onPress={shareSummary} accessibilityRole="button">
-              <Ionicons name="share-outline" size={16} color="#fff" />
-              <ThemedText style={styles.buttonText}>{t('fc.ai.button')}</ThemedText>
+          <View style={[styles.card, styles.aiCard, { backgroundColor: colors.backgroundElement }]}>
+            <View style={styles.flex}>
+              <ThemedText type="smallBold">{t('fc.ai.title')}</ThemedText>
+              <ThemedText type="small" style={muted}>{t('fc.ai.body')}</ThemedText>
+            </View>
+            <Pressable style={[styles.button, { backgroundColor: colors.accent }]} onPress={shareSummary} accessibilityRole="button" accessibilityLabel={t('fc.ai.button')}>
+              <Ionicons name="share-outline" size={18} color="#fff" />
             </Pressable>
           </View>
         </>
@@ -189,14 +197,22 @@ export function AnalyseInsight({ todayKey }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { borderRadius: Radius.lg, padding: 18, marginBottom: Spacing.three, gap: 8 },
+  card: { borderRadius: Radius.lg, padding: 18, marginBottom: Spacing.three, gap: 10 },
   sectionTitle: { fontSize: FontSize.body, marginBottom: Spacing.two, marginTop: Spacing.two },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  big: { fontSize: 52, lineHeight: 58, fontWeight: '700' },
+  grade: { fontSize: FontSize.title, fontWeight: '800' },
+  chevron: { width: 32, height: 32, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  scoreDetail: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 10 },
   factor: { gap: 4 },
   factorHead: { flexDirection: 'row', justifyContent: 'space-between' },
   track: { height: 8, borderRadius: Radius.pill },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: Radius.md, marginTop: 4 },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  toneIcon: { width: 32, height: 32, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: FontSize.body },
+  tip: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: Radius.md },
+  tipIcon: { marginTop: 1 },
+  goButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: Radius.pill },
+  moreButton: { alignItems: 'center', paddingVertical: 10, marginBottom: Spacing.two },
+  aiCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  button: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });

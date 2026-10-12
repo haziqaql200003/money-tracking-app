@@ -2,6 +2,7 @@ import { t } from '@/i18n';
 import type { Transaction } from '@/context/TransactionsContext';
 import { cycleInfo, cycleOf, cycleRange, sameDayInCycle, shiftCycle } from '@/utils/cycle';
 import { monthKeysEnding } from '@/utils/insights';
+import { p1, r1 } from '@/utils/percent';
 
 /**
  * The Insight tab: DATA -> ANALYSIS -> INSIGHT -> ACTION.
@@ -58,7 +59,7 @@ export const rateOf = (r: MonthRow) => (r.income > 0 ? ((r.income - r.spending) 
 export function savingsRates(rows: MonthRow[]) {
   return rows.map((r) => {
     const v = rateOf(r);
-    return v === null ? null : Math.round(v);
+    return v === null ? null : r1(v);
   });
 }
 
@@ -72,6 +73,13 @@ export function improvingStreak(rates: (number | null)[]): number {
     n++;
   }
   return n;
+}
+
+/** The date key `n` days before `key` (negative `n` = after). */
+function daysBack(key: string, n: number) {
+  const [y, m, d] = key.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d - n));
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
 }
 
 function dayOf(key: string) {
@@ -96,14 +104,14 @@ export function buildFeed(inp: FeedInput): FeedItem[] {
       id: 'streak',
       tone: 'good',
       title: t('fc.feed.streak.title'),
-      body: t('fc.feed.streak.body', { n: streak, from: rates[rates.length - 1 - streak] ?? 0, to: last }),
+      body: t('fc.feed.streak.body', { n: streak, from: p1(rates[rates.length - 1 - streak] ?? 0), to: p1(last) }),
     });
   } else if (last !== null && complete.length >= 2) {
     const prev = rates[rates.length - 2];
     if (last < 0) {
       out.push({ id: 'rate', tone: 'bad', title: t('fc.feed.rateNeg.title'), body: t('fc.feed.rateNeg.body'), action: t('fc.feed.rateNeg.action') });
     } else if (prev !== null && last < prev - 5) {
-      out.push({ id: 'rate', tone: 'warn', title: t('fc.feed.rateDown.title'), body: t('fc.feed.rateDown.body', { from: prev, to: last }), action: t('fc.feed.rateDown.action') });
+      out.push({ id: 'rate', tone: 'warn', title: t('fc.feed.rateDown.title'), body: t('fc.feed.rateDown.body', { from: p1(prev), to: p1(last) }), action: t('fc.feed.rateDown.action') });
     }
   }
 
@@ -182,11 +190,11 @@ export function buildFeed(inp: FeedInput): FeedItem[] {
   // 4) Fixed commitments against income.
   const incomeAvg = complete.length ? complete.slice(-3).reduce((s, r) => s + r.income, 0) / Math.min(3, complete.length) : 0;
   if (incomeAvg > 0 && fixedMonthly > 0) {
-    const share = Math.round((fixedMonthly / incomeAvg) * 100);
+    const share = r1((fixedMonthly / incomeAvg) * 100);
     out.push({
       id: 'fixed',
       tone: share >= 50 ? 'bad' : share >= 40 ? 'warn' : 'info',
-      title: t('fc.feed.fixed.title', { pct: share }),
+      title: t('fc.feed.fixed.title', { pct: p1(share) }),
       body: t('fc.feed.fixed.body', { amount: money(fixedMonthly) }),
       action: share >= 40 ? t('fc.feed.fixed.action') : undefined,
     });
@@ -204,7 +212,7 @@ export function buildFeed(inp: FeedInput): FeedItem[] {
         id: 'creep',
         tone: 'warn',
         title: t('fc.feed.creep.title'),
-        body: t('fc.feed.creep.body', { income: Math.round(gi), spending: Math.round(ge) }),
+        body: t('fc.feed.creep.body', { income: p1(gi), spending: p1(ge) }),
         action: t('fc.feed.creep.action'),
       });
     }
@@ -287,8 +295,157 @@ export function buildFeed(inp: FeedInput): FeedItem[] {
       });
     });
 
+  /* ---- 10 to 20: more everyday findings (2.1.0) ---- */
+  const from30 = daysBack(todayKey, 29);
+  const last30 = transactions.filter((x) => x.type === 'debit' && x.date >= from30 && x.date <= todayKey);
+  const spend30 = last30.reduce((s, x) => s + x.amount, 0);
+  const lastRow = complete[complete.length - 1];
+
+  // 10) How last month's income was split between spending and keeping.
+  if (lastRow && lastRow.income > 0 && !out.some((o) => o.id === 'rate' && o.tone === 'bad')) {
+    const spent = r1((lastRow.spending / lastRow.income) * 100);
+    const kept = r1(100 - spent);
+    if (kept >= 0) {
+      out.push({
+        id: 'split',
+        tone: kept >= 20 ? 'good' : 'info',
+        title: t('fc.feed.split.title', { spent: p1(spent), kept: p1(kept) }),
+        body: t('fc.feed.split.body', { income: money(lastRow.income), spending: money(lastRow.spending) }),
+        action: kept < 10 ? t('fc.feed.split.action') : undefined,
+      });
+    }
+  }
+
+  // 11) A habit: the same thing bought again and again in 30 days.
+  {
+    const byTitle = new Map<string, { label: string; n: number; total: number }>();
+    for (const x of last30) {
+      const label = x.title.trim();
+      const key = label.toLowerCase();
+      if (!key || /^transfer$|^pindahan$/.test(key)) continue;
+      const h = byTitle.get(key) ?? { label, n: 0, total: 0 };
+      h.n++;
+      h.total += x.amount;
+      byTitle.set(key, h);
+    }
+    const habit = [...byTitle.values()].filter((h) => h.n >= 4).sort((a, b) => b.total - a.total)[0];
+    if (habit && habit.total >= 30) {
+      out.push({
+        id: 'habit',
+        tone: 'info',
+        title: t('fc.feed.habit.title', { title: habit.label, n: habit.n }),
+        body: t('fc.feed.habit.body', { total: money(habit.total), avg: money(habit.total / habit.n) }),
+        action: t('fc.feed.habit.action', { half: money(habit.total / 2) }),
+      });
+    }
+  }
+
+  // 12) Small purchases adding up.
+  {
+    const small = last30.filter((x) => x.amount < 20);
+    const total = small.reduce((s, x) => s + x.amount, 0);
+    if (small.length >= 10 && total >= 80) {
+      out.push({
+        id: 'small',
+        tone: 'info',
+        title: t('fc.feed.small.title', { n: small.length, total: money(total) }),
+        body: t('fc.feed.small.body', { share: p1(spend30 > 0 ? (total / spend30) * 100 : 0) }),
+      });
+    }
+  }
+
+  // 13) Too much left in Miscellaneous makes every other finding weaker.
+  {
+    const misc = last30.filter((x) => x.categoryId === 'other').reduce((s, x) => s + x.amount, 0);
+    if (spend30 > 0 && misc >= 50 && misc / spend30 >= 0.2) {
+      out.push({
+        id: 'misc',
+        tone: 'warn',
+        title: t('fc.feed.misc.title', { share: p1((misc / spend30) * 100) }),
+        body: t('fc.feed.misc.body', { amount: money(misc) }),
+        action: t('fc.feed.misc.action'),
+      });
+    }
+  }
+
+  // 14, 15, 19) Category picture of the last complete month.
+  if (lastRow && lastRow.spending > 0) {
+    const prevKey = shiftCycle(lastRow.key, -1);
+    const last = new Map<string, number>();
+    const before = new Map<string, number>();
+    let subsCount = 0;
+    let subsTotal = 0;
+    for (const x of transactions) {
+      if (x.type !== 'debit') continue;
+      const k = cycleOf(x.date);
+      if (k === lastRow.key) {
+        last.set(x.categoryId, (last.get(x.categoryId) ?? 0) + x.amount);
+        if (x.categoryId === 'subscriptions') {
+          subsCount++;
+          subsTotal += x.amount;
+        }
+      } else if (k === prevKey) before.set(x.categoryId, (before.get(x.categoryId) ?? 0) + x.amount);
+    }
+    const top = [...last.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top && top[0] !== 'other' && top[1] / lastRow.spending >= 0.4) {
+      out.push({ id: 'topcat', tone: 'info', title: t('fc.feed.topcat.title', { category: categoryName(top[0]), share: p1((top[1] / lastRow.spending) * 100) }), body: t('fc.feed.topcat.body', { amount: money(top[1]) }) });
+    }
+    const drop = [...before.entries()]
+      .map(([id, b]) => ({ id, b, a: last.get(id) ?? 0 }))
+      .filter((d) => d.b >= 50 && d.b - d.a >= 30 && (d.b - d.a) / d.b >= 0.2)
+      .sort((x, y) => y.b - y.a - (x.b - x.a))[0];
+    if (drop) {
+      out.push({ id: 'improved', tone: 'good', title: t('fc.feed.improved.title', { category: categoryName(drop.id), amount: money(drop.b - drop.a) }), body: t('fc.feed.improved.body', { before: money(drop.b), after: money(drop.a) }) });
+    }
+    if (subsTotal >= 30) {
+      out.push({ id: 'subs', tone: 'info', title: t('fc.feed.subs.title', { amount: money(subsTotal) }), body: t('fc.feed.subs.body', { n: subsCount, year: money(subsTotal * 12) }), action: t('fc.feed.subs.action') });
+    }
+  }
+
+  // 16) Days without spending this month.
+  if (day >= 5) {
+    const spentDays = new Set(transactions.filter((x) => x.type === 'debit' && cycleOf(x.date) === monthKey && x.date < todayKey).map((x) => x.date));
+    const free = day - 1 - spentDays.size;
+    if (free >= 3) out.push({ id: 'nospend', tone: 'good', title: t('fc.feed.nospend.title', { n: free }), body: t('fc.feed.nospend.body') });
+  }
+
+  // 17) How fast the pay goes after payday.
+  if (lastRow) {
+    const credits = transactions.filter((x) => x.type === 'credit' && cycleOf(x.date) === lastRow.key && x.amount >= 500).sort((a, b) => b.amount - a.amount);
+    const pay = credits[0];
+    if (pay) {
+      const until = daysBack(pay.date, -6);
+      const week = transactions.filter((x) => x.type === 'debit' && x.date >= pay.date && x.date <= until).reduce((s, x) => s + x.amount, 0);
+      const share = r1((week / pay.amount) * 100);
+      if (share >= 40) {
+        out.push({ id: 'payday', tone: 'warn', title: t('fc.feed.payday.title', { share: p1(share) }), body: t('fc.feed.payday.body', { amount: money(week), pay: money(pay.amount) }), action: t('fc.feed.payday.action') });
+      }
+    }
+  }
+
+  // 18) Income higher or lower than usual.
+  if (complete.length >= 3 && lastRow && lastRow.income > 0) {
+    const prevRows = complete.slice(-4, -1).filter((r) => r.income > 0);
+    const usual = prevRows.length ? prevRows.reduce((s, r) => s + r.income, 0) / prevRows.length : 0;
+    if (usual > 0) {
+      const change = r1((lastRow.income / usual - 1) * 100);
+      if (change <= -15) out.push({ id: 'income', tone: 'warn', title: t('fc.feed.incomeDown.title', { pct: p1(-change) }), body: t('fc.feed.income.body', { last: money(lastRow.income), usual: money(usual) }), action: t('fc.feed.incomeDown.action') });
+      else if (change >= 15) out.push({ id: 'income', tone: 'good', title: t('fc.feed.incomeUp.title', { pct: p1(change) }), body: t('fc.feed.income.body', { last: money(lastRow.income), usual: money(usual) }), action: t('fc.feed.incomeUp.action', { amount: money((lastRow.income - usual) / 2) }) });
+    }
+  }
+
+  // 20) One purchase that dominates the last 30 days.
+  if (spend30 >= 200) {
+    const big = [...last30].sort((a, b) => b.amount - a.amount)[0];
+    if (big && big.amount / spend30 >= 0.25) {
+      out.push({ id: 'bigone', tone: 'info', title: t('fc.feed.bigone.title', { share: p1((big.amount / spend30) * 100) }), body: t('fc.feed.bigone.body', { title: big.title || categoryName(big.categoryId), amount: money(big.amount) }) });
+    }
+  }
+
   void debtMonthly;
-  return out;
+  // Most pressing first: problems, then warnings, then wins, then plain facts.
+  const rank: Record<FeedTone, number> = { bad: 0, warn: 1, good: 2, info: 3 };
+  return out.map((o, i) => ({ o, i })).sort((a, b) => rank[a.o.tone] - rank[b.o.tone] || a.i - b.i).map((x) => x.o);
 }
 
 /* ---------------- WaKira score ---------------- */

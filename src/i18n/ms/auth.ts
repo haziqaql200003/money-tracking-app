@@ -13,14 +13,14 @@ export const msAuth: Record<keyof typeof enAuth, string> = {
 
   // shared fields
   'auth.field.email': 'E-mel',
-  'auth.field.emailPlaceholder': 'nama@contoh.com',
+  'auth.field.emailPlaceholder': 'johndoe@email.com',
   'auth.field.password': 'Kata laluan',
   'auth.field.toggleHint': 'Tunjuk/sembunyi kata laluan',
 
   // errors (returned by sign-up / sign-in)
   'auth.error.emailInvalid': 'Format e-mel tidak sah.',
   'auth.error.nameRequired': 'Sila masukkan nama paparan.',
-  'auth.error.passwordWeak': 'Kata laluan mesti sekurang-kurangnya 8 aksara, ada huruf dan nombor.',
+  'auth.error.passwordWeak': 'Kata laluan mesti sekurang-kurangnya 8 aksara, ada huruf dan nombor, dan tidak mudah diteka (bukan 12345678, abcd1234 atau nama sendiri).',
   'auth.error.consentRequired': 'Sila setuju dengan Notis Privasi untuk teruskan.',
   'auth.error.emailTaken': 'E-mel ini sudah didaftarkan.',
   'auth.error.badCredentials': 'E-mel atau kata laluan tidak betul.',

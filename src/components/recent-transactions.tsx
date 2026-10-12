@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ThemedText } from '@/components/themed-text';
 import { rowPosition, SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -14,6 +15,8 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { AddTransactionModal } from '@/components/add-transaction-modal';
 import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { AdjustmentsModal } from '@/components/adjustments-modal';
+import { adjustmentAccountId, isAdjustmentEntry } from '@/utils/saved';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
 import { useT, type TKey } from '@/i18n';
@@ -29,7 +32,7 @@ const FILTERS: { key: Filter; labelKey: TKey }[] = [
   { key: 'credit', labelKey: 'common.income' },
 ];
 
-const MAX_ROWS = 15;
+const MAX_ROWS = 5;
 const MASK = 'RM ••••';
 
 function toKey(d: Date) {
@@ -64,6 +67,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
   const { openAddRecord } = useAddRecord();
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [adjustmentsFor, setAdjustmentsFor] = useState<string | null>(null);
 
   // Everything for the selected account, newest first.
   const accountTxns = useMemo(
@@ -110,8 +114,6 @@ export function RecentTransactions({ accountId, accountName }: Props) {
       <SectionHeader
         title={heading}
         subtitle={tp('home.recent.summary', summary.count, { spent: spentText })}
-        actionLabel={t('common.seeAll')}
-        onAction={() => router.push('/transactions')}
       />
 
       <View style={styles.filter}>
@@ -161,24 +163,36 @@ export function RecentTransactions({ accountId, accountName }: Props) {
                 item={item}
                 showAccount={!accountId}
                 hidden={hideAmounts}
-                onOpen={() => setEditing(item)}
+                onOpen={() => (isAdjustmentEntry(item) ? setAdjustmentsFor(adjustmentAccountId(item)) : setEditing(item))}
                 position={rowPosition(i, section.items.length)}
               />
             ))}
           </View>
         ))
       )}
+      {accountTxns.length > 0 ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="list-outline"
+          label={t('common.seeAll')}
+          onPress={() => router.push('/transactions')}
+          style={styles.seeAll}
+        />
+      ) : null}
       <AddTransactionModal
         visible={!!editing}
         onClose={() => setEditing(null)}
         editingTransaction={editing}
       />
+      <AdjustmentsModal visible={!!adjustmentsFor} onClose={() => setAdjustmentsFor(null)} accountId={adjustmentsFor} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   filter: { marginBottom: Spacing.one },
+  seeAll: { marginTop: Spacing.three, alignSelf: 'stretch' },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

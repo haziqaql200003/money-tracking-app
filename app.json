@@ -2,7 +2,7 @@
   "expo": {
     "name": "WaKira",
     "slug": "wakira",
-    "version": "2.0.0",
+    "version": "3.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wakira",
@@ -20,10 +20,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.haziqaql.wakira"
+      "package": "com.haziqaql.wakira",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "output": "static",
+      "name": "WaKira",
+      "shortName": "WaKira",
+      "themeColor": "#208AEF",
+      "backgroundColor": "#FFFFFF",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -61,6 +69,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e4b91d23-a92b-488f-8aec-167121986d6a"
+      }
     }
   }
-}
+}

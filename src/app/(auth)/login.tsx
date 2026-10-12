@@ -5,6 +5,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth-field';
+import { IconButton } from '@/components/ui/icon-button';
 import { SocialButtons } from '@/components/social-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -40,6 +41,11 @@ export default function LoginScreen() {
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            {router.canGoBack() ? (
+              <View style={styles.back}>
+                <IconButton icon="chevron-back" onPress={() => router.back()} label={t('common.back')} />
+              </View>
+            ) : null}
             <View style={[styles.logo, { backgroundColor: colors.accent }]}>
               <Ionicons name="wallet" size={30} color="#fff" />
             </View>
@@ -102,7 +108,7 @@ export default function LoginScreen() {
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
                 {t('auth.login.noAccount')}{' '}
               </ThemedText>
-              <Pressable onPress={() => router.push('/register')} hitSlop={8}>
+              <Pressable onPress={() => router.replace('/register')} hitSlop={8}>
                 <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
                   {t('auth.login.register')}
                 </ThemedText>
@@ -124,7 +130,8 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: Spacing.four, paddingTop: Spacing.six },
+  content: { padding: Spacing.four, paddingTop: Spacing.three },
+  back: { marginBottom: Spacing.three, alignSelf: 'flex-start' },
   logo: { width: 60, height: 60, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.four },
   title: { fontSize: FontSize.display, lineHeight: 40, fontWeight: '700' },
   motto: { fontSize: FontSize.body, lineHeight: 22, fontWeight: '700', marginBottom: 4 },

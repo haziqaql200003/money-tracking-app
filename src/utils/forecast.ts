@@ -1,5 +1,6 @@
 import type { Transfer } from '@/context/TransactionsContext';
 import { cycleOf } from '@/utils/cycle';
+import { r1 } from '@/utils/percent';
 
 /**
  * Forecasting helpers for the Ramalan tab of Faham. Pure: no React, no storage, no time zone.
@@ -103,7 +104,7 @@ export function savingFlows(transfers: Transfer[], isSavingsAccount: (accountId:
 /** Share of income that was put aside, in whole percent; null without income. */
 export function savingsRate(saved: number, income: number): number | null {
   if (!(income > 0)) return null;
-  return Math.round((saved / income) * 100);
+  return r1((saved / income) * 100);
 }
 
 /** How many months of average spending the savings would cover; null without spending to compare. */

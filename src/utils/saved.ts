@@ -1,4 +1,4 @@
-import type { Transaction, Transfer } from '@/context/TransactionsContext';
+import type { Account, Transaction, Transfer } from '@/context/TransactionsContext';
 
 /**
  * A transfer can be marked "count in budget" (money put aside into a savings account).
@@ -11,6 +11,27 @@ export const SAVED_PREFIX = 'sv:';
 export const DEBT_PREFIX = 'db:';
 /** Money put toward a goal without counting in the budget: listed, never counted. */
 export const GOAL_PREFIX = 'gl:';
+
+/** Balance adjustments: an increase is income and a decrease is spending, on the adjustment date. They are added to the transactions list by the provider. */
+export const ADJ_PREFIX = 'aj:';
+export const isAdjustmentEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(ADJ_PREFIX);
+/** The account id inside an adjustment entry's id ("aj:<accountId>:<adjustmentId>"). */
+export const adjustmentAccountId = (t: Pick<Transaction, 'id'>) => t.id.slice(ADJ_PREFIX.length, t.id.lastIndexOf(':'));
+
+export function adjustmentEntries(accounts: Account[]): Transaction[] {
+  return accounts.flatMap((a) =>
+    (a.adjustments ?? []).map((adj) => ({
+      id: `${ADJ_PREFIX}${a.id}:${adj.id}`,
+      title: adj.note?.trim() ?? '',
+      date: adj.date,
+      categoryId: adj.amount >= 0 ? 'otherincome' : 'other',
+      subcategory: '',
+      amount: Math.abs(adj.amount),
+      type: adj.amount >= 0 ? ('credit' as const) : ('debit' as const),
+      accountId: a.id,
+    })),
+  );
+}
 
 export const isSavedEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(SAVED_PREFIX);
 export const isDebtEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(DEBT_PREFIX);

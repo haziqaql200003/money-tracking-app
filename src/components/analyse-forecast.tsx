@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { LineChart } from '@/components/line-chart';
+import { LineChart, type Readout } from '@/components/line-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
@@ -19,6 +19,7 @@ import { monthKeysEnding } from '@/utils/insights';
 import { isEnded, isTransfer, monthlyEquivalent } from '@/utils/recurring';
 import { looksLikeSavings } from '@/utils/saved';
 import { cycleOf } from '@/utils/cycle';
+import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 const HORIZON = 3;
@@ -205,6 +206,23 @@ export function AnalyseForecast({ months, todayKey }: Props) {
     };
   }, [d, todayKey]);
 
+
+  /** Readout for a past-plus-forecast line chart: the real value for past months, the guess and its range for coming ones. */
+  const bandReadout = (c: { labels: string[]; hist: (number | null)[]; mid: (number | null)[]; lo: (number | null)[]; hi: (number | null)[]; split: number }, forecastColor: string) =>
+    (i: number): Readout => {
+      if (i < c.split) {
+        const real = c.hist[i];
+        return { title: c.labels[i], rows: real === null || real === undefined ? [] : [{ label: t('fc.goalChart.actual'), value: money(real), color: colors.accent }] };
+      }
+      return {
+        title: `${c.labels[i]} · ${t('plan.deep.guess')}`,
+        rows: [
+          { label: t('fc.totalChart.forecast'), value: money(c.mid[i] ?? 0), color: forecastColor },
+          { label: t('fc.totalChart.range'), value: `${compact(c.lo[i] ?? 0)} – ${compact(c.hi[i] ?? 0)}`, color: colors.textSecondary },
+        ],
+      };
+    };
+
   const legend = (items: { c: string; k: string; dashed?: boolean }[]) => (
     <View style={styles.legend}>
       {items.map((i) => (
@@ -245,27 +263,6 @@ export function AnalyseForecast({ months, todayKey }: Props) {
 
   return (
     <View>
-      {section(t('fc.now.title'))}
-      <View style={card}>
-        <View style={styles.trio}>
-          {[
-            { k: 'fc.now.spent', v: d.spent, c: colors.negative },
-            { k: 'fc.now.income', v: d.earned, c: colors.positive },
-            { k: 'fc.now.saved', v: d.savedNow, c: colors.accent },
-          ].map((x) => (
-            <View key={x.k} style={styles.flex}>
-              <ThemedText type="small" style={muted}>{t(x.k as 'fc.now.spent')}</ThemedText>
-              <ThemedText type="smallBold" style={{ color: x.c }}>{money(x.v)}</ThemedText>
-            </View>
-          ))}
-        </View>
-        {d.planned > 0 ? (
-          <ThemedText type="small" style={muted}>
-            {t('fc.now.saved')}: {t('fc.now.planned', { amount: money(d.planned) })}
-          </ThemedText>
-        ) : null}
-      </View>
-
       {section(t('fc.next.title', { n: HORIZON }))}
       <View style={card}>
         {!hasHistory ? (
@@ -291,13 +288,17 @@ export function AnalyseForecast({ months, todayKey }: Props) {
           </View>
           <View style={styles.flex}>
             <ThemedText type="small" style={muted}>{t('fc.sav.rate')}</ThemedText>
-            <ThemedText type="smallBold">{d.rate === null ? '—' : `${d.rate}%`}</ThemedText>
+            <ThemedText type="smallBold">{d.rate === null ? '—' : `${p1(d.rate)}%`}</ThemedText>
           </View>
           <View style={styles.flex}>
             <ThemedText type="small" style={muted}>{t('fc.sav.runway')}</ThemedText>
             <ThemedText type="smallBold">{d.runway === null ? '—' : t('fc.sav.runwayValue', { n: d.runway })}</ThemedText>
           </View>
         </View>
+        <ThemedText type="small" style={muted}>
+          {t('fc.now.saved')}: <ThemedText type="smallBold" style={{ color: colors.accent }}>{money(d.savedNow)}</ThemedText>
+          {d.planned > 0 ? ` ${t('fc.now.planned', { amount: money(d.planned) })}` : ''}
+        </ThemedText>
         <ThemedText type="smallBold" style={styles.gap}>{t('fc.sav.monthly')}</ThemedText>
         {d.saving.every((v) => v === 0) ? (
           <ThemedText type="small" style={muted}>{t('fc.sav.none')}</ThemedText>
@@ -331,6 +332,16 @@ export function AnalyseForecast({ months, todayKey }: Props) {
             <LineChart
               labels={goalChart.labels}
               hide={hideAmounts}
+              readout={(i) => {
+                const rows: Readout['rows'] = [];
+                const a = goalChart.actual[i];
+                if (a !== null && a !== undefined) rows.push({ label: t('fc.goalChart.actual'), value: money(a), color: colors.accent });
+                const pc = goalChart.pace?.[i];
+                if (i >= HIST && pc !== null && pc !== undefined) rows.push({ label: t('fc.goalChart.pace'), value: money(pc), color: colors.positive });
+                const sg = goalChart.suggest?.[i];
+                if (i >= HIST && sg !== null && sg !== undefined) rows.push({ label: t('fc.goalChart.suggest'), value: money(sg), color: colors.negative });
+                return { title: goalChart.labels[i], rows };
+              }}
               splitAt={HIST}
               hline={{ value: goalChart.target, color: colors.warning }}
               series={[
@@ -376,6 +387,7 @@ export function AnalyseForecast({ months, todayKey }: Props) {
         <LineChart
           labels={totalChart.labels}
           hide={hideAmounts}
+          readout={bandReadout(totalChart, colors.positive)}
           splitAt={totalChart.split}
           series={[
             { values: totalChart.hi, color: colors.textSecondary, dashed: true, width: 1.5 },
@@ -397,6 +409,7 @@ export function AnalyseForecast({ months, todayKey }: Props) {
         <LineChart
           labels={spendChart.labels}
           hide={hideAmounts}
+          readout={bandReadout(spendChart, colors.negative)}
           splitAt={spendChart.split}
           series={[
             { values: spendChart.hi, color: colors.textSecondary, dashed: true, width: 1.5 },

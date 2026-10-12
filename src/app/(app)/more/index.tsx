@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isLightColor } from '@/constants/card-styles';
+import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
@@ -18,7 +19,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { budgetStatus, spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
-import { daysToPayday, usesCalendarMonths } from '@/utils/cycle';
+import { daysToPayday } from '@/utils/cycle';
 import { monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { useT } from '@/i18n';
 import { CURRENT_VERSION } from '@/constants/changelog';
@@ -27,7 +28,7 @@ import { useUpdates } from '@/context/UpdatesContext';
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/whats-new'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -38,7 +39,7 @@ export default function MoreScreen() {
   const { goals } = usePlan();
   const { debts } = useDebts();
   const { categories, expenseCategories } = useCategories();
-  const { warnPercent } = useSettings();
+  const { warnPercent, calendarMonths } = useSettings();
   const { hideAmounts } = usePrivacy();
   const { hasUnseenUpdate } = useUpdates();
 
@@ -56,14 +57,7 @@ export default function MoreScreen() {
   const accountList = accountBalances();
   const netWorth = accountList.reduce((sum, a) => sum + a.balance, 0);
 
-  const menu: MenuItem[] = [
-    {
-      icon: 'flag-outline',
-      label: t('more.index.menu.rancang'),
-      subtitle: goals.length > 0 ? tp('more.index.rancang.withGoals', goals.length) : t('more.index.rancang.empty'),
-      tint: '#22C55E',
-      href: '/more/rancang',
-    },
+  const features: MenuItem[] = [
     {
       icon: 'wallet-outline',
       label: t('more.index.menu.assets'),
@@ -77,6 +71,13 @@ export default function MoreScreen() {
       subtitle: t('more.index.budgets.sub', { budgeted: budgeted.length, total: expenseCategories.length }),
       tint: colors.accent,
       href: '/more/budgets',
+    },
+    {
+      icon: 'flag-outline',
+      label: t('more.index.menu.rancang'),
+      subtitle: goals.length > 0 ? tp('more.index.rancang.withGoals', goals.length) : t('more.index.rancang.empty'),
+      tint: '#22C55E',
+      href: '/more/rancang',
     },
     {
       icon: 'repeat',
@@ -105,6 +106,8 @@ export default function MoreScreen() {
       tint: '#F0529C',
       href: '/more/categories',
     },
+  ];
+  const settingsItems: MenuItem[] = [
     {
       icon: 'settings-outline',
       label: t('more.index.menu.settings'),
@@ -113,12 +116,35 @@ export default function MoreScreen() {
       href: '/more/settings',
     },
     {
+      icon: 'lock-closed-outline',
+      label: t('more.security.title'),
+      subtitle: t('more.index.security.sub'),
+      tint: '#6366F1',
+      href: '/more/security',
+    },
+    {
+      icon: 'shield-checkmark-outline',
+      label: t('more.data.title'),
+      subtitle: t('more.settings.dataSub'),
+      tint: '#0EA5E9',
+      href: '/more/data',
+    },
+  ];
+  const aboutItems: MenuItem[] = [
+    {
       icon: 'megaphone-outline',
       label: t('more.index.menu.whatsNew'),
       subtitle: hasUnseenUpdate ? t('more.index.whatsNew.unseen', { version: CURRENT_VERSION }) : t('more.index.whatsNew.seen', { version: CURRENT_VERSION }),
       tint: '#F59E0B',
       href: '/more/whats-new',
       badge: hasUnseenUpdate,
+    },
+    {
+      icon: 'information-circle-outline',
+      label: t('more.about.title'),
+      subtitle: t('more.settings.aboutSub'),
+      tint: '#64748B',
+      href: '/more/about',
     },
   ];
 
@@ -193,7 +219,7 @@ export default function MoreScreen() {
                 </View>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
                   {t('more.index.budget.spentOf', { spent: money(totalSpent), total: money(totalLimit) })}
-                  {!usesCalendarMonths() ? ` · ${tp('more.index.budget.payday', daysToPayday(toDateKey(new Date())))}` : ''}
+                  {!calendarMonths ? ` · ${tp('more.index.budget.payday', daysToPayday(toDateKey(new Date())))}` : ''}
                 </ThemedText>
               </>
             ) : (
@@ -209,34 +235,18 @@ export default function MoreScreen() {
             )}
           </Pressable>
 
-          {/* Menu */}
-          <View style={[styles.card, styles.menuCard, { backgroundColor: colors.backgroundElement }]}>
-            {menu.map((item, i) => (
-              <Pressable
-                key={item.label}
-                onPress={() => router.push(item.href)}
-                style={({ pressed }) => [
-                  styles.menuRow,
-                  i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <View>
-                  <View style={[styles.menuIcon, { backgroundColor: `${item.tint}26` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.tint} />
-                  </View>
-                  {item.badge ? <View style={[styles.dot, { backgroundColor: colors.negative, borderColor: colors.backgroundElement }]} /> : null}
-                </View>
-                <View style={styles.flex}>
-                  <ThemedText>{item.label}</ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    {item.subtitle}
-                  </ThemedText>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-              </Pressable>
-            ))}
-          </View>
+          {/* Features, settings and about, each under its own heading */}
+          {[
+            { title: t('more.index.section.features'), items: features },
+            { title: t('more.index.section.settings'), items: settingsItems },
+            { title: t('more.index.section.about'), items: aboutItems },
+          ].map((group) => (
+            <Section key={group.title} title={group.title}>
+              {group.items.map((item, i) => (
+                <Row key={item.label} first={i === 0} icon={item.icon} label={item.label} subtitle={item.subtitle} tint={item.tint} badge={item.badge} onPress={() => router.push(item.href)} />
+              ))}
+            </Section>
+          ))}
 
           <ThemedText type="small" style={[styles.about, { color: colors.textSecondary }]}>
             {t('more.index.about', { version: CURRENT_VERSION })}
@@ -268,9 +278,6 @@ const styles = StyleSheet.create({
   track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden' },
   fill: { height: 8, borderRadius: Radius.pill },
 
-  menuCard: { paddingHorizontal: Spacing.three },
-  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  menuIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   about: { textAlign: 'center', marginTop: Spacing.two },
   dot: { position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: Radius.pill, borderWidth: 2 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderWidth: 1.5 },

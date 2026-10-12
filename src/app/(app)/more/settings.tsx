@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { setGyroEnabled, useGyroEnabled } from '@/components/cards/motion';
 import { ScreenHeader } from '@/components/screen-header';
@@ -14,6 +15,7 @@ import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/context/AuthContext';
+import { setCoachSeen } from '@/services/intro';
 import { weekdayLong } from '@/i18n/format';
 import { setLanguage, useT, type Lang, type TKey } from '@/i18n';
 
@@ -35,7 +37,12 @@ export default function SettingsScreen() {
   const { t, lang } = useT();
   const gyroEnabled = useGyroEnabled();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
-  const { updateProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
+  // The tutorial questions are done once; "repeat" replays the Home walkthrough instead.
+  function replayTour() {
+    if (user) setCoachSeen(user.id, false);
+    router.navigate('/');
+  }
   function changeLanguage(language: Lang) {
     if (language === lang) return;
     updateProfile({ language });
@@ -111,15 +118,13 @@ export default function SettingsScreen() {
                   <ThemedText type="small" style={{ color: colors.textSecondary }}>
                     RM{/* i18n-ignore */}
                   </ThemedText>
-                  <TextInput
+                  <AmountInput
                     style={[styles.dailyLimitInput, { color: colors.text }]}
                     placeholder={t('more.settings.dailyLimitOff')}
                     placeholderTextColor={colors.textSecondary}
                     value={dailyLimitText}
-                    onChangeText={setDailyLimitText}
-                    onEndEditing={commitDailyLimit}
-                    keyboardType="decimal-pad"
-                    returnKeyType="done"
+                    onChange={setDailyLimitText}
+                    onBlur={commitDailyLimit}
                   />
                 </View>
                 {[50, 100, 150].map((q) => (
@@ -135,7 +140,7 @@ export default function SettingsScreen() {
           <Section title={t('more.settings.general')}>
             <Row first icon="cash-outline" label={t('more.settings.currency')} value="MYR (RM)" /* i18n-ignore */ />
             <Row icon="calendar-outline" label={t('more.settings.weekStarts')} value={weekdayLong(0)} />
-            <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={() => updateProfile({ hasOnboarded: false })} />
+            <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={replayTour} />
           </Section>
 
           <Section title={t('more.settings.more')}>

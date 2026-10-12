@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
+import { AmountInput } from '@/components/amount-input';
 import { DateField } from '@/components/date-field';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
@@ -195,13 +196,12 @@ export function TransferForm({ editing, onDone }: Props) {
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('tx.add.amountRm')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
         placeholder="0.00"
         placeholderTextColor={colors.textSecondary}
         value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
+        onChange={setAmount}
         accessibilityLabel={t('tx.transfer.amountA11y')}
       />
       {overdraws ? (

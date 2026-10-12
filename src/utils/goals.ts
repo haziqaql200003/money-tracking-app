@@ -75,7 +75,7 @@ export function goalSaved(entries: GoalEntry[], goalId: string) {
 export function goalProgress(goal: SavingsGoal, entries: GoalEntry[], todayKey: string): GoalProgress {
   const saved = goalSaved(entries, goal.id);
   const remaining = round2(Math.max(0, goal.target - saved));
-  const percent = goal.target > 0 ? Math.min(100, Math.floor((saved / goal.target) * 100)) : 0;
+  const percent = goal.target > 0 ? Math.min(100, Math.floor((saved / goal.target) * 1000) / 10) : 0;
   const done = goal.target > 0 && saved >= goal.target;
 
   if (!goal.deadline) {

@@ -2,8 +2,8 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { TransferForm } from '@/components/transfer-form';
 import { Radius, Spacing } from '@/constants/theme';
 import type { Transfer } from '@/context/TransactionsContext';
@@ -27,7 +27,7 @@ export function TransferModal({ visible, onClose, editing }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
@@ -45,7 +45,7 @@ export function TransferModal({ visible, onClose, editing }: Props) {
             {/* Mounted only while open, so the form always starts from a fresh state. */}
             {visible ? <TransferForm key={editing?.id ?? 'new'} editing={editing} onDone={onClose} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );

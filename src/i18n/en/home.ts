@@ -3,9 +3,16 @@ export const enHome = {
   // Home screen
   'home.index.notifications': 'Notifications',
   'home.index.comingSoon': 'Coming soon — this will show reminders and budget alerts.',
+  'home.upcoming.title': 'Coming up',
+  'home.upcoming.more': '{n} more',
   'home.index.greeting': 'Hi, ',
   // Balance carousel
   'home.carousel.allAccounts': 'All accounts',
+  'home.carousel.spendable': 'Money you can use',
+  'home.carousel.spendableSub': 'Savings {savings} kept apart',
+  'home.carousel.savingsTitle': 'Savings & assets',
+  'home.carousel.savingsSub.one': '{count} account · kept apart',
+  'home.carousel.savingsSub.other': '{count} accounts · kept apart',
   'home.carousel.accountCount.one': '{count} account',
   'home.carousel.accountCount.other': '{count} accounts',
   'home.carousel.type.bank': 'Bank',

@@ -11,14 +11,14 @@ export const enAuth = {
 
   // shared fields
   'auth.field.email': 'Email',
-  'auth.field.emailPlaceholder': 'name@example.com',
+  'auth.field.emailPlaceholder': 'johndoe@email.com',
   'auth.field.password': 'Password',
   'auth.field.toggleHint': 'Show/hide password',
 
   // errors (returned by sign-up / sign-in)
   'auth.error.emailInvalid': 'Invalid email format.',
   'auth.error.nameRequired': 'Please enter a display name.',
-  'auth.error.passwordWeak': 'Password must be at least 8 characters, with letters and numbers.',
+  'auth.error.passwordWeak': 'Password must be at least 8 characters, with letters and numbers, and not easy to guess (not 12345678, abcd1234 or your name).',
   'auth.error.consentRequired': 'Please agree to the Privacy Notice to continue.',
   'auth.error.emailTaken': 'This email is already registered.',
   'auth.error.badCredentials': 'Incorrect email or password.',

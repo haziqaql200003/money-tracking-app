@@ -11,7 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
 /** "Continue with Google / Apple". Shown only when accounts live in the cloud. Apple appears on iPhone only. */
-export function SocialButtons({ onError }: { onError: (message: string | null) => void }) {
+export function SocialButtons({ onError, bare }: { onError: (message: string | null) => void; /** No "or continue with" line above the buttons. */ bare?: boolean }) {
   const colors = useTheme();
   const scheme = useColorScheme();
   const { t } = useT();
@@ -43,12 +43,14 @@ export function SocialButtons({ onError }: { onError: (message: string | null) =
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={bare ? styles.bare : styles.wrap}>
+      {bare ? null : (
       <View style={styles.divider}>
         <View style={[styles.line, { backgroundColor: colors.divider }]} />
         <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('more.security.continueWith')}</ThemedText>
         <View style={[styles.line, { backgroundColor: colors.divider }]} />
       </View>
+      )}
 
       {appleOk ? (
         <AppleAuthentication.AppleAuthenticationButton
@@ -75,9 +77,10 @@ export function SocialButtons({ onError }: { onError: (message: string | null) =
 
 const styles = StyleSheet.create({
   wrap: { marginTop: Spacing.four, gap: 12 },
+  bare: { gap: 10 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   line: { flex: 1, height: StyleSheet.hairlineWidth },
-  apple: { height: 50, width: '100%' },
-  google: { height: 50, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  apple: { height: 52, width: '100%' },
+  google: { height: 52, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   googleText: { fontWeight: '600', fontSize: FontSize.body },
 });

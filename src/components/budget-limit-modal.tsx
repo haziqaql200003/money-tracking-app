@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { CategoryIcon } from '@/components/category-icon';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import type { Category } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
@@ -58,7 +59,7 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
       <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={!!category} onClose={onClose}
           style={[
             styles.modalBox,
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
@@ -89,13 +90,12 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
               <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
                 {t('plan.budgetLimit.monthlyRm')}
               </ThemedText>
-              <TextInput
+              <AmountInput
                 style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
                 value={value}
-                onChangeText={setValue}
-                keyboardType="decimal-pad"
+                onChange={setValue}
                 autoFocus
               />
 
@@ -142,7 +142,7 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
               ) : null}
             </>
           ) : null}
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );

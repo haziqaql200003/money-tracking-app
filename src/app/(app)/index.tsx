@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BalanceCarousel } from '@/components/balance-carousel';
+import { HomeGuide } from '@/components/home-guide';
+import { HomeUpcoming } from '@/components/home-upcoming';
 import { PendingBanner } from '@/components/pending-banner';
+import { HomeStoryCard } from '@/components/story/report-stories';
 import { RecentTransactions } from '@/components/recent-transactions';
 import { SpendingOverview } from '@/components/spending-overview';
 import { SyncPill } from '@/components/sync-pill';
@@ -34,6 +37,7 @@ export default function HomeScreen() {
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const cardsRef = useRef<View>(null);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
   const selectedName = selectedAccount ? accountName(selectedAccount) : undefined;
 
@@ -79,7 +83,12 @@ export default function HomeScreen() {
             <ScreenSkeleton variant="home" rows={4} />
           ) : (
             <>
-              <BalanceCarousel onSelectAccount={setSelectedAccountId} />
+              <HomeGuide cardsRef={cardsRef} />
+              <HomeStoryCard />
+              <View ref={cardsRef} collapsable={false}>
+                <BalanceCarousel onSelectAccount={setSelectedAccountId} />
+              </View>
+              <HomeUpcoming />
               <View style={styles.block}>
                 <SpendingOverview accountId={selectedAccount?.id} accountName={selectedName} />
               </View>

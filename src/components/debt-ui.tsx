@@ -1,5 +1,6 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
+import { AmountInput } from '@/components/amount-input';
 import { ThemedText } from '@/components/themed-text';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
@@ -32,6 +33,20 @@ export function DebtInput(props: TextInputProps) {
       placeholderTextColor={colors.textSecondary}
       {...props}
       style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }, props.style]}
+    />
+  );
+}
+
+/** DebtInput for ringgit: digits slide in from the right, like every other money field. */
+export function DebtAmountInput({ value, onChangeText, placeholder, style }: { value: string; onChangeText: (v: string) => void; placeholder?: string; style?: TextInputProps['style'] }) {
+  const colors = useTheme();
+  return (
+    <AmountInput
+      value={value}
+      onChange={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={colors.textSecondary}
+      style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }, style]}
     />
   );
 }

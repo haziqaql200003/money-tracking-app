@@ -23,6 +23,7 @@ import { budgetStatus, spentByCategory, type BudgetStatus } from '@/utils/budget
 import { formatMoney } from '@/utils/currency';
 import { cycleInfo, cycleOf } from '@/utils/cycle';
 import { cycleRangeLabel, monthKeyFromOffset, monthLabel, toDateKey } from '@/utils/dates';
+import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
@@ -184,7 +185,7 @@ export default function BudgetsScreen() {
 
               <Bar ratio={totalRatio} color={statusColor(totalStatus)} track={colors.background} height={10} />
               <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 8 }}>
-                {t('plan.budget.spentOfPct', { spent: money(totalSpent), limit: money(totalLimit), percent: Math.round(totalRatio * 100) })}
+                {t('plan.budget.spentOfPct', { spent: money(totalSpent), limit: money(totalLimit), percent: p1(totalRatio * 100) })}
               </ThemedText>
 
               {isCurrent ? (
@@ -268,7 +269,7 @@ export default function BudgetsScreen() {
                             {categoryName(cat)}
                           </ThemedText>
                           <ThemedText type="small" style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: '700', ...tabularNums }}>
-                            {Math.round(ratio * 100)}%
+                            {p1(ratio * 100)}%
                           </ThemedText>
                         </View>
                         <View style={styles.barGap}>
@@ -380,4 +381,4 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
-});
+});

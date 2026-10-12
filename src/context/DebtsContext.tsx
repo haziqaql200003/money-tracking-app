@@ -4,6 +4,7 @@ import { FALLBACK_EXPENSE_ID } from '@/constants/categories';
 import { useAuth } from '@/context/AuthContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { toDateKey } from '@/utils/dates';
+import type { Iou, IouDirection, IouRepeat } from '@/utils/ious';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import {
   applyPayment,
@@ -64,9 +65,25 @@ export type CreditInput = {
   payFromAccountId: string;
 };
 
+export type IouInput = {
+  person: string;
+  direction: IouDirection;
+  amount: number;
+  dueDate?: string;
+  repeat: IouRepeat;
+  note?: string;
+};
+
 type DebtsContextValue = {
   ready: boolean;
   debts: Debt[];
+  /** Money between you and people. A reminder list: it never changes an account balance. */
+  ious: Iou[];
+  addIou: (input: IouInput) => void;
+  updateIou: (id: string, patch: Partial<IouInput>) => void;
+  addIouPayment: (id: string, amount: number, date?: string) => void;
+  removeIouPayment: (id: string, index: number) => void;
+  deleteIou: (id: string) => void;
   createInstalment: (input: InstalmentInput) => void;
   createLoan: (input: LoanInput) => void;
   createCredit: (input: CreditInput) => void;
@@ -75,9 +92,23 @@ type DebtsContextValue = {
   /** Pay off the whole remaining principal at once (plus any extra fee) and close the debt. */
   settle: (debtId: string, pay: { date: string; extra: number; fromAccountId: string }) => void;
   repayCredit: (debtId: string, pay: { date: string; amount: number; fromAccountId: string }) => void;
-  updateDebt: (id: string, patch: { name?: string; provider?: string; dueDay?: number; creditLimit?: number; payFromAccountId?: string }) => void;
+  updateDebt: (id: string, patch: DebtPatch) => void;
+  /** Re-enter an instalment plan or loan that was keyed in wrong. Only while no payment was recorded in WaKira. */
+  reviseInstalment: (id: string, input: InstalmentInput) => void;
+  reviseLoan: (id: string, input: LoanInput) => void;
   deleteDebt: (id: string) => void;
 };
+
+export type DebtPatch = { name?: string; provider?: string; dueDay?: number; creditLimit?: number; payFromAccountId?: string; categoryId?: string };
+
+/**
+ * The amounts and months of a plan can be changed only while nothing was paid inside WaKira:
+ * a recorded payment moved real money, and re-planning under it would leave the books wrong.
+ * Payments marked "paid before WaKira" are fine, they are simply counted again.
+ */
+export function canRevisePlan(debt: Debt) {
+  return debt.kind !== 'credit' && !debt.settled && !debt.schedule.some((s) => s.paid && !s.paid.historic);
+}
 
 const DebtsContext = createContext<DebtsContextValue | undefined>(undefined);
 
@@ -87,6 +118,19 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [debts, setDebts, ready] = usePersistedState<Debt[]>('debts', [], user?.id ?? null);
   const tx = useTransactions();
+  const [ious, setIous] = usePersistedState<Iou[]>('ious', [], user?.id ?? null);
+
+  const addIou = (input: IouInput) =>
+    setIous((prev) => [
+      ...prev,
+      { id: `iou_${Date.now()}_${Math.floor(Math.random() * 1000)}`, payments: [], createdAt: toDateKey(new Date()), ...input },
+    ]);
+  const updateIou = (id: string, patch: Partial<IouInput>) => setIous((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  const addIouPayment = (id: string, amount: number, date?: string) =>
+    setIous((prev) => prev.map((i) => (i.id === id ? { ...i, payments: [...i.payments, { date: date ?? toDateKey(new Date()), amount: round2(amount) }] } : i)));
+  const removeIouPayment = (id: string, index: number) =>
+    setIous((prev) => prev.map((i) => (i.id === id ? { ...i, payments: i.payments.filter((_, n) => n !== index) } : i)));
+  const deleteIou = (id: string) => setIous((prev) => prev.filter((i) => i.id !== id));
 
   const newDebtId = () => `debt_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const feeCategory = (sub: 'Interest' | 'Bank Fees') => ({ categoryId: FINANCIAL_ID, subcategory: sub });
@@ -200,16 +244,69 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     tx.addTransfer({ fromAccountId: pay.fromAccountId, toAccountId: debt.accountId, amount: round2(pay.amount), date: pay.date, note: debt.name, debtId });
   }
 
-  function updateDebt(id: string, patch: { name?: string; provider?: string; dueDay?: number; creditLimit?: number; payFromAccountId?: string }) {
+  function updateDebt(id: string, patch: DebtPatch) {
     const debt = debts.find((d) => d.id === id);
     if (!debt) return;
     setDebts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
-    if (debt.kind === 'credit') {
-      tx.updateAccount(debt.accountId, {
-        ...(patch.name !== undefined ? { name: patch.name } : {}),
-        ...(patch.creditLimit !== undefined ? { creditLimit: patch.creditLimit } : {}),
+    // The debt's own (hidden) account carries its name, so records and transfers show the new one too.
+    tx.updateAccount(debt.accountId, {
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(debt.kind === 'credit' && patch.creditLimit !== undefined ? { creditLimit: patch.creditLimit } : {}),
+      ...(debt.kind === 'credit' && patch.provider !== undefined ? { provider: patch.provider || undefined } : {}),
+    });
+  }
+
+  /** Everything the debt wrote when it was created (the purchase, the loan money, the upfront fee). */
+  function removeCreationRecords(debt: Debt) {
+    tx.deleteTransactions(tx.transactions.filter((x) => x.debtId === debt.id).map((x) => x.id));
+    tx.transfers.filter((x) => x.debtId === debt.id).forEach((x) => tx.deleteTransfer(x.id));
+  }
+
+  function reviseInstalment(id: string, input: InstalmentInput) {
+    const old = debts.find((d) => d.id === id);
+    if (!old || old.kind !== 'installment' || !canRevisePlan(old)) return;
+    removeCreationRecords(old);
+    const schedule0 = buildSchedule({ kind: 'installment', principal: input.principal, months: input.months, firstDue: input.firstDue, totalFee: input.totalFee });
+    const debt: Debt = {
+      ...old, name: input.name, provider: input.provider, payFromAccountId: input.payFromAccountId,
+      principal: input.principal, months: input.months, startDate: input.startDate,
+      categoryId: input.categoryId, subcategory: input.subcategory,
+      schedule: markHistoricPaid(schedule0, input.paidCount, input.payFromAccountId), status: 'active',
+    };
+    tx.updateAccount(old.accountId, { name: input.name, initialBalance: input.paidCount > 0 ? -remainingPrincipal(debt) : 0 });
+    if (input.paidCount === 0) {
+      tx.addTransaction({
+        title: input.name, date: input.startDate, categoryId: input.categoryId ?? FALLBACK_EXPENSE_ID, subcategory: input.subcategory ?? '',
+        amount: input.principal, type: 'debit', accountId: old.accountId, debtId: id,
       });
     }
+    setDebts((prev) => prev.map((d) => (d.id === id ? debt : d)));
+  }
+
+  function reviseLoan(id: string, input: LoanInput) {
+    const old = debts.find((d) => d.id === id);
+    if (!old || old.kind !== 'loan' || !canRevisePlan(old)) return;
+    removeCreationRecords(old);
+    const schedule0 = buildSchedule({
+      kind: 'loan', principal: input.principal, months: input.months, firstDue: input.firstDue,
+      ratePct: input.ratePct, rateType: input.rateType, monthlyPayment: input.monthlyPayment,
+    });
+    const debt: Debt = {
+      ...old, name: input.name, provider: input.provider, payFromAccountId: input.payFromAccountId,
+      principal: input.principal, months: input.months, ratePct: input.ratePct, rateType: input.rateType, startDate: input.startDate,
+      schedule: markHistoricPaid(schedule0, input.paidCount, input.payFromAccountId), status: 'active',
+    };
+    tx.updateAccount(old.accountId, { name: input.name, initialBalance: input.paidCount > 0 ? -remainingPrincipal(debt) : 0 });
+    if (input.paidCount === 0) {
+      tx.addTransfer({ fromAccountId: old.accountId, toAccountId: input.receiveAccountId, amount: input.principal, date: input.startDate, note: input.name, debtId: id });
+      if (input.upfrontFee > 0) {
+        tx.addTransaction({
+          title: input.name, date: input.startDate, ...feeCategory('Bank Fees'), amount: input.upfrontFee, type: 'debit',
+          accountId: input.receiveAccountId, debtId: id,
+        });
+      }
+    }
+    setDebts((prev) => prev.map((d) => (d.id === id ? debt : d)));
   }
 
   function deleteDebt(id: string) {
@@ -228,7 +325,7 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <DebtsContext.Provider value={{ ready, debts, createInstalment, createLoan, createCredit, payInstalment, undoPayment, settle, repayCredit, updateDebt, deleteDebt }}>
+    <DebtsContext.Provider value={{ ready, debts, ious, addIou, updateIou, addIouPayment, removeIouPayment, deleteIou, createInstalment, createLoan, createCredit, payInstalment, undoPayment, settle, repayCredit, updateDebt, reviseInstalment, reviseLoan, deleteDebt }}>
       {children}
     </DebtsContext.Provider>
   );

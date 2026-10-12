@@ -6,6 +6,7 @@
 import { createContext, useContext } from 'react';
 
 import { t } from '@/i18n';
+import { checkPassword } from '@/utils/password';
 
 export type Goal = 'save' | 'debt' | 'budget' | 'track';
 export type Language = 'ms' | 'en';
@@ -17,6 +18,8 @@ export type StoredUser = {
   passwordHash: string;
   salt: string;
   displayName: string;
+  /** Full name as typed at sign-up (first + last) or handed over by Google / Apple. displayName is the short name shown in the app. */
+  fullName?: string;
   avatarColor: string;
   language: Language;
   goal?: Goal;
@@ -39,6 +42,8 @@ export type SignUpInput = {
   email: string;
   password: string;
   displayName: string;
+  /** First and last name together. */
+  fullName?: string;
   language: Language;
   consent: boolean;
 };
@@ -55,6 +60,8 @@ export type AuthContextValue = {
   signOut: () => void;
   updateProfile: (patch: ProfilePatch) => void;
   deleteAccount: () => Promise<Result>;
+  /** True when `password` is this account's password (asked again before something that cannot be undone). */
+  verifyPassword: (password: string) => Promise<boolean>;
   /** Checks the current password, then sets a new one. */
   changePassword: (current: string, next: string) => Promise<Result>;
   /** Cloud only: ends the sign-in on every other device and keeps this one. */
@@ -95,13 +102,14 @@ export function useAuth() {
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normEmail = (e: string) => e.trim().toLowerCase();
-export const passwordOk = (p: string) => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p);
+/** 8+ characters with a letter and a number, and not easy to guess (see utils/password). */
+export const passwordOk = (p: string, personal: string[] = []) => checkPassword(p, personal).ok;
 
 /** Checks every sign-up field. Returns the error text, or null when all is fine. */
-export function validateSignUp({ email, password, displayName, consent }: SignUpInput): string | null {
+export function validateSignUp({ email, password, displayName, fullName, consent }: SignUpInput): string | null {
   if (!EMAIL_RE.test(normEmail(email))) return t('auth.error.emailInvalid');
   if (displayName.trim().length < 2) return t('auth.error.nameRequired');
-  if (!passwordOk(password)) return t('auth.error.passwordWeak');
+  if (!passwordOk(password, [displayName, fullName ?? '', email])) return t('auth.error.passwordWeak');
   if (!consent) return t('auth.error.consentRequired');
   return null;
 }

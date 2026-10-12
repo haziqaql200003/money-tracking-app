@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
@@ -13,6 +14,8 @@ import type { IconName } from '@/constants/categories';
 import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
 import { cycleOf } from '@/utils/cycle';
+import { formatMoney } from '@/utils/currency';
+import { looksLikeSavings } from '@/utils/saved';
 import { toDateKey } from '@/utils/dates';
 
 const PEEK = 28; // how much of the next card shows at the right edge
@@ -35,7 +38,9 @@ type AccountSlide = {
   last4?: string;
 };
 type AddSlide = { kind: 'add'; id: 'add' };
-type Slide = AccountSlide | AddSlide;
+/** All savings and asset accounts as one card: they are not money to spend, so they stay out of the row of accounts. */
+type SavingsSlide = Omit<AccountSlide, 'kind' | 'account'> & { kind: 'savings' };
+type Slide = AccountSlide | SavingsSlide | AddSlide;
 
 // This month's income/spending, optionally limited to one account.
 function monthTotals(transactions: Transaction[], accountId?: string) {
@@ -64,28 +69,40 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
   const colors = useTheme();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { width } = useWindowDimensions();
-  const { selectableAccounts: accounts, transactions, accountBalance, balance } = useTransactions();
+  const { selectableAccounts: accounts, transactions, accountBalance } = useTransactions();
   const [index, setIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
+  const router = useRouter();
 
   const cardWidth = width - Spacing.four * 2 - PEEK;
   const snap = cardWidth + GAP;
+
+  // The first card is money you can use: bank, cash and other accounts. Savings are kept apart on purpose.
+  const spendable = accounts.filter((a) => !looksLikeSavings(a));
+  const savings = accounts.filter((a) => looksLikeSavings(a));
+  const spendableBalance = spendable.reduce((s, a) => s + accountBalance(a.id), 0);
+  const savingsBalance = savings.reduce((s, a) => s + accountBalance(a.id), 0);
+  const spendableIds = new Set(spendable.map((a) => a.id));
+  const savingsIds = new Set(savings.map((a) => a.id));
 
   const slides: Slide[] = [
     {
       kind: 'account',
       id: 'total',
       account: null,
-      title: t('home.carousel.allAccounts'),
-      subtitle: tp('home.carousel.accountCount', accounts.length),
+      title: t('home.carousel.spendable'),
+      subtitle:
+        savings.length > 0
+          ? t('home.carousel.spendableSub', { count: spendable.length, savings: hideAmounts ? 'RM ••••' /* i18n-ignore */ : formatMoney(savingsBalance) })
+          : tp('home.carousel.accountCount', spendable.length),
       icon: 'wallet',
-      balance,
-      ...monthTotals(transactions),
+      balance: spendableBalance,
+      ...monthTotals(transactions.filter((x) => spendableIds.has(x.accountId))),
       color: '#3B4A6B',
       design: 'aurora',
     },
-    ...accounts.map(
+    ...spendable.map(
       (a): AccountSlide => ({
         kind: 'account',
         id: a.id,
@@ -100,13 +117,28 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         last4: a.last4,
       }),
     ),
+    ...(savings.length > 0
+      ? [
+          {
+            kind: 'savings' as const,
+            id: 'savings',
+            title: t('home.carousel.savingsTitle'),
+            subtitle: tp('home.carousel.savingsSub', savings.length),
+            icon: 'trending-up' as IconName,
+            balance: savingsBalance,
+            ...monthTotals(transactions.filter((x) => savingsIds.has(x.accountId))),
+            color: '#1E7F5C',
+            design: 'aurora' as CardDesign,
+          },
+        ]
+      : []),
     { kind: 'add', id: 'add' },
   ];
 
   const active = Math.min(index, slides.length - 1);
   // undefined = the "Add" card is showing (leave the selection alone), null = "All accounts"
   const activeSlide = slides[active];
-  const selection = activeSlide.kind === 'add' ? undefined : (activeSlide.account?.id ?? null);
+  const selection = activeSlide.kind !== 'account' ? undefined : (activeSlide.account?.id ?? null);
 
   useEffect(() => {
     if (selection !== undefined) onSelectAccount?.(selection);
@@ -175,6 +207,13 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
             />
           );
 
+          if (item.kind === 'savings') {
+            return (
+              <Pressable onPress={() => router.push('/more/assets')} accessibilityRole="button" accessibilityLabel={item.title}>
+                {card}
+              </Pressable>
+            );
+          }
           return item.account ? <Pressable onPress={() => openEdit(item.account!)}>{card}</Pressable> : card;
         }}
       />

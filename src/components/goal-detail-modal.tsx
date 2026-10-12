@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { CategoryIcon } from '@/components/category-icon';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import type { IconName } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
@@ -19,6 +20,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { monthShort } from '@/i18n/format';
 import { depositCalendar, goalMonthSaved, goalOutlook, goalProgress, goalProjection, milestoneState, MILESTONES, type DepositState, type GoalStatus } from '@/utils/goals';
 import { cycleOf } from '@/utils/cycle';
+import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 const HISTORY_LIMIT = 8;
@@ -47,7 +49,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
     <Modal visible={!!goalId} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <ThemedView
+        <DragSheet visible={!!goalId} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
@@ -73,7 +75,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {goalId ? <Detail key={goalId} goalId={goalId} onEdit={onEdit} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -106,7 +108,7 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.id < b.id ? 1 : -1));
   const monthSaved = goalMonthSaved(goalEntries, goal.id, cycleOf(today));
   const monthlyPlan = goal.monthly && goal.monthly > 0 ? goal.monthly : 0;
-  const monthPercent = monthlyPlan > 0 ? Math.min(100, Math.round((monthSaved / monthlyPlan) * 100)) : 0;
+  const monthPercent = monthlyPlan > 0 ? Math.min(100, Math.floor((monthSaved / monthlyPlan) * 1000) / 10) : 0;
   const ms = milestoneState(p.percent);
   const proj = goalProjection(goal, goalEntries, today);
   const index = goals.findIndex((g) => g.id === goal.id);
@@ -176,7 +178,7 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
         </View>
         <View style={styles.rowBetween}>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
-            {t('plan.goalDetail.percentSaved', { percent: p.percent })}
+            {t('plan.goalDetail.percentSaved', { percent: p1(p.percent) })}
           </ThemedText>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>
             {p.status === 'done' ? t('plan.goalDetail.allDone') : t('plan.goalDetail.toGo', { amount: money(p.remaining) })}
@@ -334,13 +336,12 @@ function Detail({ goalId, onEdit }: { goalId: string; onEdit: (goalId: string) =
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('plan.goalDetail.amountRm')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
         placeholder="0.00"
         placeholderTextColor={colors.textSecondary}
         value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
+        onChange={setAmount}
       />
       <View style={styles.buttons}>
         <Pressable

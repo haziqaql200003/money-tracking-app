@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
@@ -33,7 +34,9 @@ export function Sheet({ visible, onClose, title, right, footer, children }: Prop
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <View
+        <DragSheet
+          visible={visible}
+          onClose={onClose}
           style={[
             styles.box,
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
@@ -58,7 +61,7 @@ export function Sheet({ visible, onClose, title, right, footer, children }: Prop
           </ScrollView>
 
           {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </View>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );

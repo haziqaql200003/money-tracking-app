@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EvenGrid } from '@/components/even-grid';
@@ -10,6 +10,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Row, Section } from '@/components/settings-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PaydayHistorySheet } from '@/components/payday-history-sheet';
 import { Sheet } from '@/components/ui/sheet';
 import { CARD_COLORS, isLightColor } from '@/constants/card-styles';
 import { MY_STATES } from '@/constants/my-holidays';
@@ -25,9 +26,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { formatDate } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
-import { cycleInfo, daysToPayday, nextPayday, usesCalendarMonths } from '@/utils/cycle';
+import { cycleInfo, daysToPayday, nextPayday } from '@/utils/cycle';
 import { cycleRangeLabel, toDateKey } from '@/utils/dates';
 import { snapshotOf } from '@/utils/insight-feed';
+import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const STEP = 5;
@@ -43,10 +45,11 @@ export default function ProfileScreen() {
   const { expenseCategories } = useCategories();
   const { goals } = usePlan();
   const { hideAmounts } = usePrivacy();
-  const { savingsTarget, setSavingsTarget, payday, setPayday, paydayEom, setPaydayEom, paydayAdjust, setPaydayAdjust, country, setCountry, state, setState } = useSettings();
+  const { savingsTarget, setSavingsTarget, payday, setPayday, paydayEom, setPaydayEom, paydayAdjust, setPaydayAdjust, setCalendarMonths, calendarMonths, paydayRuleKey, paydayHistory, country, setCountry, state, setState } = useSettings();
 
   const [name, setName] = useState(displayName);
   const [statePicker, setStatePicker] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const stateName = state ? (MY_STATES.find((x) => x.code === state)?.name ?? state) : t('more.profile.stateAny');
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
@@ -71,11 +74,31 @@ export default function ProfileScreen() {
   const rateColor = snapshot?.rate == null ? colors.text : snapshot.rate >= savingsTarget ? colors.positive : colors.warning;
 
   const todayKey = toDateKey(new Date());
-  const cycleKey = cycleInfo(todayKey).key;
-  const paydayRange = cycleRangeLabel(cycleKey);
-  const toPayday = daysToPayday(todayKey);
-  const calendarMonths = usesCalendarMonths();
-  const next = nextPayday(todayKey);
+  // The payday rule lives in module state, so tie these to paydayRuleKey to recompute when it changes.
+  const { paydayRange, toPayday, next } = useMemo(() => {
+    void paydayRuleKey;
+    return { paydayRange: cycleRangeLabel(cycleInfo(todayKey).key), toPayday: daysToPayday(todayKey), next: nextPayday(todayKey) };
+  }, [todayKey, paydayRuleKey]);
+  const [monthMode, setMonthMode] = useState<'month' | 'payday' | null>(null);
+  const paydayMode = monthMode ? monthMode === 'payday' : !calendarMonths;
+
+  function chooseMonth() {
+    if (!paydayMode && calendarMonths) return;
+    const apply = () => {
+      setCalendarMonths();
+      setMonthMode('month');
+    };
+    if (paydayHistory.length > 0) {
+      Alert.alert(t('more.profile.mode.confirmTitle'), t('more.profile.mode.confirmMsg'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('more.profile.mode.confirmOk'), onPress: apply },
+      ]);
+    } else apply();
+  }
+  function choosePayday() {
+    setMonthMode('payday');
+    if (calendarMonths) setPayday(25);
+  }
   const dateText = (key: string) => formatDate(new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10))));
 
   const stat = (label: string, value: string, color?: string) => (
@@ -132,7 +155,7 @@ export default function ProfileScreen() {
                   {stat(t('more.profile.snap.spending'), money(snapshot.spending))}
                   {stat(t('more.profile.snap.saved'), money(snapshot.saved), snapshot.saved >= 0 ? colors.positive : colors.negative)}
                   {snapshot.rate !== null
-                    ? stat(t('more.profile.snap.rate'), t('more.profile.snap.rateVs', { rate: Math.round(snapshot.rate), target: savingsTarget }), rateColor)
+                    ? stat(t('more.profile.snap.rate'), t('more.profile.snap.rateVs', { rate: p1(snapshot.rate), target: savingsTarget }), rateColor)
                     : null}
                   {stat(t('more.profile.snap.goals'), String(activeGoals))}
                   {stat(t('more.profile.snap.budgets'), String(budgeted))}
@@ -191,56 +214,86 @@ export default function ProfileScreen() {
 
           <Section
             title={t('more.profile.payday')}
-            footer={t('more.profile.paydayFooter') + (paydayAdjust ? ' ' + t(country === 'OTHER' ? 'more.profile.paydayNoList' : state ? 'more.profile.paydayHolidaysState' : 'more.profile.paydayHolidays') : '')}
+            footer={!paydayMode ? t('more.profile.mode.monthFooter') : t('more.profile.paydayFooter') + (paydayAdjust ? ' ' + t(country === 'OTHER' ? 'more.profile.paydayNoList' : state ? 'more.profile.paydayHolidaysState' : 'more.profile.paydayHolidays') : '')}
           >
-            <Row
-              first
-              icon="calendar-number-outline"
-              label={t('more.profile.paydayEom')}
-              subtitle={t('more.profile.paydayEomSub')}
-              right={<Switch value={paydayEom} onValueChange={setPaydayEom} trackColor={{ true: colors.accent }} />}
-            />
-            <Row
-              icon="briefcase-outline"
-              label={t('more.profile.paydayAdjust')}
-              subtitle={t('more.profile.paydayAdjustSub')}
-              right={<Switch value={paydayAdjust} onValueChange={setPaydayAdjust} trackColor={{ true: colors.accent }} />}
-            />
-            <View style={[styles.pad, styles.targetRow, paydayEom && { opacity: 0.4 }, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }]}>
-              <View style={styles.flex}>
-                <ThemedText>{t('more.profile.paydayDay')}</ThemedText>
-                <ThemedText type="small" style={muted}>
-                  {paydayEom ? t('more.profile.paydayEomValue') : payday <= 1 ? t('more.profile.paydayCalendar') : t('more.profile.paydayValue', { day: payday })}
-                </ThemedText>
-              </View>
-              <Pressable
-                disabled={paydayEom}
-                onPress={() => setPayday(payday - 1)}
-                style={[styles.stepBtn, { backgroundColor: colors.background }]}
-                accessibilityRole="button"
-                accessibilityLabel={t('more.profile.paydayDown')}
-              >
-                <Ionicons name="remove" size={20} color={colors.text} />
-              </Pressable>
-              <ThemedText style={styles.targetNumber}>{paydayEom ? '-' : payday}</ThemedText>
-              <Pressable
-                disabled={paydayEom}
-                onPress={() => setPayday(payday + 1)}
-                style={[styles.stepBtn, { backgroundColor: colors.background }]}
-                accessibilityRole="button"
-                accessibilityLabel={t('more.profile.paydayUp')}
-              >
-                <Ionicons name="add" size={20} color={colors.text} />
-              </Pressable>
+            <View style={[styles.pad, styles.modeRow]}>
+              {[
+                { key: 'month' as const, label: t('more.profile.mode.month'), sub: t('more.profile.mode.monthSub'), active: !paydayMode, onPress: chooseMonth },
+                { key: 'payday' as const, label: t('more.profile.mode.payday'), sub: t('more.profile.mode.paydaySub'), active: paydayMode, onPress: choosePayday },
+              ].map((m) => (
+                <Pressable
+                  key={m.key}
+                  onPress={m.onPress}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: m.active }}
+                  style={[styles.modeBtn, { borderColor: m.active ? colors.accent : colors.divider, backgroundColor: m.active ? colors.backgroundSelected : colors.background }]}
+                >
+                  <ThemedText type="smallBold" style={{ color: m.active ? colors.accent : colors.text }}>
+                    {m.label}
+                  </ThemedText>
+                  <ThemedText type="small" style={muted}>
+                    {m.sub}
+                  </ThemedText>
+                </Pressable>
+              ))}
             </View>
-            {!calendarMonths ? (
-              <ThemedText type="small" style={[styles.paydayNow, muted]}>
-                {next.reason
-                  ? t(next.reason === 'weekend' ? 'more.profile.paydayNextWeekend' : 'more.profile.paydayNextHoliday', { date: dateText(next.date), base: dateText(next.base) })
-                  : t('more.profile.paydayNext', { date: dateText(next.date) })}
-                {'\n'}
-                {toPayday === 0 ? t('more.profile.paydayToday', { range: paydayRange }) : t('more.profile.paydayNow', { range: paydayRange, days: toPayday })}
-              </ThemedText>
+            {paydayMode ? (
+              <>
+                <Row
+                  icon="calendar-number-outline"
+                  label={t('more.profile.paydayEom')}
+                  subtitle={t('more.profile.paydayEomSub')}
+                  right={<Switch value={paydayEom} onValueChange={setPaydayEom} trackColor={{ true: colors.accent }} />}
+                />
+                <Row
+                  icon="briefcase-outline"
+                  label={t('more.profile.paydayAdjust')}
+                  subtitle={t('more.profile.paydayAdjustSub')}
+                  right={<Switch value={paydayAdjust} onValueChange={setPaydayAdjust} trackColor={{ true: colors.accent }} />}
+                />
+                <View style={[styles.pad, styles.targetRow, paydayEom && { opacity: 0.4 }, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }]}>
+                  <View style={styles.flex}>
+                    <ThemedText>{t('more.profile.paydayDay')}</ThemedText>
+                    <ThemedText type="small" style={muted}>
+                      {paydayEom ? t('more.profile.paydayEomValue') : payday <= 1 ? t('more.profile.paydayCalendar') : t('more.profile.paydayValue', { day: payday })}
+                    </ThemedText>
+                  </View>
+                  <Pressable
+                    disabled={paydayEom}
+                    onPress={() => setPayday(payday - 1)}
+                    style={[styles.stepBtn, { backgroundColor: colors.background }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('more.profile.paydayDown')}
+                  >
+                    <Ionicons name="remove" size={20} color={colors.text} />
+                  </Pressable>
+                  <ThemedText style={styles.targetNumber}>{paydayEom ? '-' : payday}</ThemedText>
+                  <Pressable
+                    disabled={paydayEom}
+                    onPress={() => setPayday(payday + 1)}
+                    style={[styles.stepBtn, { backgroundColor: colors.background }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('more.profile.paydayUp')}
+                  >
+                    <Ionicons name="add" size={20} color={colors.text} />
+                  </Pressable>
+                </View>
+                <Row
+                  icon="time-outline"
+                  label={t('more.profile.hist.row')}
+                  subtitle={paydayHistory.length > 0 ? t('more.profile.hist.rowSubCount', { count: paydayHistory.length + 1 }) : t('more.profile.hist.rowSub')}
+                  onPress={() => setHistoryOpen(true)}
+                />
+                {!calendarMonths ? (
+                  <ThemedText type="small" style={[styles.paydayNow, muted]}>
+                    {next.reason
+                      ? t(next.reason === 'weekend' ? 'more.profile.paydayNextWeekend' : 'more.profile.paydayNextHoliday', { date: dateText(next.date), base: dateText(next.base) })
+                      : t('more.profile.paydayNext', { date: dateText(next.date) })}
+                    {'\n'}
+                    {toPayday === 0 ? t('more.profile.paydayToday', { range: paydayRange }) : t('more.profile.paydayNow', { range: paydayRange, days: toPayday })}
+                  </ThemedText>
+                ) : null}
+              </>
             ) : null}
           </Section>
 
@@ -252,6 +305,7 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
 
+      <PaydayHistorySheet visible={historyOpen} onClose={() => setHistoryOpen(false)} />
       <Sheet visible={statePicker} onClose={() => setStatePicker(false)} title={t('more.profile.state')}>
         <Section>
           {[{ code: null, name: t('more.profile.stateAny'), friSat: false }, ...MY_STATES].map((st, i) => (
@@ -290,6 +344,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: FontSize.body, fontWeight: '700' },
   targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepBtn: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  modeRow: { flexDirection: 'row', gap: Spacing.two },
+  modeBtn: { flex: 1, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.three, gap: 2 },
   paydayNow: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   targetNumber: { fontSize: FontSize.heading, fontWeight: '700', minWidth: 52, textAlign: 'center' },
 });

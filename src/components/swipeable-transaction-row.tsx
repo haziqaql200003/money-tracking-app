@@ -6,7 +6,7 @@ import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { toDateKey } from '@/utils/dates';
-import { isDebtEntry, isEditableTransferEntry, savedTransferId } from '@/utils/saved';
+import { isAdjustmentEntry, isDebtEntry, isEditableTransferEntry, savedTransferId } from '@/utils/saved';
 
 type Props = {
   item: Transaction;
@@ -31,7 +31,7 @@ export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, bac
   const { offer } = useUndo();
   const { transfers, deleteTransaction, restoreTransaction, deleteTransfer, restoreTransfer, addTransaction } = useTransactions();
 
-  const locked = isDebtEntry(item) || !!item.debtId;
+  const locked = isDebtEntry(item) || isAdjustmentEntry(item) || !!item.debtId;
   const linked = isEditableTransferEntry(item);
 
   function remove() {

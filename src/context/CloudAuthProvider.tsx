@@ -125,6 +125,15 @@ function metaName(meta: Record<string, unknown>): string {
   return '';
 }
 
+/** Full name from sign-up (full_name) or from Google / Apple (full_name or name). */
+function fullNameOf(meta: Record<string, unknown>): string | undefined {
+  for (const k of ['full_name', 'name']) {
+    const v = meta[k];
+    if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 60);
+  }
+  return undefined;
+}
+
 function buildUser(id: string, email: string, row: Partial<ProfileRow> | null, meta: Record<string, unknown>): AuthUser {
   const lang = (row?.language ?? meta.language) === 'en' ? 'en' : 'ms';
   const goal = row?.goal;
@@ -132,6 +141,7 @@ function buildUser(id: string, email: string, row: Partial<ProfileRow> | null, m
     id,
     email,
     displayName: row?.display_name || metaName(meta),
+    fullName: fullNameOf(meta),
     avatarColor: row?.avatar_color || CARD_COLORS[0],
     language: lang,
     goal: goal === 'save' || goal === 'debt' || goal === 'budget' || goal === 'track' ? goal : undefined,
@@ -298,7 +308,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await sb().auth.signUp({
         email: normEmail(input.email),
         password: input.password,
-        options: { data: { display_name: input.displayName.trim(), language: input.language, consent_at: new Date().toISOString() } },
+        options: { data: { display_name: input.displayName.trim(), ...(input.fullName?.trim() ? { full_name: input.fullName.trim() } : {}), language: input.language, consent_at: new Date().toISOString() } },
       });
       if (error) return { ok: false, error: explain(error) };
       if (data.user && data.user.identities?.length === 0) return { ok: false, error: t('auth.error.emailTaken') }; // Supabase hides existing accounts this way
@@ -409,6 +419,13 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
     await sb().auth.signOut({ scope: 'local' }).catch(() => {});
     return { ok: true };
   }, [commitUser]);
+
+  const verifyPassword = useCallback<AuthContextValue['verifyPassword']>(async (password) => {
+    const email = userRef.current?.email;
+    if (!email || !password) return false;
+    const { error } = await sb().auth.signInWithPassword({ email, password });
+    return !error;
+  }, []);
 
   const getLogins = useCallback<AuthContextValue['getLogins']>(async () => {
     const [{ data: idData }, { data: userData }] = await Promise.all([sb().auth.getUserIdentities(), sb().auth.getUser()]);
@@ -619,6 +636,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       updateProfile,
       deleteAccount,
       changePassword,
+      verifyPassword,
       signOutOthers,
       signInWithProvider,
       linkProvider,
@@ -636,7 +654,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       importLegacy,
       skipImport,
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, signOutOthers, signInWithProvider, linkProvider, unlinkProvider, getLogins, hasPassword, acceptConsent, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
+    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, verifyPassword, signOutOthers, signInWithProvider, linkProvider, unlinkProvider, getLogins, hasPassword, acceptConsent, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

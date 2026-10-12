@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
@@ -27,24 +27,18 @@ import {
   unmatchedAccounts,
   unmatchedCategories,
   type AccountChoice,
+  suggestCategory,
   type CategoryChoice,
 } from '@/utils/import/plan';
 import { readTables, type Table } from '@/utils/import/table';
+import { isTemplateTable, TEMPLATE_CSV, TEMPLATE_HEADERS } from '@/utils/import/template';
 
 type Step = 'start' | 'columns' | 'review' | 'done';
-type Result = { count: number; transactionIds: string[]; categoryIds: string[]; accountIds: string[] };
+type Result = { count: number; transactionIds: string[]; categoryIds: string[]; accountIds: string[]; addedSubs: { categoryId: string; names: string[] }[] };
 
 const ROLE_ORDER: Role[] = ['date', 'title', 'amount', 'debit', 'credit', 'type', 'category', 'subcategory', 'account'];
 const MAX_UNMATCHED_AUTO_CREATE = 12;
 const MAX_ACCOUNTS_AUTO_CREATE = 5;
-
-/** Example file people can open in Excel and fill in. Dates are written year-month-day so no program misreads them. */
-const TEMPLATE = [
-  'Date,Description,Category,Subcategory,Account,Type,Amount',
-  '2026-01-03,Nasi lemak,Food & Drinks,Breakfast,Bank,Expense,6.50',
-  '2026-01-05,Monthly salary,Salary,Salary,Bank,Income,4500.00',
-  '2026-01-07,Petrol,Transport,Petrol / Fuel,Cash,Expense,50.00',
-].join('\n'); // i18n-ignore: sample data for a spreadsheet
 
 const columnLetter = (i: number) => {
   let n = i + 1;
@@ -68,7 +62,7 @@ export default function ImportScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
   const router = useRouter();
-  const { categories, addCategories, deleteCategory } = useCategories();
+  const { categories, addCategories, deleteCategory, updateCategory } = useCategories();
   const { selectableAccounts: accounts, transactions, addTransactions, deleteTransactions, addAccounts, deleteAccount } = useTransactions();
 
   const [step, setStep] = useState<Step>('start');
@@ -105,11 +99,20 @@ export default function ImportScreen() {
   const unmatchedCats = useMemo(() => (analysis ? unmatchedCategories(analysis.parsed, ctx) : []), [analysis, ctx]);
   const unmatchedAccs = useMemo(() => (analysis ? unmatchedAccounts(analysis.parsed, ctx) : []), [analysis, ctx]);
 
+  // For a name WaKira could not match, the existing category that shares a word with it (pre-selected below).
+  const suggestions = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const u of unmatchedCats) {
+      const id = suggestCategory(u.text, u.kind, ctx);
+      if (id) out[u.key] = id;
+    }
+    return out;
+  }, [unmatchedCats, ctx]);
   const effectiveCategoryChoices = useMemo(() => {
     const out: Record<string, CategoryChoice> = {};
-    for (const u of unmatchedCats) out[u.key] = categoryChoices[u.key] ?? (unmatchedCats.length <= MAX_UNMATCHED_AUTO_CREATE ? 'new' : 'fallback');
+    for (const u of unmatchedCats) out[u.key] = categoryChoices[u.key] ?? suggestions[u.key] ?? (unmatchedCats.length <= MAX_UNMATCHED_AUTO_CREATE ? 'new' : 'fallback');
     return out;
-  }, [unmatchedCats, categoryChoices]);
+  }, [unmatchedCats, categoryChoices, suggestions]);
   const effectiveAccountChoices = useMemo(() => {
     const out: Record<string, AccountChoice> = {};
     for (const u of unmatchedAccs) out[u.key] = accountChoices[u.key] ?? (unmatchedAccs.length <= MAX_ACCOUNTS_AUTO_CREATE ? 'new' : 'default');
@@ -157,6 +160,17 @@ export default function ImportScreen() {
       setFileName(file.name);
       setTables(list);
       loadSheet(list, 0);
+      // A file made from the WaKira template is already in the right shape: go straight to the review.
+      if (isTemplateTable(list[0].rows)) {
+        const d = detectColumns(list[0].rows);
+        const dates = list[0].rows.slice(d.headerRow + 1).map((r) => r[d.mapping.date] ?? '');
+        const order = detectDateOrder(dates);
+        const check = analyze(list[0].rows, d.headerRow, d.mapping, { dateOrder: order, positiveIs, skipDuplicates }, ctx);
+        if (d.mapping.date >= 0 && d.mapping.amount >= 0 && check.parsed.length > 0 && check.problems.length === 0) {
+          setStep('review');
+          return;
+        }
+      }
       setStep('columns');
     } catch (e) {
       setError(e instanceof Error && e.message === 'old-xls' ? t('imp.error.oldXls') : t('imp.error.read'));
@@ -167,7 +181,15 @@ export default function ImportScreen() {
 
   async function shareTemplate() {
     try {
-      await Share.share({ message: TEMPLATE, title: 'wakira-import-example.csv' /* i18n-ignore */ });
+      if (Platform.OS === 'web') {
+        await Share.share({ message: TEMPLATE_CSV, title: 'wakira-import-template.csv' /* i18n-ignore */ });
+        return;
+      }
+      // A real .csv file, so it opens straight in Excel / Sheets / Numbers from the share sheet.
+      const file = new File(Paths.cache, 'wakira-import-template.csv'); // i18n-ignore: file name
+      file.create({ overwrite: true });
+      file.write(TEMPLATE_CSV);
+      await Share.share(Platform.OS === 'ios' ? { url: file.uri } : { message: TEMPLATE_CSV, title: 'wakira-import-template.csv' /* i18n-ignore */ });
     } catch {
       // sheet dismissed
     }
@@ -184,6 +206,16 @@ export default function ImportScreen() {
 
   function runImport() {
     if (!final) return;
+    // Subcategory names from the file that a category does not have yet are added to it, so they show up in More > Categories too.
+    const wanted = new Map<string, string[]>();
+    for (const d of final.drafts) {
+      const sub = d.subcategory.trim();
+      if (!sub) continue;
+      const list = wanted.get(d.categoryRef) ?? [];
+      if (!list.some((x) => x.toLowerCase() === sub.toLowerCase())) list.push(sub);
+      wanted.set(d.categoryRef, list);
+    }
+    const subsFor = (ref: string) => wanted.get(ref) ?? [];
     const catIds = final.newCategories.length
       ? addCategories(
           final.newCategories.map((c, i) => ({
@@ -191,7 +223,7 @@ export default function ImportScreen() {
             icon: 'pricetag' as const,
             color: CATEGORY_COLORS[(categories.length + i) % CATEGORY_COLORS.length],
             kind: c.kind,
-            subcategories: [],
+            subcategories: subsFor(`new:${c.key}`),
             monthlyLimit: 0,
           })),
         )
@@ -213,7 +245,14 @@ export default function ImportScreen() {
         accountId: resolve(d.accountRef, accMap),
       })),
     );
-    setResult({ count: ids.length, transactionIds: ids, categoryIds: catIds, accountIds: accIds });
+    const addedSubs: Result['addedSubs'] = [];
+    for (const cat of categories) {
+      const fresh = subsFor(cat.id).filter((n) => !cat.subcategories.some((x) => x.toLowerCase() === n.toLowerCase()));
+      if (fresh.length === 0) continue;
+      updateCategory(cat.id, { subcategories: [...cat.subcategories, ...fresh] });
+      addedSubs.push({ categoryId: cat.id, names: fresh });
+    }
+    setResult({ count: ids.length, transactionIds: ids, categoryIds: catIds, accountIds: accIds, addedSubs });
     setStep('done');
   }
 
@@ -222,6 +261,10 @@ export default function ImportScreen() {
     deleteTransactions(result.transactionIds);
     result.accountIds.forEach((id) => deleteAccount(id));
     result.categoryIds.forEach((id) => deleteCategory(id));
+    for (const a of result.addedSubs) {
+      const cat = categories.find((c) => c.id === a.categoryId);
+      if (cat) updateCategory(cat.id, { subcategories: cat.subcategories.filter((x) => !a.names.includes(x)) });
+    }
     setResult(null);
     setStep('start');
     setTables([]);
@@ -248,10 +291,36 @@ export default function ImportScreen() {
   const startView = (
     <>
       <View style={card}>
-        <Ionicons name="document-text-outline" size={30} color={colors.accent} />
-        <ThemedText style={styles.cardTitle}>{t('imp.start.heading')}</ThemedText>
+        <View style={styles.optionHead}>
+          <View style={[styles.optionNum, { backgroundColor: colors.accent }]}>
+            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+              1
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.cardTitle}>{t('imp.start.optTemplate')}</ThemedText>
+        </View>
         <ThemedText type="small" style={muted}>
-          {t('imp.start.body')}
+          {t('imp.start.optTemplateBody')}
+        </ThemedText>
+        <View style={styles.colList}>
+          <ThemedText type="small" style={muted}>
+            {t('imp.start.templateCols', { cols: TEMPLATE_HEADERS.join(', '), types: 'Expense / Income' /* i18n-ignore: values typed in the file */ })}
+          </ThemedText>
+        </View>
+        <Button label={t('imp.start.template')} variant="secondary" icon="download-outline" onPress={shareTemplate} style={styles.gapTop} />
+      </View>
+
+      <View style={card}>
+        <View style={styles.optionHead}>
+          <View style={[styles.optionNum, { backgroundColor: colors.accent }]}>
+            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+              2
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.cardTitle}>{t('imp.start.optFile')}</ThemedText>
+        </View>
+        <ThemedText type="small" style={muted}>
+          {t('imp.start.optFileBody')}
         </ThemedText>
         <Button label={t('imp.start.pick')} icon="folder-open-outline" onPress={pickFile} loading={busy} style={styles.gapTop} />
         {error ? (
@@ -260,6 +329,7 @@ export default function ImportScreen() {
           </ThemedText>
         ) : null}
       </View>
+
       <View style={card}>
         <ThemedText type="smallBold">{t('imp.start.formatsTitle')}</ThemedText>
         <ThemedText type="small" style={muted}>
@@ -268,7 +338,6 @@ export default function ImportScreen() {
         <ThemedText type="small" style={[muted, styles.gapTop]}>
           {t('imp.start.privacy')}
         </ThemedText>
-        <Button label={t('imp.start.template')} variant="secondary" size="sm" icon="share-outline" onPress={shareTemplate} style={styles.gapTop} />
       </View>
     </>
   );
@@ -413,6 +482,11 @@ export default function ImportScreen() {
                 <ThemedText type="smallBold">
                   {u.text} · {tp('imp.review.records', u.count)}
                 </ThemedText>
+                {suggestions[u.key] ? (
+                  <ThemedText type="small" style={muted}>
+                    {t('imp.review.suggested', { name: categoryLabel(suggestions[u.key]) })}
+                  </ThemedText>
+                ) : null}
                 <ChipRow>
                   <Chip label={t('imp.review.create', { name: u.text })} active={choice === 'new'} onPress={() => setCategoryChoices((p) => ({ ...p, [u.key]: 'new' }))} />
                   <Chip
@@ -528,6 +602,9 @@ export default function ImportScreen() {
 }
 
 const styles = StyleSheet.create({
+  optionHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  optionNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  colList: { marginTop: Spacing.two },
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130, gap: 0 },

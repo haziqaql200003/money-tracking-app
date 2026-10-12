@@ -5,9 +5,16 @@ export const msHome: Record<keyof typeof enHome, string> = {
   // Home screen
   'home.index.notifications': 'Pemberitahuan',
   'home.index.comingSoon': 'Akan datang — ini akan memaparkan peringatan dan amaran bajet.',
+  'home.upcoming.title': 'Akan datang',
+  'home.upcoming.more': '{n} lagi',
   'home.index.greeting': 'Hai, ',
   // Balance carousel
   'home.carousel.allAccounts': 'Semua akaun',
+  'home.carousel.spendable': 'Wang boleh guna',
+  'home.carousel.spendableSub': 'Simpanan {savings} diasingkan',
+  'home.carousel.savingsTitle': 'Simpanan & aset',
+  'home.carousel.savingsSub.one': '{count} akaun · diasingkan',
+  'home.carousel.savingsSub.other': '{count} akaun · diasingkan',
   'home.carousel.accountCount.one': '{count} akaun',
   'home.carousel.accountCount.other': '{count} akaun',
   'home.carousel.type.bank': 'Bank',

@@ -2,6 +2,7 @@ import type { Transaction } from '@/context/TransactionsContext';
 import { t, tp } from '@/i18n';
 import { weekdayLong } from '@/i18n/format';
 import { cycleOf, cycleRange, shiftCycle } from '@/utils/cycle';
+import { p1, r1 } from '@/utils/percent';
 
 /**
  * Pure analysis helpers for the Faham tab.
@@ -91,7 +92,7 @@ export function windowSummary(transactions: Transaction[], w: Window): Summary {
   income = round2(income);
   spending = round2(spending);
   const net = round2(income - spending);
-  return { income, spending, net, savingsRate: income > 0 ? Math.round((net / income) * 100) : null };
+  return { income, spending, net, savingsRate: income > 0 ? r1((net / income) * 100) : null };
 }
 
 /** Below this the "before" figure is too small for a percentage to mean anything (RM 3 -> RM 120 is not "+3900%"). */
@@ -100,13 +101,13 @@ export const MIN_COMPARE_BASE = 10;
 /** Percent change from `before` to `now`; null when there is nothing meaningful to compare against. */
 export function pctChange(now: number, before: number): number | null {
   if (before < MIN_COMPARE_BASE) return null;
-  return Math.round(((now - before) / before) * 100);
+  return r1(((now - before) / before) * 100);
 }
 
 /** Percent text that never runs away: anything beyond 999 reads as "999%+". */
 export function formatPct(n: number): string {
-  const a = Math.abs(Math.round(n));
-  return a > 999 ? '999%+' : `${a}%`;
+  const a = Math.abs(r1(n));
+  return a > 999 ? '999%+' : `${a.toFixed(1)}%`;
 }
 
 export type SubRow = { name: string; total: number };
@@ -146,7 +147,7 @@ export function categoryTrends(transactions: Transaction[], w: Window, prev: Win
     .map(([categoryId, total]) => ({
       categoryId,
       total: round2(total),
-      share: all > 0 ? Math.round((total / all) * 100) : 0,
+      share: all > 0 ? r1((total / all) * 100) : 0,
       previous: round2(before.get(categoryId) ?? 0),
       change: pctChange(total, before.get(categoryId) ?? 0),
       subs: Array.from(subs.get(categoryId)?.entries() ?? [])
@@ -259,19 +260,19 @@ export function buildInsights({ transactions, todayKey, months, categoryName, mo
       tone: pace > 0 ? 'bad' : 'good',
       text:
         pace > 0
-          ? t('plan.insight.paceUp', { pct: pace })
-          : t('plan.insight.paceDown', { pct: Math.abs(pace) }),
+          ? t('plan.insight.paceUp', { pct: p1(pace) })
+          : t('plan.insight.paceDown', { pct: p1(Math.abs(pace)) }),
     });
   }
 
   // 2) Savings rate.
   if (now.savingsRate !== null) {
     if (now.savingsRate >= 20) {
-      out.push({ id: 'save', tone: 'good', text: t('plan.insight.saveGood', { rate: now.savingsRate, amount: money(now.net) }) });
+      out.push({ id: 'save', tone: 'good', text: t('plan.insight.saveGood', { rate: p1(now.savingsRate), amount: money(now.net) }) });
     } else if (now.savingsRate < 0) {
       out.push({ id: 'save', tone: 'bad', text: t('plan.insight.saveBad', { amount: money(-now.net) }) });
     } else {
-      out.push({ id: 'save', tone: 'info', text: t('plan.insight.saveInfo', { rate: now.savingsRate }) });
+      out.push({ id: 'save', tone: 'info', text: t('plan.insight.saveInfo', { rate: p1(now.savingsRate) }) });
     }
   }
 
@@ -295,7 +296,7 @@ export function buildInsights({ transactions, todayKey, months, categoryName, mo
 
   // 4) Where most of the money goes.
   if (cats[0] && cats[0].share >= 30) {
-    out.push({ id: 'top', tone: 'info', text: t('plan.insight.top', { category: categoryName(cats[0].categoryId), share: cats[0].share }) });
+    out.push({ id: 'top', tone: 'info', text: t('plan.insight.top', { category: categoryName(cats[0].categoryId), share: p1(cats[0].share) }) });
   }
 
   // 5) Priciest weekday (needs a few weeks of data so one big purchase does not decide it).

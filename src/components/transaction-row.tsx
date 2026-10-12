@@ -9,7 +9,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { formatMoney } from '@/utils/currency';
 import { useT } from '@/i18n';
 import { accountName, categoryName, subcategoryName } from '@/i18n/data';
-import { isDebtEntry, isLinkedEntry, savedTransferId } from '@/utils/saved';
+import { isAdjustmentEntry, isDebtEntry, isLinkedEntry, savedTransferId } from '@/utils/saved';
 
 type Props = {
   item: Transaction;
@@ -28,12 +28,15 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
   const category = getCategory(item.categoryId);
   const { accounts, transfers } = useTransactions();
   const account = accounts.find((a) => a.id === item.accountId);
+  const adjustment = isAdjustmentEntry(item);
   const saved = isLinkedEntry(item);
   const savedTransfer = saved ? transfers.find((tr) => tr.id === savedTransferId(item)) : undefined;
   const toAccount = accounts.find((a) => a.id === savedTransfer?.toAccountId);
 
-  const amountColor = saved ? (isDebtEntry(item) ? colors.textSecondary : colors.accent) : item.type === 'debit' ? colors.negative : colors.positive;
-  const subtitle = (item.subcategory ? subcategoryName(item.subcategory) : '') ||
+  const amountColor = adjustment ? (item.type === 'debit' ? colors.negative : colors.positive) : saved ? (isDebtEntry(item) ? colors.textSecondary : colors.accent) : item.type === 'debit' ? colors.negative : colors.positive;
+  const subtitle = adjustment
+    ? [item.title ? t('acct.adj.rowTitle') : '', account ? accountName(account) : ''].filter(Boolean).join(' · ')
+    : (item.subcategory ? subcategoryName(item.subcategory) : '') ||
     (category ? categoryName(category) : '') ||
     t('home.row.uncategorized');
 
@@ -43,14 +46,18 @@ export function TransactionRow({ item, showAccount = true, hidden = false, onPre
       disabled={!onPress}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.backgroundSelected }]}
     >
-      <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? colors.textSecondary} />
+      {adjustment ? (
+        <CategoryIcon icon="swap-vertical" color={colors.accent} />
+      ) : (
+        <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? colors.textSecondary} />
+      )}
 
       <View style={[styles.body, !last && { borderBottomColor: colors.divider, borderBottomWidth: StyleSheet.hairlineWidth }]}>
       <View style={styles.details}>
-        <ThemedText numberOfLines={1}>{item.title || (saved ? t(isDebtEntry(item) ? 'tx.saved.debtTitle' : 'tx.saved.rowTitle') : '')}</ThemedText>
+        <ThemedText numberOfLines={1}>{item.title || (adjustment ? t('acct.adj.rowTitle') : saved ? t(isDebtEntry(item) ? 'tx.saved.debtTitle' : 'tx.saved.rowTitle') : '')}</ThemedText>
         <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
           {subtitle}
-          {saved && account && toAccount ? ` · ${t('tx.saved.rowSub', { from: accountName(account), to: accountName(toAccount) })}` : showAccount && account ? ` · ${accountName(account)}` : ''}
+          {adjustment ? '' : saved && account && toAccount ? ` · ${t('tx.saved.rowSub', { from: accountName(account), to: accountName(toAccount) })}` : showAccount && account ? ` · ${accountName(account)}` : ''}
           {item.items && item.items.length > 0 ? ` · ${tp('home.row.items', item.items.length)}` : ''}
           {item.recurringId ? ` · ${t('home.row.recurring')}` : ''}
         </ThemedText>

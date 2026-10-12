@@ -6,8 +6,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { FontSize, Radius } from '@/constants/theme';
 
-type Offer = { id: number; message: string; onUndo: () => void };
-type UndoValue = { offer: (message: string, onUndo: () => void) => void };
+type OfferOptions = { durationMs?: number; actionLabel?: string; onAction?: () => void };
+type Offer = { id: number; message: string; onUndo: () => void; durationMs: number; actionLabel?: string; onAction?: () => void };
+type UndoValue = { offer: (message: string, onUndo: () => void, options?: OfferOptions) => void };
 
 const UndoContext = createContext<UndoValue | null>(null);
 const SHOW_MS = 5000;
@@ -19,13 +20,13 @@ export function UndoProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [current, setCurrent] = useState<Offer | null>(null);
 
-  const offer = useCallback((message: string, onUndo: () => void) => {
-    setCurrent({ id: Date.now() + Math.random(), message, onUndo });
+  const offer = useCallback((message: string, onUndo: () => void, options?: OfferOptions) => {
+    setCurrent({ id: Date.now() + Math.random(), message, onUndo, durationMs: options?.durationMs ?? SHOW_MS, actionLabel: options?.actionLabel, onAction: options?.onAction });
   }, []);
 
   useEffect(() => {
     if (!current) return;
-    const timer = setTimeout(() => setCurrent(null), SHOW_MS);
+    const timer = setTimeout(() => setCurrent(null), current.durationMs);
     return () => clearTimeout(timer);
   }, [current]);
 
@@ -40,6 +41,18 @@ export function UndoProvider({ children }: { children: ReactNode }) {
             <Text style={[styles.text, { color: colors.background }]} numberOfLines={2}>
               {current.message}
             </Text>
+            {current.actionLabel && current.onAction ? (
+              <Pressable
+                onPress={() => {
+                  current.onAction?.();
+                  setCurrent(null);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.undo, { color: colors.accent }]}>{current.actionLabel}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => {
                 current.onUndo();

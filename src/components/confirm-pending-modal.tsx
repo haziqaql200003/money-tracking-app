@@ -1,12 +1,13 @@
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
+import { AmountInput } from '@/components/amount-input';
 import { CategoryIcon } from '@/components/category-icon';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { PendingEntry } from '@/context/TransactionsContext';
@@ -34,7 +35,7 @@ export function ConfirmPendingModal({ entry, onClose }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={!!entry} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
@@ -52,7 +53,7 @@ export function ConfirmPendingModal({ entry, onClose }: Props) {
             {/* Mounted only for one entry at a time, so the form always starts from a fresh state. */}
             {entry ? <ConfirmForm key={entry.id} entry={entry} onDone={onClose} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -131,13 +132,12 @@ function ConfirmForm({ entry, onDone }: { entry: PendingEntry; onDone: () => voi
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {transfer ? t('tx.confirm.amountMoved') : income ? t('tx.confirm.amountReceived') : t('tx.confirm.amountPaid')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
         placeholder="0.00"
         placeholderTextColor={colors.textSecondary}
         value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
+        onChange={setAmount}
         autoFocus
         accessibilityLabel={t('tx.confirm.amountA11y')}
       />

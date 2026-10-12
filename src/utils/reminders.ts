@@ -4,6 +4,7 @@ import { addDays, upcomingOccurrences } from '@/utils/bills';
 import { budgetStatus } from '@/utils/budget';
 import { instalmentAmount, nextCreditDue, unpaid, type Debt } from '@/utils/debts';
 import { activeGoals, goalMonthSaved, type GoalEntry, type SavingsGoal } from '@/utils/goals';
+import { iouLeft, iouNudges, type Iou } from '@/utils/ious';
 import { addDays as addDateDays, cycleOf, cycleRange, usesCalendarMonths } from '@/utils/cycle';
 
 export type ReminderPrefs = {
@@ -12,6 +13,8 @@ export type ReminderPrefs = {
   daysBefore: number;
   /** Notify when a category reaches its warning level or goes over budget. */
   budgetAlerts: boolean;
+  /** A nudge at 9 pm on days with nothing recorded yet. */
+  dailyNudge?: boolean;
 };
 
 export const DEFAULT_REMINDER_PREFS: ReminderPrefs = { enabled: false, daysBefore: 1, budgetAlerts: true };
@@ -29,6 +32,7 @@ export type PlannedReminder = { id: string; fireAt: Date; title: string; body: s
 export const MAX_SCHEDULED = 50;
 const HORIZON_DAYS = 45;
 const REMINDER_HOUR = 9;
+const NUDGE_HOUR = 21;
 
 function at9(dateKey: string) {
   const [y, m, d] = dateKey.split('-').map(Number);
@@ -54,8 +58,12 @@ export function buildReminders(args: {
   /** Savings goals with a monthly plan, and everything saved so far. */
   goals?: SavingsGoal[];
   goalEntries?: GoalEntry[];
+  /** Money between you and people. */
+  ious?: Iou[];
+  /** The 9 pm nudge to record. `recordedToday` skips tonight's. */
+  dailyNudge?: { recordedToday: boolean };
 }): PlannedReminder[] {
-  const { rules, now, todayKey, daysBefore, money, debts = [], creditUsed = {}, goals = [], goalEntries = [] } = args;
+  const { rules, now, todayKey, daysBefore, money, debts = [], creditUsed = {}, goals = [], goalEntries = [], ious = [], dailyNudge } = args;
   const out: PlannedReminder[] = [];
 
   for (const o of upcomingOccurrences(rules, todayKey, HORIZON_DAYS + daysBefore)) {
@@ -120,6 +128,23 @@ export function buildReminders(args: {
     }
   }
 
+  // Money between you and people: before the due date, on it, and again weekly or monthly if you asked.
+  for (const iou of ious) {
+    const left = money(iouLeft(iou));
+    for (const n of iouNudges(iou, todayKey, daysBefore, HORIZON_DAYS + daysBefore)) {
+      const fireAt = at9(n.date);
+      if (fireAt.getTime() <= now.getTime()) continue;
+      const mine = iou.direction === 'owe';
+      const titleKey = `debt.iou.remind.${mine ? 'owe' : 'owed'}.${n.kind}` as const;
+      out.push({
+        id: `rem_iou_${iou.id}_${n.kind}_${n.date}`,
+        fireAt,
+        title: t(titleKey, { person: iou.person }),
+        body: t(mine ? 'debt.iou.remind.oweBody' : 'debt.iou.remind.owedBody', { amount: left }),
+      });
+    }
+  }
+
   // A nudge on the 25th when this month's saving for a goal is still short. Goals that save automatically are left alone.
   const monthKey = cycleOf(todayKey);
   for (const g of activeGoals(goals, goalEntries)) {
@@ -135,6 +160,18 @@ export function buildReminders(args: {
       title: t('plan.reminder.goalTitle', { name: g.name }),
       body: t('plan.reminder.goalBody', { amount: money(short) }),
     });
+  }
+
+  // The evening nudge: the next 7 nights (iOS caps how many can wait, so a week is planned and topped up on each open).
+  if (dailyNudge) {
+    for (let i = 0; i < 7; i++) {
+      if (i === 0 && dailyNudge.recordedToday) continue;
+      const day = addDays(todayKey, i);
+      const [y, m, d] = day.split('-').map(Number);
+      const fireAt = new Date(y, m - 1, d, NUDGE_HOUR, 0, 0, 0);
+      if (fireAt.getTime() <= now.getTime()) continue;
+      out.push({ id: `rem_nudge_${day}`, fireAt, title: t('plan.reminder.nudgeTitle'), body: t('plan.reminder.nudgeBody') });
+    }
   }
 
   return out.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime()).slice(0, MAX_SCHEDULED);

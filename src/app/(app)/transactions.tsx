@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
+import { AdjustmentsModal } from '@/components/adjustments-modal';
 import { TransferModal } from '@/components/transfer-modal';
 import { AddTransactionModal } from '@/components/add-transaction-modal';
 import { MonthSwitcher } from '@/components/month-switcher';
@@ -16,7 +16,7 @@ import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenTitle } from '@/components/ui/screen-title';
-import { CategoryBreakdown, SummaryCard } from '@/components/transactions-summary';
+import { MonthSummary } from '@/components/transactions-summary';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
 import type { IconName } from '@/constants/categories';
@@ -24,7 +24,7 @@ import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Transaction, TransactionType, Transfer } from '@/context/TransactionsContext';
-import { debtEntries, goalEntriesOnly, isDebtEntry, isEditableTransferEntry, isLinkedEntry, savedEntries, savedTransferId } from '@/utils/saved';
+import { adjustmentAccountId, debtEntries, goalEntriesOnly, isAdjustmentEntry, isDebtEntry, isEditableTransferEntry, isLinkedEntry, savedEntries, savedTransferId } from '@/utils/saved';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
@@ -61,6 +61,7 @@ export default function TransactionsScreen() {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
+  const [adjustmentsFor, setAdjustmentsFor] = useState<string | null>(null);
 
   const currentKey = monthKeyFromOffset(0);
   const monthKey = monthKeyFromOffset(monthOffset);
@@ -225,13 +226,17 @@ export default function TransactionsScreen() {
         onReset={() => goToMonth(0)}
       />
 
-      <SummaryCard
+      <MonthSummary
         income={stats.income}
         spending={stats.spending}
         deltaPercent={stats.deltaPercent}
         prevLabel={monthLabel(prevKey, 'short')}
         hidden={hideAmounts}
         onToggleHidden={toggleHideAmounts}
+        slices={stats.slices}
+        total={stats.spending}
+        selectedId={categoryId}
+        onSelect={toggleCategory}
       />
 
       {savedTotal > 0 ? (
@@ -245,14 +250,6 @@ export default function TransactionsScreen() {
           </ThemedText>
         </View>
       ) : null}
-
-      <CategoryBreakdown
-        slices={stats.slices}
-        total={stats.spending}
-        selectedId={categoryId}
-        onSelect={toggleCategory}
-        hidden={hideAmounts}
-      />
 
       {/* Search */}
       <View style={[styles.search, { backgroundColor: colors.backgroundElement }]}>
@@ -273,36 +270,34 @@ export default function TransactionsScreen() {
         ) : null}
       </View>
 
-      {/* Type filter */}
-      <View style={{ marginBottom: Spacing.three }}>
-        <GlassSegmented
-          options={TYPE_FILTERS.map((f) => ({ key: f.key, label: t(f.labelKey) }))}
-          value={type}
-          onChange={setType}
-        />
-      </View>
+      {/* Filters in one row: what kind, then which account */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+        style={styles.chipScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {TYPE_FILTERS.map((f) => (
+          <Chip key={f.key} size="sm" label={t(f.labelKey)} active={type === f.key} onPress={() => setType(f.key)} />
+        ))}
+        {selectableAccounts.length > 1 ? (
+          <>
+            <View style={[styles.chipDivider, { backgroundColor: colors.divider }]} />
+            {accountOptions.map((opt) => (
+              <Chip
+                key={opt.id ?? 'all'}
+                size="sm"
+                icon={opt.icon}
+                label={opt.label}
+                active={accountId === opt.id}
+                onPress={() => selectAccount(opt.id)}
+              />
+            ))}
+          </>
+        ) : null}
+      </ScrollView>
 
-      {/* Account filter (only useful with 2+ accounts) */}
-      {selectableAccounts.length > 1 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-          style={styles.chipScroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          {accountOptions.map((opt) => (
-            <Chip
-              key={opt.id ?? 'all'}
-              size="sm"
-              icon={opt.icon}
-              label={opt.label}
-              active={accountId === opt.id}
-              onPress={() => selectAccount(opt.id)}
-            />
-          ))}
-        </ScrollView>
-      ) : null}
 
       {/* Result count */}
       <View style={styles.countRow}>
@@ -357,7 +352,9 @@ export default function TransactionsScreen() {
               showAccount={!accountId}
               hidden={hideAmounts}
               onOpen={() =>
-                isDebtEntry(item)
+                isAdjustmentEntry(item)
+                  ? setAdjustmentsFor(adjustmentAccountId(item))
+                  : isDebtEntry(item)
                   ? Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'))
                   : isEditableTransferEntry(item)
                   ? setEditingTransfer(transfers.find((tr) => tr.id === savedTransferId(item)) ?? null)
@@ -369,8 +366,11 @@ export default function TransactionsScreen() {
           )}
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-              <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '600' }}>
+              <ThemedText type="small" style={{ color: colors.text, fontWeight: '700' }}>
                 {dayLabel(section.title)}
+                <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '500' }}>
+                  {`  ·  ${tp('tx.list.count', section.data.length)}`}
+                </ThemedText>
               </ThemedText>
               <ThemedText
                 type="small"
@@ -391,6 +391,7 @@ export default function TransactionsScreen() {
           contentContainerStyle={styles.listContent}
         />
 
+        <AdjustmentsModal visible={!!adjustmentsFor} onClose={() => setAdjustmentsFor(null)} accountId={adjustmentsFor} />
         <TransferModal visible={!!editingTransfer} onClose={() => setEditingTransfer(null)} editing={editingTransfer} />
 
         <AddTransactionModal
@@ -427,8 +428,9 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: FontSize.body, paddingVertical: 0 },
 
 
-  chipScroll: { marginHorizontal: -Spacing.four, flexGrow: 0, marginBottom: Spacing.two },
-  chipRow: { paddingHorizontal: Spacing.four, gap: Spacing.two },
+  chipScroll: { marginHorizontal: -Spacing.four, flexGrow: 0, marginBottom: Spacing.three },
+  chipRow: { paddingHorizontal: Spacing.four, gap: Spacing.two, alignItems: 'center' },
+  chipDivider: { width: StyleSheet.hairlineWidth, height: 22, marginHorizontal: 2 },
   countRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.two },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three, paddingBottom: Spacing.two, paddingHorizontal: Spacing.one },
   empty: { marginTop: Spacing.three },

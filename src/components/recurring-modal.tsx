@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AmountInput } from '@/components/amount-input';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { DateField } from '@/components/date-field';
 import { SheetHeader } from '@/components/sheet-header';
+import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { Account, RecurringAmountMode, RecurringFrequency, RecurringRule, TransactionType } from '@/context/TransactionsContext';
@@ -35,7 +36,7 @@ export function RecurringModal({ visible, onClose, editing }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
 
-        <ThemedView
+        <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
@@ -53,7 +54,7 @@ export function RecurringModal({ visible, onClose, editing }: Props) {
             {/* Mounted only while open, so the form always starts from a fresh state. */}
             {visible ? <RecurringForm key={editing?.id ?? 'new'} editing={editing} onDone={onClose} /> : null}
           </ScrollView>
-        </ThemedView>
+        </DragSheet>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -293,13 +294,12 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {asking ? t('tx.rec.expectedAmount') : t('tx.add.amountRm')}
       </ThemedText>
-      <TextInput
+      <AmountInput
         style={[styles.amountInput, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
         placeholder={asking ? t('tx.rec.expectedPlaceholder') : '0.00'}
         placeholderTextColor={colors.textSecondary}
         value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
+        onChange={setAmount}
         accessibilityLabel={t('tx.add.amountA11y')}
       />
 
@@ -432,11 +432,11 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule | null; on
             {t('tx.add.subcategory')}
           </ThemedText>
           <View style={styles.subGrid}>
-            {selectedCategory.subcategories.map((sub) => {
+            {selectedCategory.subcategories.map((sub, si) => {
               const on = subcategory === sub;
               return (
                 <Pressable
-                  key={sub}
+                  key={`${sub}-${si}`}
                   style={[styles.subChip, { backgroundColor: on ? colors.backgroundSelected : colors.backgroundElement, borderColor: on ? typeAccent : colors.divider }]}
                   onPress={() => setSubcategory(sub)}
                 >

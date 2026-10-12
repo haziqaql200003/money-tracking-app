@@ -1,5 +1,6 @@
 import type { Transaction, Transfer } from '@/context/TransactionsContext';
 import { addDays, cycleInfo, cycleOf, cycleRange, dayInCycle, daysBetween, shiftCycle } from '@/utils/cycle';
+import { r1 } from '@/utils/percent';
 
 /**
  * Pure helpers for the "Deep dive" tab of Faham. Same rules as insights.ts: only real transactions count
@@ -102,15 +103,17 @@ export function monthOutlook(transactions: Transaction[], todayKey: string, bill
 export type CalendarDay = { date: string; day: number; total: number; count: number; income: number };
 export type Calendar = { monthKey: string; /** 0 = Monday */ startOffset: number; days: CalendarDay[]; max: number; total: number };
 
-export function monthCalendar(transactions: Transaction[], monthKey: string): Calendar {
-  const range = cycleRange(monthKey);
+export function monthCalendar(transactions: Transaction[], monthKey: string, byCycle = false): Calendar {
+  // monthKey is a real calendar month ('YYYY-MM'), 1st to last day, whatever the payday rule is
+  const [cy, cm] = monthKey.split('-').map(Number);
+  const range = byCycle ? cycleRange(monthKey) : { from: `${monthKey}-01`, to: `${monthKey}-${String(new Date(cy, cm, 0).getDate()).padStart(2, '0')}` };
   const n = daysBetween(range.from, range.to) + 1;
   const days: CalendarDay[] = Array.from({ length: n }, (_, i) => {
     const date = addDays(range.from, i);
     return { date, day: Number(date.slice(8, 10)), total: 0, count: 0, income: 0 };
   });
   for (const t of transactions) {
-    if (cycleOf(t.date) !== monthKey) continue;
+    if (byCycle ? cycleOf(t.date) !== monthKey : t.date.slice(0, 7) !== monthKey) continue;
     const d = days[daysBetween(range.from, t.date)];
     if (!d) continue;
     if (t.type === 'debit') {
@@ -145,7 +148,7 @@ export function fixedVsEveryday(transactions: Transaction[], w: Window): FixedSp
     else everyday += t.amount;
   }
   const all = fixed + everyday;
-  return { fixed: round2(fixed), everyday: round2(everyday), fixedShare: all > 0 ? Math.round((fixed / all) * 100) : 0 };
+  return { fixed: round2(fixed), everyday: round2(everyday), fixedShare: all > 0 ? r1((fixed / all) * 100) : 0 };
 }
 
 /* ---------------- 4. income sources ---------------- */
@@ -192,7 +195,7 @@ export function incomeStats(transactions: Transaction[], w: Window, keys: string
   }
   return {
     sources: Array.from(byCat.entries())
-      .map(([categoryId, v]) => ({ categoryId, total: round2(v), share: total > 0 ? Math.round((v / total) * 100) : 0 }))
+      .map(([categoryId, v]) => ({ categoryId, total: round2(v), share: total > 0 ? r1((v / total) * 100) : 0 }))
       .sort((a, b) => b.total - a.total),
     total: round2(total),
     avgMonthly: active.length ? round2(total / active.length) : 0,
@@ -222,7 +225,7 @@ export function topSubcategories(transactions: Transaction[], w: Window, limit =
     map.set(key, row);
   }
   return Array.from(map.values())
-    .map((r) => ({ ...r, total: round2(r.total), share: all > 0 ? Math.round((r.total / all) * 100) : 0 }))
+    .map((r) => ({ ...r, total: round2(r.total), share: all > 0 ? r1((r.total / all) * 100) : 0 }))
     .sort((a, b) => b.total - a.total)
     .slice(0, limit);
 }
@@ -311,7 +314,7 @@ export function spendingByAccount(transactions: Transaction[], w: Window): Accou
     all += t.amount;
   }
   return Array.from(map.entries())
-    .map(([accountId, v]) => ({ accountId, total: round2(v), share: all > 0 ? Math.round((v / all) * 100) : 0 }))
+    .map(([accountId, v]) => ({ accountId, total: round2(v), share: all > 0 ? r1((v / all) * 100) : 0 }))
     .sort((a, b) => b.total - a.total);
 }
 
@@ -353,7 +356,7 @@ export function budgetHistory(transactions: Transaction[], limits: { categoryId:
       if (!worst || s > worst.spent) worst = { key: k, spent: round2(s) };
     }
     if (counted === 0) continue;
-    rows.push({ categoryId, limit, monthsOver: over, monthsCounted: counted, avgUse: Math.round((useSum / counted) * 100), worst });
+    rows.push({ categoryId, limit, monthsOver: over, monthsCounted: counted, avgUse: r1((useSum / counted) * 100), worst });
   }
   return rows.sort((a, b) => b.monthsOver / b.monthsCounted - a.monthsOver / a.monthsCounted || b.avgUse - a.avgUse);
 }
@@ -404,7 +407,7 @@ export function monthRhythm(transactions: Transaction[], w: Window): Rhythm {
     totals[d <= 10 ? 0 : d <= 20 ? 1 : 2] += t.amount;
     all += t.amount;
   }
-  return { parts: totals.map((v) => ({ total: round2(v), share: all > 0 ? Math.round((v / all) * 100) : 0 })) };
+  return { parts: totals.map((v) => ({ total: round2(v), share: all > 0 ? r1((v / all) * 100) : 0 })) };
 }
 
 /* ---------------- 11. balance over time ---------------- */
@@ -454,4 +457,168 @@ export function categoryByMonth(transactions: Transaction[], categoryId: string,
     if (map.has(k)) map.set(k, (map.get(k) ?? 0) + t.amount);
   }
   return keys.map((k) => ({ key: k, total: round2(map.get(k) ?? 0) }));
+}
+
+/* ---------------- 13. money day by day, this month, with a guess for the rest ---------------- */
+
+export type DayBalance = { date: string; balance: number; projected: boolean };
+export type CycleBalance = {
+  monthKey: string;
+  points: DayBalance[];
+  /** Index of today in `points`. */
+  todayIndex: number;
+  nowBalance: number;
+  /** Where the balance is guessed to end on the last day of the month. */
+  endBalance: number;
+  /** The lowest balance expected from today to the end of the month. */
+  lowest: { date: string; balance: number };
+  /** First coming day the balance is guessed to drop below zero; null when it does not. */
+  runsOutOn: string | null;
+  /** Money still to leave for bills that are already scheduled. */
+  billsAhead: number;
+};
+
+/** Every change to your real money, as signed amounts: income and spending, plus money crossing in or out of hidden (debt) accounts. */
+function moneyFlows(transactions: Transaction[], debt?: { hiddenIds: ReadonlySet<string>; transfers: Transfer[] }): { date: string; amount: number }[] {
+  const out: { date: string; amount: number }[] = [];
+  for (const t of transactions) {
+    if (debt?.hiddenIds.has(t.accountId)) continue;
+    out.push({ date: t.date, amount: t.type === 'credit' ? t.amount : -t.amount });
+  }
+  if (debt) {
+    for (const tr of debt.transfers) {
+      const fromHidden = debt.hiddenIds.has(tr.fromAccountId);
+      const toHidden = debt.hiddenIds.has(tr.toAccountId);
+      if (fromHidden && !toHidden) out.push({ date: tr.date, amount: tr.amount });
+      else if (!fromHidden && toHidden) out.push({ date: tr.date, amount: -tr.amount });
+    }
+  }
+  return out;
+}
+
+/**
+ * Total money at the end of every day of the current month up to today, then a guess for the days left:
+ * everyday spending continues at the pace so far, and scheduled bills (and scheduled income) land on their dates.
+ */
+export function cycleBalance(args: {
+  transactions: Transaction[];
+  startingTotal: number;
+  todayKey: string;
+  /** Scheduled items still to come (dates after today are used). */
+  upcoming: { date: string; amount: number; type: 'debit' | 'credit' }[];
+  /** Everyday (non-recurring) spending per day so far this month. */
+  dailyEveryday: number;
+  debt?: { hiddenIds: ReadonlySet<string>; transfers: Transfer[] };
+}): CycleBalance {
+  const { transactions, startingTotal, todayKey, upcoming, dailyEveryday, debt } = args;
+  const info = cycleInfo(todayKey);
+  const range = cycleRange(info.key);
+  const n = daysBetween(range.from, range.to) + 1;
+  const flows = moneyFlows(transactions, debt);
+
+  let level = startingTotal;
+  const perDay = new Array<number>(n).fill(0);
+  for (const f of flows) {
+    if (f.date < range.from) level += f.amount;
+    else if (f.date <= todayKey && f.date <= range.to) perDay[daysBetween(range.from, f.date)] += f.amount;
+  }
+
+  const sched = new Map<string, number>();
+  let billsAhead = 0;
+  for (const u of upcoming) {
+    if (u.date <= todayKey || u.date > range.to || !(u.amount > 0)) continue;
+    const signed = u.type === 'credit' ? u.amount : -u.amount;
+    sched.set(u.date, (sched.get(u.date) ?? 0) + signed);
+    if (u.type === 'debit') billsAhead += u.amount;
+  }
+
+  const points: DayBalance[] = [];
+  let todayIndex = Math.min(n - 1, Math.max(0, daysBetween(range.from, todayKey)));
+  let running = level;
+  let lowest = { date: todayKey, balance: 0 };
+  let runsOutOn: string | null = null;
+  for (let i = 0; i < n; i++) {
+    const date = addDays(range.from, i);
+    const projected = date > todayKey;
+    if (!projected) running += perDay[i];
+    else running += (sched.get(date) ?? 0) - dailyEveryday;
+    const balance = round2(running);
+    points.push({ date, balance, projected });
+    if (date === todayKey) {
+      todayIndex = i;
+      lowest = { date, balance };
+    } else if (projected) {
+      if (balance < lowest.balance) lowest = { date, balance };
+      if (runsOutOn === null && balance < 0 && points[todayIndex] && points[todayIndex].balance >= 0) runsOutOn = date;
+    }
+  }
+  return {
+    monthKey: info.key,
+    points,
+    todayIndex,
+    nowBalance: points[todayIndex]?.balance ?? round2(level),
+    endBalance: points[n - 1]?.balance ?? round2(level),
+    lowest,
+    runsOutOn,
+    billsAhead: round2(billsAhead),
+  };
+}
+
+/* ---------------- 14. categories by month ---------------- */
+
+export type MatrixRowData = { categoryId: string; values: number[]; total: number; /** The latest full month is well above the months before it. */ rose: boolean; /** ...or well below. */ fell: boolean };
+
+/** Spending per category per month, for a heat grid. `rose` compares the latest complete month with the average before it. */
+export function categoryMatrix(transactions: Transaction[], categoryIds: string[], keys: string[], todayKey: string): MatrixRowData[] {
+  const index = new Map(keys.map((k, i) => [k, i]));
+  const rows = new Map<string, number[]>(categoryIds.map((id) => [id, new Array<number>(keys.length).fill(0)]));
+  for (const t of transactions) {
+    if (t.type !== 'debit') continue;
+    const row = rows.get(t.categoryId);
+    const i = index.get(cycleOf(t.date));
+    if (row && i !== undefined) row[i] += t.amount;
+  }
+  const partial = keys[keys.length - 1] === cycleOf(todayKey);
+  const lastFull = keys.length - 1 - (partial ? 1 : 0);
+  return categoryIds.map((id) => {
+    const values = (rows.get(id) ?? []).map(round2);
+    const before = values.slice(0, Math.max(0, lastFull)).filter((v) => v > 0);
+    const avg = before.length ? before.reduce((s, v) => s + v, 0) / before.length : 0;
+    const latest = lastFull >= 0 ? values[lastFull] : 0;
+    const enough = before.length >= 2;
+    return {
+      categoryId: id,
+      values,
+      total: round2(values.reduce((s, v) => s + v, 0)),
+      rose: enough && avg > 0 && latest >= avg * 1.3 && latest - avg >= 20,
+      fell: enough && avg > 0 && latest <= avg * 0.7 && avg - latest >= 20,
+    };
+  });
+}
+
+/* ---------------- 15. how big your expenses are ---------------- */
+
+export const SIZE_EDGES = [0, 10, 50, 200, 1000] as const;
+export type SizeBucket = { index: number; min: number; max: number | null; count: number; total: number; share: number; countShare: number };
+
+/** Expenses grouped by size: under RM10, 10-50, 50-200, 200-1000, 1000 and up. Shows whether many small buys or a few big ones drive spending. */
+export function spendingSizes(transactions: Transaction[], w: Window): SizeBucket[] {
+  const buckets: SizeBucket[] = SIZE_EDGES.map((min, index) => ({ index, min, max: SIZE_EDGES[index + 1] ?? null, count: 0, total: 0, share: 0, countShare: 0 }));
+  let count = 0;
+  let total = 0;
+  for (const t of transactions) {
+    if (t.type !== 'debit' || !inWindow(t, w) || !(t.amount > 0)) continue;
+    let i = SIZE_EDGES.length - 1;
+    while (i > 0 && t.amount < SIZE_EDGES[i]) i--;
+    buckets[i].count++;
+    buckets[i].total += t.amount;
+    count++;
+    total += t.amount;
+  }
+  for (const b of buckets) {
+    b.total = round2(b.total);
+    b.share = total > 0 ? r1((b.total / total) * 100) : 0;
+    b.countShare = count > 0 ? r1((b.count / count) * 100) : 0;
+  }
+  return buckets;
 }

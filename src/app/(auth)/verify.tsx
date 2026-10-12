@@ -1,21 +1,27 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth-field';
+import { PasswordRules } from '@/components/password-rules';
 import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { checkPassword } from '@/utils/password';
+
+const CODE_LEN = 6;
+const RESEND_WAIT = 45;
 
 /** Enter the 6-digit code from the e-mail: confirms a new account, or (mode "reset") sets a new password. */
 export default function VerifyScreen() {
   const colors = useTheme();
   const { t } = useT();
+  const router = useRouter();
   const { email = '', mode = 'signup' } = useLocalSearchParams<{ email?: string; mode?: string }>();
   const reset = mode === 'reset';
   const { verifyCode, resendCode, requestPasswordReset, resetPassword } = useAuth();
@@ -26,9 +32,18 @@ export default function VerifyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(RESEND_WAIT);
+  const input = useRef<TextInput>(null);
 
-  const mismatch = reset && confirm.length > 0 && confirm !== password;
-  const canSubmit = code.trim().length >= 6 && (!reset || (password.length > 0 && password === confirm)) && !busy;
+  useEffect(() => {
+    if (wait <= 0) return;
+    const id = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(id);
+  }, [wait]);
+
+  const check = checkPassword(password, [email]);
+  const match = password.length > 0 && password === confirm;
+  const canSubmit = code.length === CODE_LEN && (!reset || (check.ok && match)) && !busy;
 
   async function submit() {
     if (!canSubmit) return;
@@ -42,10 +57,13 @@ export default function VerifyScreen() {
   }
 
   async function resend() {
+    if (wait > 0) return;
     setError(null);
     const res = reset ? await requestPasswordReset(email) : await resendCode(email);
-    if (res.ok) setInfo(t('auth.verify.resent'));
-    else setError(res.error);
+    if (res.ok) {
+      setInfo(t('auth.verify.resent'));
+      setWait(RESEND_WAIT);
+    } else setError(res.error);
   }
 
   return (
@@ -53,59 +71,67 @@ export default function VerifyScreen() {
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <ScreenHeader title={reset ? t('auth.verify.titleReset') : t('auth.verify.titleSignup')} />
-            <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.four }}>
-              {t(reset ? 'auth.verify.introReset' : 'auth.verify.introSignup', { email })}
-            </ThemedText>
+            <ScreenHeader title="" />
+            <Text style={[styles.title, { color: colors.text }]}>{reset ? t('auth.verify.titleReset') : t('ob.verify.title')}</Text>
+            <Text style={[Type.body, styles.lead, { color: colors.textSecondary }]}>
+              {t('ob.verify.sent')} <Text style={{ color: colors.text, fontWeight: '700' }}>{email}</Text>
+            </Text>
 
-            <AuthField
-              label={t('auth.verify.code')}
-              value={code}
-              onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 8))}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="one-time-code"
-              placeholder={t('auth.verify.codePlaceholder')}
-              maxLength={8}
-            />
+            {/* One hidden field holds the digits; the boxes only draw them. iOS can fill the code from the e-mail. */}
+            <Pressable onPress={() => input.current?.focus()} style={styles.boxes} accessibilityLabel={t('auth.verify.code')}>
+              {Array.from({ length: CODE_LEN }, (_, i) => {
+                const ch = code[i] ?? '';
+                const active = i === Math.min(code.length, CODE_LEN - 1);
+                return (
+                  <View key={i} style={[styles.box, { backgroundColor: colors.backgroundElement, borderColor: active ? colors.accent : ch ? colors.accentSoft : colors.divider }]}>
+                    <Text style={[styles.digit, { color: colors.text }]}>{ch}</Text>
+                  </View>
+                );
+              })}
+              <TextInput
+                ref={input}
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, CODE_LEN))}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                maxLength={CODE_LEN}
+                autoFocus
+                caretHidden
+                style={styles.hidden}
+              />
+            </Pressable>
+
             {reset ? (
-              <>
-                <AuthField label={t('auth.verify.newPassword')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" />
-                <AuthField label={t('auth.register.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" />
-                {mismatch ? (
-                  <ThemedText type="small" style={{ color: colors.negative, marginTop: -Spacing.two, marginBottom: Spacing.three }}>
-                    {t('auth.register.mismatch')}
-                  </ThemedText>
-                ) : null}
-              </>
+              <View style={{ marginTop: Spacing.four }}>
+                <AuthField label={t('auth.verify.newPassword')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" textContentType="newPassword" />
+                <AuthField label={t('auth.register.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" textContentType="newPassword" />
+                <PasswordRules check={check} typed={password.length > 0} match={match} />
+              </View>
             ) : null}
 
-            {error ? (
-              <ThemedText type="small" style={{ color: colors.negative, marginBottom: Spacing.two }}>
-                {error}
-              </ThemedText>
-            ) : null}
-            {info ? (
-              <ThemedText type="small" style={{ color: colors.positive, marginBottom: Spacing.two }}>
-                {info}
-              </ThemedText>
-            ) : null}
+            {error ? <Text style={[Type.label, { color: colors.negative, marginTop: Spacing.three }]}>{error}</Text> : null}
+            {info ? <Text style={[Type.label, { color: colors.positive, marginTop: Spacing.three }]}>{info}</Text> : null}
 
-            <Pressable onPress={submit} disabled={!canSubmit} style={[styles.button, { backgroundColor: canSubmit ? colors.accent : colors.backgroundSelected }]}>
-              <ThemedText style={[styles.buttonText, !canSubmit && { color: colors.textSecondary }]}>
-                {busy ? t('auth.login.wait') : reset ? t('auth.verify.submitReset') : t('auth.verify.submitSignup')}
-              </ThemedText>
-            </Pressable>
-
-            <Pressable onPress={resend} hitSlop={8} style={styles.resend}>
-              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-                {t('auth.verify.resend')}
-              </ThemedText>
-            </Pressable>
-            <ThemedText type="small" style={[styles.hint, { color: colors.textSecondary }]}>
-              {t('auth.verify.spamHint')}
-            </ThemedText>
+            <View style={styles.links}>
+              {!reset ? (
+                <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button">
+                  <Text style={[Type.label, { color: colors.accent }]}>{t('ob.verify.changeEmail')}</Text>
+                </Pressable>
+              ) : (
+                <View />
+              )}
+              <Pressable onPress={resend} disabled={wait > 0} hitSlop={8} accessibilityRole="button">
+                <Text style={[Type.label, { color: wait > 0 ? colors.textSecondary : colors.accent }]}>
+                  {wait > 0 ? t('ob.verify.resendIn', { s: wait }) : t('auth.verify.resend')}
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={[Type.caption, styles.hint, { color: colors.textSecondary }]}>{t('auth.verify.spamHint')}</Text>
           </ScrollView>
+          <View style={styles.footer}>
+            <Button label={reset ? t('auth.verify.submitReset') : t('auth.verify.submitSignup')} onPress={submit} disabled={!canSubmit} loading={busy} />
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -114,9 +140,14 @@ export default function VerifyScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.six },
-  button: { padding: 16, borderRadius: Radius.md, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
-  resend: { alignSelf: 'center', marginTop: Spacing.four },
-  hint: { textAlign: 'center', marginTop: Spacing.two },
+  content: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.four },
+  title: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.5 },
+  lead: { marginTop: Spacing.two, marginBottom: Spacing.four },
+  boxes: { flexDirection: 'row', gap: 8 },
+  box: { flex: 1, height: 58, borderRadius: Radius.md, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  digit: { fontSize: 24, fontWeight: '800' },
+  hidden: { ...StyleSheet.absoluteFill, opacity: 0.02, color: 'transparent' },
+  links: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.four },
+  hint: { marginTop: Spacing.three },
+  footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.three },
 });

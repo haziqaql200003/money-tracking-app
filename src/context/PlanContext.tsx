@@ -66,6 +66,8 @@ type PlanContextValue = {
   disableReminders: () => void;
   setDaysBefore: (days: number) => void;
   setBudgetAlerts: (on: boolean) => void;
+  /** The 9 pm nudge on days with nothing recorded. */
+  setDailyNudge: (on: boolean) => void;
 
   resetPlan: () => void;
 };
@@ -81,8 +83,8 @@ const newId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toStr
 export function PlanProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const { ready: txReady, recurringRules, budgetEntries, accountBalance, transfers, addRecurring, updateRecurring, deleteRecurring, setRecurringActive } = useTransactions();
-  const { debts } = useDebts();
+  const { ready: txReady, recurringRules, budgetEntries, accountBalance, transfers, addRecurring, updateRecurring, deleteRecurring, setRecurringActive, transactions } = useTransactions();
+  const { debts, ious } = useDebts();
   // Amount used on each credit line, kept as a string so the reminder plan only reruns when a figure really changes.
   const creditUsedKey = debts
     .filter((d) => d.kind === 'credit')
@@ -166,6 +168,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   // --- bill / income reminders: plan again whenever rules, settings or the day change ---
   const todayKey = toDateKey(new Date());
+  const recordedToday = transactions.some((x) => x.date === todayKey);
   useEffect(() => {
     if (!ready || !txReady || permission === null) return;
     let cancelled = false;
@@ -176,13 +179,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       }
       if (cancelled) return;
       await replaceScheduled(
-        buildReminders({ rules: recurringRules, now: new Date(), todayKey, daysBefore: reminderPrefs.daysBefore, money, debts, creditUsed, goals, goalEntries }),
+        buildReminders({ rules: recurringRules, now: new Date(), todayKey, daysBefore: reminderPrefs.daysBefore, money, debts, creditUsed, goals, goalEntries, ious, dailyNudge: reminderPrefs.dailyNudge ? { recordedToday } : undefined }),
       );
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, recurringRules, debts, creditUsed, goals, goalEntries, todayKey, money, foregroundTick, lang]);
+  }, [ready, txReady, permission, reminderPrefs.enabled, reminderPrefs.daysBefore, reminderPrefs.dailyNudge, recordedToday, recurringRules, debts, ious, creditUsed, goals, goalEntries, todayKey, money, foregroundTick, lang]);
 
   // --- budget alerts: when a category reaches its warning level or goes over, tell the user once ---
   const monthKey = monthKeyFromOffset(0);
@@ -305,6 +308,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         if (on) seedAlerts();
         setReminderPrefs((p) => ({ ...p, budgetAlerts: on }));
       },
+      setDailyNudge: (on) => setReminderPrefs((p) => ({ ...p, dailyNudge: on })),
 
       resetPlan: () => {
         setGoals(NO_GOALS);
