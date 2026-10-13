@@ -41,6 +41,18 @@ export const CHANGELOG: Release[] = [
       { kind: 'improved', text: 'Debts: instalments, loans and credit lines are sorted by the date you bought or took them, newest first. This replaces the next-payment order of 3.0.4.', ms: 'Hutang: ansuran, pinjaman dan had kredit disusun ikut tarikh anda beli atau ambil, terbaru dahulu. Ini menggantikan susunan bayaran seterusnya dalam 3.0.4.' }, // i18n-ignore
     ],
   },
+    {
+    version: '3.0.4',
+    date: '2026-10-12',
+    title: 'Debts sorted by date', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Hutang disusun ikut tarikh',
+    highlights: [
+      { text: 'Debts are listed by the date the next payment is due', ms: 'Hutang disusun ikut tarikh bayaran seterusnya' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'improved', text: 'Debts: instalments, loans and credit lines are sorted by the date the next payment is due, soonest first. People you owe or who owe you are sorted by due date too; ones with no date come last.', ms: 'Hutang: ansuran, pinjaman dan had kredit disusun ikut tarikh bayaran seterusnya, yang paling hampir dahulu. Orang yang anda berhutang atau berhutang dengan anda juga disusun ikut tarikh akhir; yang tiada tarikh di bawah.' }, // i18n-ignore
+    ],
+  },
   {
     version: '3.0.3',
     date: '2026-10-11',
