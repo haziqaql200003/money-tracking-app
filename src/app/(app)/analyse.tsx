@@ -2,14 +2,15 @@ import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnalyseDeep } from '@/components/analyse-deep';
-import { AnalyseInsight } from '@/components/analyse-insight';
-import { AnalyseOverview } from '@/components/analyse-overview';
+import { useIsDesktop } from '@/components/desktop/use-desktop';
+import { AnalyseDeep } from '@/components/analyse/analyse-deep';
+import { AnalyseInsight } from '@/components/analyse/analyse-insight';
+import { AnalyseOverview } from '@/components/analyse/analyse-overview';
 import { StoryShelf } from '@/components/story/report-stories';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { FontSize, Spacing } from '@/constants/theme';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,6 +24,7 @@ export default function AnalyseScreen() {
   const { t } = useT();
   const { ready } = useTransactions();
   const scrollRef = useRef<ScrollView>(null);
+  const desktop = useIsDesktop();
 
   const [months, setMonths] = useState<(typeof RANGES)[number]>(6);
   const [tab, setTab] = useState<'overview' | 'deep' | 'insight'>('overview');
@@ -70,12 +72,14 @@ export default function AnalyseScreen() {
           ) : null}
 
           {tab === 'insight' ? (
-            <>
+            <View style={desktop && styles.narrow}>
               <StoryShelf />
               <AnalyseInsight todayKey={todayKey} />
-            </>
+            </View>
           ) : tab === 'deep' ? (
-            <AnalyseDeep months={months} todayKey={todayKey} />
+            <View style={desktop && styles.narrow}>
+              <AnalyseDeep months={months} todayKey={todayKey} />
+            </View>
           ) : (
             <AnalyseOverview
               key={months}
@@ -105,6 +109,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 130 },
   titleBlock: { paddingVertical: Spacing.three, gap: 2 },
   heading: { fontSize: FontSize.display, lineHeight: 40 },
+  narrow: { maxWidth: 980 },
   segment: { marginBottom: Spacing.three },
   footnote: { fontSize: FontSize.caption, lineHeight: 16, marginBottom: Spacing.three },
   center: { textAlign: 'center' },

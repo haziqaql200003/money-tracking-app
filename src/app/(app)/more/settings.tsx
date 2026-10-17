@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AmountInput } from '@/components/amount-input';
+import { AmountInput } from '@/components/ui/amount-input';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { setGyroEnabled, useGyroEnabled } from '@/components/cards/motion';
-import { ScreenHeader } from '@/components/screen-header';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';

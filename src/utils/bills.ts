@@ -1,5 +1,6 @@
 import { t, tp } from '@/i18n';
 import type { RecurringRule } from '@/context/TransactionsContext';
+import { addDays } from '@/utils/cycle';
 import { isAsk, isEnded, isTransfer, nextOccurrence } from '@/utils/recurring';
 
 export type UpcomingBill = {
@@ -24,12 +25,6 @@ const MAX_STEPS = 120;
 export function dayNumber(key: string) {
   const [y, m, d] = key.split('-').map(Number);
   return Math.round(Date.UTC(y, m - 1, d) / DAY);
-}
-
-export function addDays(key: string, days: number) {
-  const [y, m, d] = key.split('-').map(Number);
-  const t = new Date(Date.UTC(y, m - 1, d + days));
-  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
 }
 
 /**

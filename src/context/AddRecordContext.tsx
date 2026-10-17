@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-import { AddTransactionModal } from '@/components/add-transaction-modal';
+import { AddTransactionModal } from '@/components/transactions/add-transaction-modal';
 import { useTransactions } from '@/context/TransactionsContext';
 
 type AddRecordContextValue = {

@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthField } from '@/components/auth-field';
-import { PasswordRules } from '@/components/password-rules';
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { AuthField } from '@/components/auth/auth-field';
+import { PasswordRules } from '@/components/auth/password-rules';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { passwordOk } from '@/context/auth-shared';

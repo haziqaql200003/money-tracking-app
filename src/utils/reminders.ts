@@ -1,11 +1,11 @@
 import { t, tp, type TKey } from '@/i18n';
 import type { RecurringRule, Transaction } from '@/context/TransactionsContext';
-import { addDays, upcomingOccurrences } from '@/utils/bills';
+import { upcomingOccurrences } from '@/utils/bills';
 import { budgetStatus } from '@/utils/budget';
 import { instalmentAmount, nextCreditDue, unpaid, type Debt } from '@/utils/debts';
 import { activeGoals, goalMonthSaved, type GoalEntry, type SavingsGoal } from '@/utils/goals';
 import { iouLeft, iouNudges, type Iou } from '@/utils/ious';
-import { addDays as addDateDays, cycleOf, cycleRange, usesCalendarMonths } from '@/utils/cycle';
+import { addDays, cycleOf, cycleRange, usesCalendarMonths } from '@/utils/cycle';
 
 export type ReminderPrefs = {
   enabled: boolean;
@@ -152,7 +152,7 @@ export function buildReminders(args: {
     const short = Math.round((g.monthly - goalMonthSaved(goalEntries, g.id, monthKey)) * 100) / 100;
     if (short <= 0) continue;
     // Six days before the financial month ends (the 25th of a calendar month, as before, when payday is 1).
-    const fireAt = at9(usesCalendarMonths() ? `${monthKey}-25` : addDateDays(cycleRange(monthKey).to, -6));
+    const fireAt = at9(usesCalendarMonths() ? `${monthKey}-25` : addDays(cycleRange(monthKey).to, -6));
     if (fireAt.getTime() <= now.getTime()) continue;
     out.push({
       id: `rem_goal_${g.id}_${monthKey}`,

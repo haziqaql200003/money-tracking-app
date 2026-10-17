@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 
 import type { Ionicons } from '@expo/vector-icons';
 
-import { CategoryIcon } from '@/components/category-icon';
+import { CategoryIcon } from '@/components/ui/category-icon';
 import { useScrub } from '@/components/charts/use-scrub';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '@/components/ui/themed-text';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';

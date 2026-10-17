@@ -1,12 +1,13 @@
-import { Alert, Share } from 'react-native';
-
 import { useCategories } from '@/context/CategoriesContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useT } from '@/i18n';
 import { accountName, categoryName } from '@/i18n/data';
 import { toCsv } from '@/utils/csv';
+import { Alert } from '@/services/dialog';
+import { datedName, shareTextFile } from '@/services/share-file';
+import { toDateKey } from '@/utils/dates';
 
-/** Every transaction as a CSV file through the share sheet (save to Files or Drive, or send it). */
+/** Every transaction as a CSV file: a download on the web, the share sheet on a phone (save to Files or Drive, or send it). */
 export function useExportCsv() {
   const { t } = useT();
   const { transactions, accounts } = useTransactions();
@@ -28,10 +29,6 @@ export function useExportCsv() {
         return c ? categoryName(c) : id;
       },
     );
-    try {
-      await Share.share({ message: csv, title: 'transactions.csv' /* i18n-ignore */ });
-    } catch {
-      // sheet dismissed
-    }
+    await shareTextFile(datedName('wakira-transactions', toDateKey(new Date())), csv); // i18n-ignore: file name
   };
 }

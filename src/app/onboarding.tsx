@@ -3,8 +3,8 @@ import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AmountInput } from '@/components/amount-input';
-import { ThemedView } from '@/components/themed-view';
+import { AmountInput } from '@/components/ui/amount-input';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { CARD_COLORS } from '@/constants/card-styles';

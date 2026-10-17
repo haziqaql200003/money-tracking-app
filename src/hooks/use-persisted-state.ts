@@ -24,13 +24,19 @@ export function usePersistedState<T>(
   const [value, setValue] = useState<T>(initial);
   const [hydrated, setHydrated] = useState(false);
 
+  // When the user or the key changes, start over in the same render (React's "adjust state while rendering"
+  // pattern), so the save effect below can never write the old value under the new key.
+  const scope = `${userId ?? ''}\u0000${key}`;
+  const [lastScope, setLastScope] = useState(scope);
+  if (lastScope !== scope) {
+    setLastScope(scope);
+    setHydrated(false);
+    if (!userId) setValue(initial);
+  }
+
   useEffect(() => {
     let cancelled = false;
-    setHydrated(false);
-    if (!userId) {
-      setValue(initialRef.current);
-      return;
-    }
+    if (!userId) return;
 
     // Show `next` (or the default when nothing is stored) without counting it as an edit.
     const apply = (next: T | null) => {
@@ -45,7 +51,7 @@ export function usePersistedState<T>(
       if (CLOUD_ENABLED) {
         const res = await loadKey<T>(userId, key);
         if (cancelled) return;
-        if (res.source === 'remote') apply(res.value);
+        if (res.source === 'remote' || res.source === 'merged') apply(res.value);
       }
       setHydrated(true);
     });

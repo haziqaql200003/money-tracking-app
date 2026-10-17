@@ -4,14 +4,17 @@ import { useEffect, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { AppLockScreen } from '@/components/app-lock-screen';
+import { AnimatedSplashOverlay } from '@/components/ui/animated-icon';
+import { AppLockScreen } from '@/components/security/app-lock-screen';
+import { CrashScreen } from '@/components/shell/crash-screen';
+import { DialogHost } from '@/components/shell/dialog-host';
 import { AddRecordProvider } from '@/context/AddRecordContext';
 import { AppLockProvider } from '@/context/AppLockContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CategoriesProvider } from '@/context/CategoriesContext';
 import { DebtsProvider } from '@/context/DebtsContext';
 import { PlanProvider } from '@/context/PlanContext';
+import { ToolsProvider } from '@/context/ToolsContext';
 import { PrivacyProvider } from '@/context/PrivacyContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { SettingsProvider } from '@/context/SettingsContext';
@@ -20,8 +23,13 @@ import { UndoProvider } from '@/context/UndoContext';
 import { UpdatesProvider } from '@/context/UpdatesContext';
 import { useT } from '@/i18n';
 import { clearLock } from '@/services/app-lock';
+import { installErrorLog } from '@/services/error-log';
 
 SplashScreen.preventAutoHideAsync();
+installErrorLog();
+
+/** A screen that fails to draw shows a Try again page instead of a blank app (and the error goes to the error log). */
+export { CrashScreen as ErrorBoundary };
 
 /** One lock per signed-in account. Signing out (or being signed out) forgets the PIN, so the next person starts clean. */
 function LockScope({ children }: { children: ReactNode }) {
@@ -83,13 +91,16 @@ export default function RootLayout() {
                   <TransactionsProvider>
                     <DebtsProvider>
                     <PlanProvider>
+                     <ToolsProvider>
                       <AddRecordProvider>
                         <AnimatedSplashOverlay />
                         <UndoProvider>
                           <RootNavigator />
                           <AppLockScreen />
+                          <DialogHost />
                         </UndoProvider>
                       </AddRecordProvider>
+                     </ToolsProvider>
                     </PlanProvider>
                   </DebtsProvider>
                   </TransactionsProvider>

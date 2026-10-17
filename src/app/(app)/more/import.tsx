@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { CATEGORY_COLORS, FALLBACK_EXPENSE_ID, FALLBACK_INCOME_ID } from '@/constants/categories';
@@ -32,6 +32,7 @@ import {
 } from '@/utils/import/plan';
 import { readTables, type Table } from '@/utils/import/table';
 import { isTemplateTable, TEMPLATE_CSV, TEMPLATE_HEADERS } from '@/utils/import/template';
+import { shareTextFile } from '@/services/share-file';
 
 type Step = 'start' | 'columns' | 'review' | 'done';
 type Result = { count: number; transactionIds: string[]; categoryIds: string[]; accountIds: string[]; addedSubs: { categoryId: string; names: string[] }[] };
@@ -180,19 +181,8 @@ export default function ImportScreen() {
   }
 
   async function shareTemplate() {
-    try {
-      if (Platform.OS === 'web') {
-        await Share.share({ message: TEMPLATE_CSV, title: 'wakira-import-template.csv' /* i18n-ignore */ });
-        return;
-      }
-      // A real .csv file, so it opens straight in Excel / Sheets / Numbers from the share sheet.
-      const file = new File(Paths.cache, 'wakira-import-template.csv'); // i18n-ignore: file name
-      file.create({ overwrite: true });
-      file.write(TEMPLATE_CSV);
-      await Share.share(Platform.OS === 'ios' ? { url: file.uri } : { message: TEMPLATE_CSV, title: 'wakira-import-template.csv' /* i18n-ignore */ });
-    } catch {
-      // sheet dismissed
-    }
+    // A real .csv file, so it opens straight in Excel / Sheets / Numbers (a download on the web).
+    await shareTextFile('wakira-import-template.csv', TEMPLATE_CSV); // i18n-ignore: file name
   }
 
   function setRole(role: Role, column: number) {

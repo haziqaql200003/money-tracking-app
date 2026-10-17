@@ -1,5 +1,6 @@
 import type { Transaction, Transfer } from '@/context/TransactionsContext';
 import { addDays, cycleInfo, cycleOf, cycleRange, dayInCycle, daysBetween, shiftCycle } from '@/utils/cycle';
+import { type Window } from '@/utils/insights';
 import { r1 } from '@/utils/percent';
 
 /**
@@ -8,7 +9,6 @@ import { r1 } from '@/utils/percent';
  * results never depend on the device time zone.
  */
 
-export type Window = { from: string; to: string };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const inWindow = (t: Transaction, w: Window) => t.date >= w.from && t.date <= w.to;

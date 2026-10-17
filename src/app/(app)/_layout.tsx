@@ -1,1 +1,1 @@
-export { default } from '@/components/app-tabs';
+export { default } from '@/components/shell/app-tabs';

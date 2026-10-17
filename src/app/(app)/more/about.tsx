@@ -1,15 +1,20 @@
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader } from '@/components/screen-header';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { FontSize, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
+import { Alert } from '@/services/dialog';
+import { clearErrorLog, formatErrorLog, getErrorLog } from '@/services/error-log';
+import { datedName, shareTextFile } from '@/services/share-file';
+import { toDateKey } from '@/utils/dates';
 
 const HELP: { q: TKey; a: TKey }[] = [
   { q: 'more.about.h1.q', a: 'more.about.h1.a' },
@@ -25,6 +30,31 @@ export default function AboutScreen() {
   const router = useRouter();
   const { t } = useT();
   const muted = { color: colors.textSecondary };
+  const [errorCount, setErrorCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      void getErrorLog().then((l) => setErrorCount(l.length));
+    }, []),
+  );
+
+  async function openErrorLog() {
+    const list = await getErrorLog();
+    if (list.length === 0) {
+      Alert.alert(t('more.about.errorLog'), t('more.about.errorLogNone'));
+      return;
+    }
+    Alert.alert(t('more.about.errorLog'), t('more.about.errorLogBody', { count: list.length }), [
+      { text: t('common.close'), style: 'cancel' },
+      {
+        text: t('more.about.errorLogClear'),
+        style: 'destructive',
+        onPress: () => {
+          void clearErrorLog().then(() => setErrorCount(0));
+        },
+      },
+      { text: t('more.about.errorLogShare'), onPress: () => void shareTextFile(datedName('wakira-error-log', toDateKey(new Date()), 'txt'), formatErrorLog(list), 'text/plain') }, // i18n-ignore: file name
+    ]);
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -42,6 +72,7 @@ export default function AboutScreen() {
             <Row icon="megaphone-outline" label={t('more.about.whatsNew')} onPress={() => router.push('/more/whats-new')} />
             <Row icon="document-text-outline" label={t('more.data.privacyPolicy')} onPress={() => router.push('/privacy')} />
             <Row icon="reader-outline" label={t('more.data.terms')} onPress={() => router.push('/more/terms')} />
+            <Row icon="bug-outline" label={t('more.about.errorLog')} value={String(errorCount)} onPress={() => void openErrorLog()} />
           </Section>
 
           <Section title={t('more.about.principles')}>

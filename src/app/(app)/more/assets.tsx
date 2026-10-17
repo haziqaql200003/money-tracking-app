@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
-import { AccountDonutChart, type DonutSlice } from '@/components/account-donut-chart';
-import { AddAccountModal } from '@/components/add-account-modal';
+import { AccountDonutChart, type DonutSlice } from '@/components/accounts/account-donut-chart';
+import { AddAccountModal } from '@/components/accounts/add-account-modal';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { TransferModal } from '@/components/transfer-modal';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
+import { TransferModal } from '@/components/transactions/transfer-modal';
 import { accountTypeLabel } from '@/constants/accounts';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
@@ -22,12 +22,13 @@ import { useT, type TKey } from '@/i18n';
 import { accountName } from '@/i18n/data';
 import { dayLabel, monthKeyFromOffset } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
-import { CategoryIcon } from '@/components/category-icon';
-import { ReorderList } from '@/components/reorder-list';
+import { CategoryIcon } from '@/components/ui/category-icon';
+import { ReorderList } from '@/components/ui/reorder-list';
 import { SwipeRow } from '@/components/ui/swipe-row';
 import { cycleOf } from '@/utils/cycle';
 import { looksLikeSavings } from '@/utils/saved';
 import { p1, r1 } from '@/utils/percent';
+import { Alert } from '@/services/dialog';
 
 type Mode = 'account' | 'type';
 

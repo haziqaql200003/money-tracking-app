@@ -2,11 +2,19 @@
   "expo": {
     "name": "WaKira",
     "slug": "wakira",
-    "version": "3.0.6",
+    "version": "3.2.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wakira",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e4b91d23-a92b-488f-8aec-167121986d6a",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.haziqaql.wakira",

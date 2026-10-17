@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PinFlowModal, type PinPurpose } from '@/components/pin-flow-modal';
-import { ScreenHeader } from '@/components/screen-header';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { PinFlowModal, type PinPurpose } from '@/components/security/pin-flow-modal';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useAppLock } from '@/context/AppLockContext';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,7 @@ import type { LinkedLogin, SocialProvider } from '@/context/auth-shared';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { TIMEOUT_CHOICES } from '@/services/app-lock';
+import { Alert } from '@/services/dialog';
 
 /** App lock (PIN and fingerprint / face), password and signed-in devices. */
 export default function SecurityScreen() {

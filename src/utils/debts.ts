@@ -3,11 +3,15 @@ import { r1 } from '@/utils/percent';
  * Debts: instalment purchases (SPayLater, Atome, TikTok PayLater...), loans (SLoan, TikTok Financing...) and
  * PayLater-style credit lines. Pure functions: no React, no storage, so the arithmetic can be tested alone.
  *
- * How a debt maps onto WaKira's money model (nothing here ever touches the income or spending of a payment):
+ * How a debt maps onto WaKira's money model:
  *  - Every debt gets its own account that holds what is owed as a NEGATIVE balance.
- *  - Buying on instalment = a normal expense, charged to that debt account, on the day you buy.
+ *  - Buying on instalment (spendOn 'pay', every debt since 3.1.3): nothing is spent yet. Each payment you make is
+ *    spending then, in the category of what you bought (the principal part) plus the interest / fee part. What is
+ *    owed is the unpaid principal, and the debt account's balance is kept equal to it.
+ *  - Older instalment debts (no spendOn) booked the whole price as spending on the day of purchase and paid with
+ *    transfers. `planPayMode` converts them.
  *  - Receiving a loan = a transfer from the debt account into your bank. It is not income.
- *  - Paying an instalment = a transfer from your bank to the debt account for the principal part (not spending),
+ *  - Paying a loan instalment = a transfer from your bank to the debt account for the principal part (not spending),
  *    plus an expense only for the interest / fee part.
  */
 
@@ -22,6 +26,8 @@ export type PaidInfo = {
   /** Records WaKira made for this payment, so it can be undone. Empty for instalments paid before you used WaKira. */
   transferId?: string;
   expenseId?: string;
+  /** Instalment purchases paid under 'pay' spending: the expense for the principal part of this payment. */
+  purchaseExpenseId?: string;
   /** Paid before the debt was added to WaKira: nothing was recorded. */
   historic?: boolean;
 };
@@ -62,7 +68,9 @@ export type Debt = {
   dueDay?: number;
   status: 'active' | 'done';
   /** Set when the debt was paid off in one go. */
-  settled?: { date: string; amount: number; accountId: string; transferId?: string; expenseId?: string };
+  settled?: { date: string; amount: number; accountId: string; transferId?: string; expenseId?: string; purchaseExpenseId?: string };
+  /** 'pay': an instalment purchase counts as spending when each payment is made, not on the day of purchase. */
+  spendOn?: 'pay';
 };
 
 /* ---------------- money helpers ---------------- */
@@ -234,6 +242,65 @@ export function applyPayment(debt: Debt, n: number, paid: PaidInfo): Debt {
 
 export function undoPayment(debt: Debt, n: number): Debt {
   return { ...debt, status: 'active', schedule: debt.schedule.map((s) => (s.n === n ? { ...s, paid: undefined } : s)) };
+}
+
+/* ---------------- converting old instalment debts ---------------- */
+
+export type PayModePlan = {
+  /** The purchase that was booked as spending on the debt account. */
+  removeTransactionIds: string[];
+  /** Principal transfers of payments already made. */
+  removeTransferIds: string[];
+  /** Spending to add instead, one per payment already made (slot = instalment number, or 'settled'). */
+  expenses: { id: string; slot: number | 'settled'; accountId: string; date: string; amount: number }[];
+  /** What the debt account's opening balance becomes: minus the unpaid principal. */
+  balance: number;
+};
+
+/**
+ * Works out how to move an old instalment debt (whole price spent on the day of purchase) to spending-on-payment.
+ * Ids of the new expenses are fixed (from the debt id and the slot), so converting the same debt on two devices
+ * that later sync ends with one record, not two.
+ */
+export function planPayMode(
+  debt: Debt,
+  transactions: { id: string; debtId?: string; accountId: string }[],
+  transfers: { id: string; amount: number }[],
+): PayModePlan {
+  const amountOf = (id: string) => transfers.find((t) => t.id === id)?.amount;
+  const plan: PayModePlan = {
+    removeTransactionIds: transactions.filter((t) => t.debtId === debt.id && t.accountId === debt.accountId).map((t) => t.id),
+    removeTransferIds: [],
+    expenses: [],
+    balance: -remainingPrincipal(debt),
+  };
+  for (const s of debt.schedule) {
+    const p = s.paid;
+    if (!p || p.historic || !p.transferId) continue;
+    plan.removeTransferIds.push(p.transferId);
+    const amount = amountOf(p.transferId) ?? splitPayment(s, p.amount).principal;
+    if (amount > 0) plan.expenses.push({ id: `dpm_${debt.id}_${s.n}`, slot: s.n, accountId: p.accountId, date: p.date, amount });
+  }
+  const st = debt.settled;
+  if (st?.transferId) {
+    plan.removeTransferIds.push(st.transferId);
+    const amount = amountOf(st.transferId);
+    if (amount && amount > 0) plan.expenses.push({ id: `dpm_${debt.id}_settled`, slot: 'settled', accountId: st.accountId, date: st.date, amount });
+  }
+  return plan;
+}
+
+/** The debt after `planPayMode`: payments point at their new spending records instead of transfers. */
+export function applyPayModePlan(debt: Debt, plan: PayModePlan): Debt {
+  const idOf = (slot: number | 'settled') => plan.expenses.find((e) => e.slot === slot)?.id;
+  return {
+    ...debt,
+    spendOn: 'pay',
+    schedule: debt.schedule.map((s) =>
+      s.paid && !s.paid.historic && s.paid.transferId ? { ...s, paid: { ...s.paid, transferId: undefined, purchaseExpenseId: idOf(s.n) } } : s,
+    ),
+    settled: debt.settled?.transferId ? { ...debt.settled, transferId: undefined, purchaseExpenseId: idOf('settled') } : debt.settled,
+  };
 }
 
 /* ---------------- credit lines ---------------- */

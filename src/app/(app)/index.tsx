@@ -1,17 +1,19 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BalanceCarousel } from '@/components/balance-carousel';
-import { HomeGuide } from '@/components/home-guide';
-import { HomeUpcoming } from '@/components/home-upcoming';
-import { PendingBanner } from '@/components/pending-banner';
+import { BalanceCarousel } from '@/components/accounts/balance-carousel';
+import { HomeDesktop } from '@/components/desktop/home-desktop';
+import { useIsDesktop } from '@/components/desktop/use-desktop';
+import { HomeGuide } from '@/components/home/home-guide';
+import { HomeUpcoming } from '@/components/home/home-upcoming';
+import { PendingBanner } from '@/components/transactions/pending-banner';
 import { HomeStoryCard } from '@/components/story/report-stories';
-import { RecentTransactions } from '@/components/recent-transactions';
-import { SpendingOverview } from '@/components/spending-overview';
-import { SyncPill } from '@/components/sync-pill';
-import { ThemedView } from '@/components/themed-view';
+import { RecentTransactions } from '@/components/transactions/recent-transactions';
+import { SpendingOverview } from '@/components/home/spending-overview';
+import { SyncPill } from '@/components/home/sync-pill';
+import { ThemedView } from '@/components/ui/themed-view';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { isLightColor } from '@/constants/card-styles';
@@ -21,6 +23,7 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { accountName } from '@/i18n/data';
+import { Alert } from '@/services/dialog';
 
 function greetingKey(hour: number): TKey {
   if (hour < 12) return 'home.index.greetMorning';
@@ -44,8 +47,18 @@ export default function HomeScreen() {
   const { displayName, avatarColor } = useProfile();
   const greeting = t(greetingKey(new Date().getHours()));
 
+  const desktop = useIsDesktop();
+
   function showComingSoon() {
     Alert.alert(t('home.index.notifications'), t('home.index.comingSoon'));
+  }
+
+  if (desktop) {
+    return (
+      <ThemedView style={styles.container}>
+        <HomeDesktop />
+      </ThemedView>
+    );
   }
 
   return (

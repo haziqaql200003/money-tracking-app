@@ -92,6 +92,24 @@ function remoteStore(userId: string): RemoteStore {
       if (error) throw error;
       return data.updated_at as string;
     },
+    /** Compare-and-save: lands only while the cloud still holds the copy stamped `base`. */
+    async pushIf(key, value, base) {
+      if (!supabase) throw new Error('cloud off');
+      if (base === null) {
+        const { data, error } = await withTimeout(supabase.from('user_data').insert({ user_id: userId, key, value }).select('updated_at').single(), 12000);
+        if (error) {
+          if ((error as { code?: string }).code === '23505') return null; // another device created it first
+          throw error;
+        }
+        return data.updated_at as string;
+      }
+      const { data, error } = await withTimeout(
+        supabase.from('user_data').update({ value }).eq('user_id', userId).eq('key', key).eq('updated_at', base).select('updated_at'),
+        12000,
+      );
+      if (error) throw error;
+      return data && data.length > 0 ? (data[0].updated_at as string) : null;
+    },
   };
 }
 
@@ -146,6 +164,8 @@ async function pushKey(userId: string, key: string) {
   await refreshPending(userId);
   if (r === 'failed') setStatus({ state: 'offline' });
   else setStatus({ state: 'idle', lastSyncedAt: new Date().toISOString() });
+  // Another device had saved meanwhile and the two were combined: show the combined copy.
+  if (r === 'merged') await reloadKey(userId, key);
 }
 
 async function refreshPending(userId: string) {
@@ -179,6 +199,7 @@ export async function flushAll(userId: string): Promise<boolean> {
   for (const key of keys) {
     const r = await pushIfDirty(localStore(userId), remoteStore(userId), key);
     if (r === 'failed') ok = false;
+    if (r === 'merged') await reloadKey(userId, key);
   }
   const left = (await dirtyKeys(userId)).length;
   setStatus(ok ? { state: 'idle', pending: left, lastSyncedAt: new Date().toISOString() } : { state: 'offline', pending: left });
@@ -238,6 +259,12 @@ export function registerReloader(userId: string, key: string, fn: Reloader) {
   return () => {
     if (reloaders.get(id) === fn) reloaders.delete(id);
   };
+}
+
+/** Re-read one mounted key. */
+async function reloadKey(userId: string, key: string) {
+  const fn = reloaders.get(idOf(userId, key));
+  if (fn) await fn();
 }
 
 /** Re-read every mounted key (after a foreground sync or after importing an old account). */

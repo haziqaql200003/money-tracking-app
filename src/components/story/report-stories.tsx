@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { annualSlides } from '@/components/story/annual-wrapped';
 import { monthName, rm0, rm2, weekNo, dateText, type StoryCtx } from '@/components/story/story-common';
@@ -21,6 +21,7 @@ import { categoryName, subcategoryName } from '@/i18n/data';
 import { addDays, cycleOf, shiftCycle } from '@/utils/cycle';
 import { toDateKey } from '@/utils/dates';
 import { buildReport, MIN_RECORDS, mondayOf, periodOf, type ReportKind } from '@/utils/report-data';
+import { shareText } from '@/services/share-file';
 
 export type StoryRef = { kind: ReportKind; key: string };
 
@@ -100,7 +101,7 @@ export function ReportStory({ story, visible, onClose }: { story: StoryRef | nul
         : story.kind === 'month'
           ? t('rpt.shareMonth', { month: monthName(report.period.key), spend: rm0(report.spend), rate: report.rate ?? 0 })
           : t('rpt.shareYear', { year: report.period.key, records: report.records, saved: rm0(report.net) });
-    void Share.share({ message });
+    void shareText(message);
   };
 
   return <StoryPlayer visible={visible} onClose={onClose} title={title} slides={slides} onShare={share} />;

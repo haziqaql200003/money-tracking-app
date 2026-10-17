@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef } from 'react';
 
 import { FALLBACK_EXPENSE_ID } from '@/constants/categories';
 import { useAuth } from '@/context/AuthContext';
@@ -7,9 +7,11 @@ import { toDateKey } from '@/utils/dates';
 import type { Iou, IouDirection, IouRepeat } from '@/utils/ious';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import {
+  applyPayModePlan,
   applyPayment,
   buildSchedule,
   markHistoricPaid,
+  planPayMode,
   remainingPrincipal,
   round2,
   splitPayment,
@@ -143,17 +145,10 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     const debt: Debt = {
       id, kind: 'installment', name: input.name, provider: input.provider, accountId, payFromAccountId: input.payFromAccountId,
       principal: input.principal, months: input.months, ratePct: 0, rateType: 'flat', startDate: input.startDate,
-      categoryId: input.categoryId, subcategory: input.subcategory, schedule, status: 'active',
+      categoryId: input.categoryId, subcategory: input.subcategory, schedule, status: 'active', spendOn: 'pay',
     };
-    if (input.paidCount > 0) {
-      // Already running: only what is still owed goes on the books; the purchase was before WaKira.
-      tx.updateAccount(accountId, { initialBalance: -remainingPrincipal(debt) });
-    } else {
-      tx.addTransaction({
-        title: input.name, date: input.startDate, categoryId: input.categoryId ?? FALLBACK_EXPENSE_ID, subcategory: input.subcategory ?? '',
-        amount: input.principal, type: 'debit', accountId, debtId: id,
-      });
-    }
+    // Nothing is spent yet: each payment counts as spending when it is made. The account only holds what is owed.
+    tx.updateAccount(accountId, { initialBalance: -remainingPrincipal(debt) });
     setDebts((prev) => [debt, ...prev]);
   }
 
@@ -203,23 +198,38 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     const inst = debt?.schedule.find((s) => s.n === n);
     if (!debt || !inst || inst.paid) return;
     const { principal, extra } = splitPayment(inst, pay.amount);
-    const transferId = principal > 0
+    const spendNow = debt.spendOn === 'pay';
+    const transferId = !spendNow && principal > 0
       ? tx.addTransfer({ fromAccountId: pay.fromAccountId, toAccountId: debt.accountId, amount: principal, date: pay.date, note: debt.name, debtId })
       : undefined;
+    const purchaseExpenseId = spendNow && principal > 0 ? addPurchaseExpense(debt, principal, pay.date, pay.fromAccountId) : undefined;
     const expenseId = extra > 0
       ? tx.addTransaction({
           title: debt.name, date: pay.date, ...feeCategory('Interest'), amount: extra, type: 'debit',
           accountId: pay.fromAccountId, debtId,
         })
       : undefined;
-    setDebts((prev) => prev.map((d) => (d.id === debtId ? applyPayment(d, n, { date: pay.date, amount: round2(pay.amount), accountId: pay.fromAccountId, transferId, expenseId }) : d)));
+    const info = { date: pay.date, amount: round2(pay.amount), accountId: pay.fromAccountId, transferId, expenseId, purchaseExpenseId };
+    if (spendNow) tx.updateAccount(debt.accountId, { initialBalance: -remainingPrincipal(applyPayment(debt, n, info)) });
+    setDebts((prev) => prev.map((d) => (d.id === debtId ? applyPayment(d, n, info) : d)));
+  }
+
+  /** The principal part of a payment on an instalment purchase: spending in the category of what was bought. */
+  function addPurchaseExpense(debt: Debt, amount: number, date: string, accountId: string) {
+    return tx.addTransaction({
+      title: debt.name, date, categoryId: debt.categoryId ?? FALLBACK_EXPENSE_ID, subcategory: debt.subcategory ?? '',
+      amount, type: 'debit', accountId, debtId: debt.id,
+    });
   }
 
   function undoPayment(debtId: string, n: number) {
-    const paid = debts.find((d) => d.id === debtId)?.schedule.find((s) => s.n === n)?.paid;
-    if (!paid) return;
+    const debt = debts.find((d) => d.id === debtId);
+    const paid = debt?.schedule.find((s) => s.n === n)?.paid;
+    if (!debt || !paid) return;
     if (paid.transferId) tx.deleteTransfer(paid.transferId);
     if (paid.expenseId) tx.deleteTransaction(paid.expenseId);
+    if (paid.purchaseExpenseId) tx.deleteTransaction(paid.purchaseExpenseId);
+    if (debt.spendOn === 'pay') tx.updateAccount(debt.accountId, { initialBalance: -remainingPrincipal(undoPaymentOn(debt, n)) });
     setDebts((prev) => prev.map((d) => (d.id === debtId ? undoPaymentOn(d, n) : d)));
   }
 
@@ -227,14 +237,17 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     const debt = debts.find((d) => d.id === debtId);
     if (!debt || debt.kind === 'credit') return;
     const remaining = remainingPrincipal(debt);
-    const transferId = remaining > 0
+    const spendNow = debt.spendOn === 'pay';
+    const transferId = !spendNow && remaining > 0
       ? tx.addTransfer({ fromAccountId: pay.fromAccountId, toAccountId: debt.accountId, amount: remaining, date: pay.date, note: debt.name, debtId })
       : undefined;
+    const purchaseExpenseId = spendNow && remaining > 0 ? addPurchaseExpense(debt, remaining, pay.date, pay.fromAccountId) : undefined;
     const expenseId = pay.extra > 0
       ? tx.addTransaction({ title: debt.name, date: pay.date, ...feeCategory('Interest'), amount: pay.extra, type: 'debit', accountId: pay.fromAccountId, debtId })
       : undefined;
+    if (spendNow) tx.updateAccount(debt.accountId, { initialBalance: 0 });
     setDebts((prev) =>
-      prev.map((d) => (d.id === debtId ? { ...d, status: 'done', settled: { date: pay.date, amount: round2(remaining + pay.extra), accountId: pay.fromAccountId, transferId, expenseId } } : d)),
+      prev.map((d) => (d.id === debtId ? { ...d, status: 'done', settled: { date: pay.date, amount: round2(remaining + pay.extra), accountId: pay.fromAccountId, transferId, expenseId, purchaseExpenseId } } : d)),
     );
   }
 
@@ -271,15 +284,9 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
       ...old, name: input.name, provider: input.provider, payFromAccountId: input.payFromAccountId,
       principal: input.principal, months: input.months, startDate: input.startDate,
       categoryId: input.categoryId, subcategory: input.subcategory,
-      schedule: markHistoricPaid(schedule0, input.paidCount, input.payFromAccountId), status: 'active',
+      schedule: markHistoricPaid(schedule0, input.paidCount, input.payFromAccountId), status: 'active', spendOn: 'pay',
     };
-    tx.updateAccount(old.accountId, { name: input.name, initialBalance: input.paidCount > 0 ? -remainingPrincipal(debt) : 0 });
-    if (input.paidCount === 0) {
-      tx.addTransaction({
-        title: input.name, date: input.startDate, categoryId: input.categoryId ?? FALLBACK_EXPENSE_ID, subcategory: input.subcategory ?? '',
-        amount: input.principal, type: 'debit', accountId: old.accountId, debtId: id,
-      });
-    }
+    tx.updateAccount(old.accountId, { name: input.name, initialBalance: -remainingPrincipal(debt) });
     setDebts((prev) => prev.map((d) => (d.id === id ? debt : d)));
   }
 
@@ -323,6 +330,36 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     }
     setDebts((prev) => prev.filter((d) => d.id !== id));
   }
+
+  /**
+   * Instalment debts made before 3.1.3 booked the whole price as spending on the day of purchase. Move them to
+   * spending-on-payment once, here, as soon as everything is loaded (a debt that arrives later from another device is
+   * handled the same way).
+   */
+  const converted = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ready || !tx.ready) return;
+    const todo = debts.filter((d) => d.kind === 'installment' && d.spendOn !== 'pay' && !converted.current.has(d.id));
+    if (todo.length === 0) return;
+    const next = new Map<string, Debt>();
+    for (const d of todo) {
+      converted.current.add(d.id);
+      const plan = planPayMode(d, tx.transactions, tx.transfers);
+      tx.deleteTransactions(plan.removeTransactionIds);
+      plan.removeTransferIds.forEach((tid) => tx.deleteTransfer(tid));
+      for (const e of plan.expenses) {
+        if (tx.transactions.some((x) => x.id === e.id)) continue; // another device already made it
+        tx.addTransaction({
+          id: e.id, title: d.name, date: e.date, categoryId: d.categoryId ?? FALLBACK_EXPENSE_ID, subcategory: d.subcategory ?? '',
+          amount: e.amount, type: 'debit', accountId: e.accountId, debtId: d.id,
+        });
+      }
+      tx.updateAccount(d.accountId, { initialBalance: plan.balance });
+      next.set(d.id, applyPayModePlan(d, plan));
+    }
+    setDebts((prev) => prev.map((d) => next.get(d.id) ?? d));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, tx.ready, debts]);
 
   return (
     <DebtsContext.Provider value={{ ready, debts, ious, addIou, updateIou, addIouPayment, removeIouPayment, deleteIou, createInstalment, createLoan, createCredit, payInstalment, undoPayment, settle, repayCredit, updateDebt, reviseInstalment, reviseLoan, deleteDebt }}>

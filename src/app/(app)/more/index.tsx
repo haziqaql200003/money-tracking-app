@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isLightColor } from '@/constants/card-styles';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import type { IconName } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useDebts } from '@/context/DebtsContext';
@@ -22,13 +24,14 @@ import { formatMoney } from '@/utils/currency';
 import { daysToPayday } from '@/utils/cycle';
 import { monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { useT } from '@/i18n';
+import { refreshFeedback, useFeedback } from '@/services/feedback';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { useUpdates } from '@/context/UpdatesContext';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -42,6 +45,13 @@ export default function MoreScreen() {
   const { warnPercent, calendarMonths } = useSettings();
   const { hideAmounts } = usePrivacy();
   const { hasUnseenUpdate } = useUpdates();
+  const { user } = useAuth();
+  const { unseen: feedbackUnseen } = useFeedback(user?.id ?? null);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshFeedback();
+    }, []),
+  );
 
   const spent = spentByCategory(budgetEntries, monthKeyFromOffset(0));
   const budgeted = expenseCategories.filter((c) => c.monthlyLimit > 0);
@@ -78,6 +88,34 @@ export default function MoreScreen() {
       subtitle: goals.length > 0 ? tp('more.index.rancang.withGoals', goals.length) : t('more.index.rancang.empty'),
       tint: '#22C55E',
       href: '/more/rancang',
+    },
+    {
+      icon: 'cash-outline',
+      label: t('alloc.title'),
+      subtitle: t('alloc.menu.sub'),
+      tint: '#10B981',
+      href: '/more/planner',
+    },
+    {
+      icon: 'calendar-outline',
+      label: t('cal.title'),
+      subtitle: t('cal.menu.sub'),
+      tint: '#3B82F6',
+      href: '/more/cashflow',
+    },
+    {
+      icon: 'document-text-outline',
+      label: t('mrep.title'),
+      subtitle: t('mrep.menu.sub'),
+      tint: '#EC4899',
+      href: '/more/report',
+    },
+    {
+      icon: 'receipt-outline',
+      label: t('tax.title'),
+      subtitle: t('tax.menu.sub'),
+      tint: '#EAB308',
+      href: '/more/tax',
     },
     {
       icon: 'repeat',
@@ -138,6 +176,14 @@ export default function MoreScreen() {
       tint: '#F59E0B',
       href: '/more/whats-new',
       badge: hasUnseenUpdate,
+    },
+    {
+      icon: 'chatbubble-ellipses-outline',
+      label: t('fb.title'),
+      subtitle: t('fb.menu.sub'),
+      tint: '#06B6D4',
+      href: '/more/feedback',
+      badge: feedbackUnseen > 0,
     },
     {
       icon: 'information-circle-outline',

@@ -1,5 +1,5 @@
 import { addMonths } from '@/utils/debts';
-import { addDays } from '@/utils/bills';
+import { addDays } from '@/utils/cycle';
 
 /**
  * Money between you and people (a friend, family): who owes whom, how much is left, and when to nudge.

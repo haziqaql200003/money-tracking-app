@@ -1,6 +1,6 @@
 import { ActivityIndicator } from 'react-native';
 
-import { ThemedView } from '@/components/themed-view';
+import { ThemedView } from '@/components/ui/themed-view';
 
 /**
  * The browser returns here after Google sign-in (wakira://auth-callback). The sign-in sheet picks the address up

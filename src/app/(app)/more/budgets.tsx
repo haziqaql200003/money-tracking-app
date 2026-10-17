@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BudgetLimitModal } from '@/components/budget-limit-modal';
-import { CategoryIcon } from '@/components/category-icon';
-import { MonthSwitcher } from '@/components/month-switcher';
+import { BudgetLimitModal } from '@/components/budget/budget-limit-modal';
+import { CategoryIcon } from '@/components/ui/category-icon';
+import { MonthSwitcher } from '@/components/ui/month-switcher';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import type { Category } from '@/constants/categories';
 import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
@@ -24,6 +24,7 @@ import { formatMoney } from '@/utils/currency';
 import { cycleInfo, cycleOf } from '@/utils/cycle';
 import { cycleRangeLabel, monthKeyFromOffset, monthLabel, toDateKey } from '@/utils/dates';
 import { p1 } from '@/utils/percent';
+import { Alert } from '@/services/dialog';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
@@ -381,4 +382,4 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
-});
+});

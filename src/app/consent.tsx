@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Button } from '@/components/ui/button';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';

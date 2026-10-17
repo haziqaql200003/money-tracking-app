@@ -9,6 +9,11 @@ import { enMore } from './more';
 import { enPlan } from './plan';
 import { enOb } from './ob';
 import { enRpt } from './rpt';
+import { enAlloc } from './alloc';
+import { enCal } from './cal';
+import { enFb } from './fb';
+import { enMrep } from './mrep';
+import { enTax } from './tax';
 import { enTx } from './tx';
 
-export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb };
+export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb, ...enTax, ...enCal, ...enAlloc, ...enMrep, ...enFb };

@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
-import { Alert, ScrollView, Share, StyleSheet, Switch } from 'react-native';
+import { ScrollView, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader } from '@/components/screen-header';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
@@ -18,6 +18,11 @@ import { accountName, categoryName } from '@/i18n/data';
 import { formatDate } from '@/i18n/format';
 import { listBackups, restoreBackups, useSyncStatus } from '@/services/cloud-sync';
 import { toCsv } from '@/utils/csv';
+import { Alert } from '@/services/dialog';
+import { datedName, pickTextFile, shareTextFile } from '@/services/share-file';
+import { collectBackup, parseBackup, restoreBackup, summarize } from '@/services/backup';
+import { CURRENT_VERSION } from '@/constants/changelog';
+import { toDateKey } from '@/utils/dates';
 
 /** Everything about where your data lives and how to take it with you or remove it. */
 export default function DataPrivacyScreen() {
@@ -70,11 +75,41 @@ export default function DataPrivacyScreen() {
         return c ? categoryName(c) : id;
       },
     );
-    try {
-      await Share.share({ message: csv, title: 'transactions.csv' /* i18n-ignore */ });
-    } catch {
-      // sheet dismissed
+    await shareTextFile(datedName('wakira-transactions', toDateKey(new Date())), csv); // i18n-ignore: file name
+  }
+
+  async function backupAll() {
+    if (!user) return;
+    const backup = await collectBackup(user.id, CURRENT_VERSION);
+    await shareTextFile(datedName('wakira-backup', toDateKey(new Date()), 'wakira.json'), JSON.stringify(backup, null, 1), 'application/json'); // i18n-ignore: file name
+  }
+
+  async function restoreFromFile() {
+    if (!user) return;
+    const file = await pickTextFile();
+    if (!file) return;
+    const parsed = parseBackup(file.text);
+    if (!parsed.ok) {
+      const why = parsed.reason === 'newer' ? t('more.data.badFileNewer') : parsed.reason === 'notWakira' ? t('more.data.badFileNot') : t('more.data.badFileBroken');
+      Alert.alert(t('more.data.badFileTitle'), why);
+      return;
     }
+    const s = summarize(parsed.backup);
+    const when = s.exportedAt ? formatDate(new Date(s.exportedAt)) : '?';
+    Alert.alert(
+      t('more.data.restoreAskTitle'),
+      t('more.data.restoreAskBody', { date: when, version: s.appVersion || '?', tx: s.transactions, accounts: s.accounts, debts: s.debts, goals: s.goals }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('more.data.restoreGo'),
+          style: 'destructive',
+          onPress: () => {
+            void restoreBackup(user.id, parsed.backup).then((n) => Alert.alert(t('more.data.restoreDoneTitle'), t('more.data.restoreDoneBody', { count: n })));
+          },
+        },
+      ],
+    );
   }
 
   function confirmReset() {
@@ -122,6 +157,11 @@ export default function DataPrivacyScreen() {
           <Section title={t('more.settings.data')}>
             <Row first icon="download-outline" label={t('more.settings.export')} subtitle={t('more.settings.exportSub')} onPress={exportAll} />
             <Row icon="push-outline" label={t('more.settings.import')} subtitle={t('more.settings.importSub')} onPress={() => router.push('/more/import')} />
+          </Section>
+
+          <Section title={t('more.data.backupTitle')} footer={t('more.data.backupFooter')}>
+            <Row first icon="archive-outline" label={t('more.data.backup')} subtitle={t('more.data.backupSub')} onPress={() => void backupAll()} />
+            <Row icon="refresh-outline" label={t('more.data.restoreFile')} subtitle={t('more.data.restoreFileSub')} onPress={() => void restoreFromFile()} />
           </Section>
 
           <Section title={t('more.data.policies')}>

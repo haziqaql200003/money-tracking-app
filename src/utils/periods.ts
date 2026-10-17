@@ -1,5 +1,5 @@
 import type { Transaction } from '@/context/TransactionsContext';
-import { cycleRange } from '@/utils/cycle';
+import { addDays, cycleRange } from '@/utils/cycle';
 import { monthKeysEnding, type MonthTotals } from '@/utils/insights';
 
 /**
@@ -16,17 +16,10 @@ export function grainsFor(months: number): Grain[] {
 export type Period = { key: string; from: string; to: string };
 export type PeriodTotals = MonthTotals & { from: string; to: string; future: boolean };
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const dateOf = (key: string) => {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
-export function addDays(key: string, n: number) {
-  const d = dateOf(key);
-  d.setDate(d.getDate() + n);
-  return keyOf(d);
-}
 
 /**
  * The bars for the last `months` financial months (the current one included, to its last day).

@@ -1,22 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, SectionList, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, SectionList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenSkeleton } from '@/components/ui/skeleton';
-import { AdjustmentsModal } from '@/components/adjustments-modal';
-import { TransferModal } from '@/components/transfer-modal';
-import { AddTransactionModal } from '@/components/add-transaction-modal';
-import { MonthSwitcher } from '@/components/month-switcher';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { rowPosition, SwipeableTransactionRow } from '@/components/swipeable-transaction-row';
+import { useIsDesktop } from '@/components/desktop/use-desktop';
+import { AdjustmentsModal } from '@/components/transactions/adjustments-modal';
+import { TransferModal } from '@/components/transactions/transfer-modal';
+import { AddTransactionModal } from '@/components/transactions/add-transaction-modal';
+import { MonthSwitcher } from '@/components/ui/month-switcher';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
+import { rowPosition, SwipeableTransactionRow } from '@/components/transactions/swipeable-transaction-row';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenTitle } from '@/components/ui/screen-title';
-import { MonthSummary } from '@/components/transactions-summary';
+import { MonthSummary } from '@/components/transactions/transactions-summary';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
 import type { IconName } from '@/constants/categories';
@@ -33,6 +34,8 @@ import { cycleOf } from '@/utils/cycle';
 import { cycleRangeLabel, dayLabel, monthKeyFromOffset, monthLabel } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { MIN_COMPARE_BASE } from '@/utils/insights';
+import { Alert } from '@/services/dialog';
+import { shareTextFile } from '@/services/share-file';
 
 type TypeFilter = 'all' | TransactionType;
 
@@ -51,6 +54,7 @@ export default function TransactionsScreen() {
   const { t, tp } = useT();
   const { transactions, transfers, accounts, selectableAccounts, ready } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
+  const desktop = useIsDesktop();
   const { openAddRecord } = useAddRecord();
   const { getCategory } = useCategories();
 
@@ -194,11 +198,7 @@ export default function TransactionsScreen() {
         return cat ? categoryName(cat) : id;
       },
     );
-    try {
-      await Share.share({ message: csv, title: 'transactions.csv' }); // i18n-ignore: file name
-    } catch {
-      // sheet dismissed
-    }
+    await shareTextFile(`wakira-transactions-${monthKey}.csv`, csv); // i18n-ignore: file name
   }
   
   const accountOptions: { id: string | null; label: string; icon: IconName }[] = [
@@ -206,8 +206,8 @@ export default function TransactionsScreen() {
     ...selectableAccounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon })),
   ];
 
-  const header = (
-    <View>
+  const titleBlock = (
+    <>
       {/* Title */}
       <ScreenTitle
         title={t('tx.list.title')}
@@ -225,7 +225,11 @@ export default function TransactionsScreen() {
         onNext={() => goToMonth(monthOffset + 1)}
         onReset={() => goToMonth(0)}
       />
+    </>
+  );
 
+  const summaryBlock = (
+    <>
       <MonthSummary
         income={stats.income}
         spending={stats.spending}
@@ -250,7 +254,11 @@ export default function TransactionsScreen() {
           </ThemedText>
         </View>
       ) : null}
+    </>
+  );
 
+  const searchBlock = (
+    <>
       {/* Search */}
       <View style={[styles.search, { backgroundColor: colors.backgroundElement }]}>
         <Ionicons name="search" size={18} color={colors.textSecondary} />
@@ -312,6 +320,20 @@ export default function TransactionsScreen() {
           </Pressable>
         ) : null}
       </View>
+    </>
+  );
+
+  // Wide web: the list on the left, the month's summary beside it instead of above it.
+  const header = desktop ? (
+    <View>
+      {titleBlock}
+      {searchBlock}
+    </View>
+  ) : (
+    <View>
+      {titleBlock}
+      {summaryBlock}
+      {searchBlock}
     </View>
   );
 
@@ -341,8 +363,10 @@ export default function TransactionsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={[styles.safeArea, desktop && styles.desktopSafe]} edges={['top', 'left', 'right']}>
+        <View style={desktop ? styles.desktopRow : styles.flex}>
         <SectionList
+          style={desktop ? styles.desktopList : undefined}
           sections={sections}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index, section }) => (
@@ -390,6 +414,12 @@ export default function TransactionsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
         />
+        {desktop ? (
+          <ScrollView style={styles.desktopSide} contentContainerStyle={styles.desktopSideContent} showsVerticalScrollIndicator={false}>
+            {summaryBlock}
+          </ScrollView>
+        ) : null}
+        </View>
 
         <AdjustmentsModal visible={!!adjustmentsFor} onClose={() => setAdjustmentsFor(null)} accountId={adjustmentsFor} />
         <TransferModal visible={!!editingTransfer} onClose={() => setEditingTransfer(null)} editing={editingTransfer} />
@@ -408,7 +438,13 @@ const styles = StyleSheet.create({
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.three },
   savedLabel: { flex: 1 },
   container: { flex: 1 },
+  flex: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
+  desktopSafe: { paddingHorizontal: Spacing.five, paddingTop: Spacing.three },
+  desktopRow: { flex: 1, flexDirection: 'row', gap: Spacing.four },
+  desktopList: { flex: 1, minWidth: 0 },
+  desktopSide: { width: 380, flexGrow: 0 },
+  desktopSideContent: { paddingTop: 76, paddingBottom: Spacing.five },
   listContent: { paddingBottom: 120 },
 
 

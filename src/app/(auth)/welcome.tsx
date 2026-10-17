@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SocialButtons } from '@/components/social-buttons';
-import { ThemedView } from '@/components/themed-view';
+import { SocialButtons } from '@/components/auth/social-buttons';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { APP_NAME } from '@/constants/brand';

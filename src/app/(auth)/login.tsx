@@ -1,19 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthField } from '@/components/auth-field';
+import { AuthField } from '@/components/auth/auth-field';
 import { IconButton } from '@/components/ui/icon-button';
-import { SocialButtons } from '@/components/social-buttons';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { SocialButtons } from '@/components/auth/social-buttons';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import { APP_NAME, MOTTO, SLOGAN_KEY } from '@/constants/brand';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { Alert } from '@/services/dialog';
 
 export default function LoginScreen() {
   const colors = useTheme();

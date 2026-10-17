@@ -14,9 +14,112 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.0.6';
+export const CURRENT_VERSION = '3.2.1';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.2.1',
+    date: '2026-10-15',
+    title: 'Tag an expense for tax relief', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Tanda perbelanjaan untuk pelepasan cukai',
+    highlights: [
+      { text: 'Choose a tax relief when you add or edit an expense, or a recurring one', ms: 'Pilih pelepasan cukai semasa menambah atau mengubah perbelanjaan, atau yang berulang' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'new', text: 'New optional Tax relief choice on expenses and recurring expenses. The claim is made for you and follows the expense: change the amount or date, or delete it, and Tax relief updates by itself.', ms: 'Pilihan baharu Pelepasan cukai (pilihan) pada perbelanjaan dan perbelanjaan berulang. Tuntutan dibuat untuk anda dan mengikut perbelanjaan itu: ubah jumlah atau tarikh, atau padamkannya, dan Pelepasan cukai dikemas kini sendiri.' }, // i18n-ignore
+      { kind: 'improved', text: 'Recurring expenses (for example PRS or insurance) tag every payment they make. Tagged expenses show Tax relief in the list, and picking from records no longer offers an expense that is already tagged.', ms: 'Perbelanjaan berulang (contohnya PRS atau insurans) menanda setiap bayaran yang dibuatnya. Perbelanjaan bertanda menunjukkan Pelepasan cukai dalam senarai, dan memilih daripada rekod tidak lagi menawarkan perbelanjaan yang sudah bertanda.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.2.0',
+    date: '2026-10-15',
+    title: 'Plan your salary, see your cash flow, claim your tax relief', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Rancang gaji, lihat aliran tunai, tuntut pelepasan cukai',
+    highlights: [
+      { text: 'Salary planner: give every ringgit a purpose before you spend', ms: 'Perancang gaji: beri setiap ringgit satu tujuan sebelum anda berbelanja' }, // i18n-ignore
+      { text: 'Cash flow calendar: salary, bills and repayments by date, with a warning before your balance runs out', ms: 'Kalendar aliran tunai: gaji, bil dan bayaran mengikut tarikh, dengan amaran sebelum baki anda habis' }, // i18n-ignore
+      { text: 'Monthly report you can share, and a tax relief tracker', ms: 'Laporan bulanan yang boleh dikongsi, dan penjejak pelepasan cukai' }, // i18n-ignore
+      { text: 'Report a bug or suggestion and follow its progress like a parcel', ms: 'Lapor pepijat atau cadangan dan jejak perkembangannya seperti bungkusan' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'new', text: 'Salary planner (More): enter your income for the pay month, see what bills and instalments already take, then give the rest to goals, budgets or your own lines until nothing is left unassigned. Fill from budgets and goals, use 50/30/20, or copy last month.', ms: 'Perancang gaji (Lagi): masukkan pendapatan bulan gaji, lihat apa yang sudah diambil bil dan ansuran, kemudian agihkan baki kepada matlamat, bajet atau baris sendiri sehingga tiada yang tinggal. Isi daripada bajet dan matlamat, guna 50/30/20, atau salin bulan lepas.' }, // i18n-ignore
+      { kind: 'new', text: 'Cash flow calendar (More): your financial month by day with what happened and what is expected (recurring bills and income, unpaid instalments, money owed, salary day), the balance at the end of each day, the lowest point and a warning if it may go below zero.', ms: 'Kalendar aliran tunai (Lagi): bulan kewangan anda mengikut hari dengan apa yang telah berlaku dan apa yang dijangka (bil dan pendapatan berulang, ansuran belum dibayar, wang pinjaman, hari gaji), baki akhir setiap hari, titik terendah dan amaran jika baki mungkin jatuh bawah sifar.' }, // i18n-ignore
+      { kind: 'new', text: 'Monthly report (More): income, spending, savings rate, comparison with last month, budget performance, top categories, goals, debt payments and highlights. Share it as text or as a spreadsheet.', ms: 'Laporan bulanan (Lagi): pendapatan, perbelanjaan, kadar simpanan, perbandingan dengan bulan lepas, prestasi bajet, kategori teratas, matlamat, bayaran hutang dan sorotan. Kongsi sebagai teks atau hamparan.' }, // i18n-ignore
+      { kind: 'new', text: 'Tax relief tracker (More): claims by relief with limits, what is left, your estimated tax saved at your tax rate, and a pick-from-records option. Limits are for YA2025 and can change: check LHDN before you file.', ms: 'Penjejak pelepasan cukai (Lagi): tuntutan mengikut pelepasan dengan had, baki, anggaran cukai dijimatkan pada kadar cukai anda, dan pilihan memilih daripada rekod. Had ialah untuk TA2025 dan boleh berubah: semak LHDN sebelum memfailkan.' }, // i18n-ignore
+      { kind: 'new', text: 'Report a bug or suggest (More): send a report from the app and follow it through Received, Being looked at, Planned, Being worked on and Done, with the developer’s notes and the version it was fixed in.', ms: 'Lapor pepijat atau cadangan (Lagi): hantar laporan dari app dan jejaki melalui Diterima, Sedang disemak, Dirancang, Sedang dibuat dan Selesai, bersama nota pemaju dan versi pembetulan.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.1.3',
+    date: '2026-10-13',
+    title: 'Instalments count as spending when you pay', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Ansuran dikira belanja bila anda bayar',
+    highlights: [
+      { text: 'An instalment purchase is no longer spent in full on the day you buy it', ms: 'Pembelian ansuran tidak lagi dikira belanja penuh pada hari anda beli' }, // i18n-ignore
+      { text: 'Each payment you make counts as spending on the day you pay it', ms: 'Setiap bayaran yang anda buat dikira belanja pada hari anda bayar' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'improved', text: 'Instalment debts: nothing is spent until you pay. Each payment counts as spending on its payment date, in the category of what you bought, with any fee. What you still owe is unchanged.', ms: 'Hutang ansuran: tiada belanja sehingga anda bayar. Setiap bayaran dikira belanja pada tarikh bayar, dalam kategori barang yang dibeli, bersama fi jika ada. Baki hutang tidak berubah.' }, // i18n-ignore
+      { kind: 'improved', text: 'Your existing instalment debts are converted once when you open this version: the full price that was counted on the day of purchase is removed, and each payment already made is counted on its own date. Your account balances do not change, but spending in past months does.', ms: 'Hutang ansuran sedia ada ditukar sekali apabila anda buka versi ini: harga penuh yang dikira pada hari pembelian dibuang, dan setiap bayaran yang telah dibuat dikira pada tarikhnya sendiri. Baki akaun tidak berubah, tetapi belanja bulan-bulan lepas berubah.' }, // i18n-ignore
+      { kind: 'improved', text: 'Loans are unchanged: money you receive is not income, and only interest and fees count as spending.', ms: 'Pinjaman tidak berubah: wang yang diterima bukan pendapatan, dan hanya faedah dan fi dikira sebagai belanja.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.1.2',
+    date: '2026-10-13',
+    title: 'Dates on the web, and a tidier Home', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Tarikh di web, dan Utama lebih kemas',
+    changes: [
+      { kind: 'fixed', text: 'Web: every date row (new record, debt, balance adjustment, payday history) could not be changed. It now opens the browser calendar.', ms: 'Web: semua baris tarikh (rekod baharu, hutang, pelarasan baki, sejarah hari gaji) tidak boleh diubah. Kini ia membuka kalendar pelayar.' }, // i18n-ignore
+      { kind: 'improved', text: 'Web on a computer: the Coming up box on Home is as tall as the chart beside it, also when nothing is due.', ms: 'Web di komputer: kotak Akan datang di Utama setinggi carta di sebelahnya, walaupun tiada apa yang perlu dibayar.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.1.1',
+    date: '2026-10-13',
+    title: 'Analyse and Rancang on a wide screen', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Faham dan Rancang di skrin lebar',
+    changes: [
+      { kind: 'new', text: 'Web on a computer: Analyse shows what you kept and when the money moved on the left, and where it went on the right.', ms: 'Web di komputer: Faham menunjukkan baki simpanan dan masa wang bergerak di kiri, dan ke mana ia pergi di kanan.' }, // i18n-ignore
+      { kind: 'new', text: 'Web on a computer: Rancang shows budgets and goals on the left, upcoming bills and reminders on the right.', ms: 'Web di komputer: Rancang menunjukkan bajet dan matlamat di kiri, bil akan datang dan peringatan di kanan.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.1.0',
+    date: '2026-10-13',
+    title: 'Your data safer, and WaKira for the desktop', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Data lebih selamat, dan WaKira untuk desktop',
+    highlights: [
+      { text: 'Phone and web no longer overwrite each other: records are combined', ms: 'Telefon dan web tidak lagi menimpa satu sama lain: rekod digabungkan' }, // i18n-ignore
+      { text: 'Back up everything to one file and restore it any time', ms: 'Sandarkan semua data ke satu fail dan pulihkan bila-bila masa' }, // i18n-ignore
+      { text: 'On a computer, WaKira has a side menu and a wide dashboard', ms: 'Di komputer, WaKira ada menu sisi dan papan pemuka lebar' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'improved', text: 'Sync: when two devices change your records before they sync, the changes are combined record by record instead of one device replacing the other. A record added, edited or deleted on either side is kept that way; only a record changed on both sides takes the newer change.', ms: 'Penyegerakan: bila dua peranti mengubah rekod anda sebelum sempat disegerakkan, perubahan digabungkan rekod demi rekod, bukan satu peranti menggantikan yang lain. Rekod yang ditambah, diubah atau dipadam di mana-mana pihak kekal begitu; hanya rekod yang diubah di kedua-dua pihak mengambil perubahan yang lebih baru.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Sync: a device that had been offline could overwrite newer changes made on another device as soon as it came back online. It now checks first and combines.', ms: 'Penyegerakan: peranti yang luar talian boleh menimpa perubahan lebih baru dari peranti lain sebaik sahaja ia kembali dalam talian. Kini ia menyemak dahulu dan menggabungkan.' }, // i18n-ignore
+      { kind: 'new', text: 'More > Data & Privacy > Back up everything: one .wakira.json file with your accounts, records, transfers, budgets, debts, goals and settings. Restore from a backup file shows what is in it before replacing anything, and keeps a copy of your current data.', ms: 'Lagi > Data & Privasi > Sandarkan semua data: satu fail .wakira.json dengan akaun, rekod, pindahan, bajet, hutang, matlamat dan tetapan anda. Pulihkan daripada fail sandaran menunjukkan isinya sebelum menggantikan apa-apa, dan menyimpan salinan data semasa anda.' }, // i18n-ignore
+      { kind: 'new', text: 'Web on a computer: a side menu with Home, Transactions, Analyse, Rancang and the things you manage; Home becomes a dashboard with four figures, the chart, what is coming up, budgets and recent records; Transactions shows the month summary beside the list; forms open as a panel on the right. Press N for a new record.', ms: 'Web di komputer: menu sisi dengan Utama, Transaksi, Faham, Rancang dan perkara yang anda urus; Utama menjadi papan pemuka dengan empat angka, carta, perkara akan datang, bajet dan rekod terkini; Transaksi menunjukkan ringkasan bulan di sebelah senarai; borang dibuka sebagai panel di kanan. Tekan N untuk rekod baharu.' }, // i18n-ignore
+      { kind: 'new', text: 'More > About > Error log: if something goes wrong, the error is noted on this device (no amounts or names) so it can be shared with the developer. A screen that fails to draw now shows Try again instead of a blank app.', ms: 'Lagi > Perihal > Log ralat: jika berlaku masalah, ralat dicatat dalam peranti ini (tanpa jumlah atau nama) supaya boleh dikongsi dengan pembangun. Skrin yang gagal dipaparkan kini menunjukkan Cuba lagi, bukan aplikasi kosong.' }, // i18n-ignore
+      { kind: 'improved', text: 'Small fixes can now reach the app without installing a new version, once this version is installed.', ms: 'Pembaikan kecil kini boleh sampai ke aplikasi tanpa memasang versi baharu, selepas versi ini dipasang.' }, // i18n-ignore
+    ],
+  },
+  {
+    version: '3.0.7',
+    date: '2026-10-13',
+    title: 'Works properly on the web', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Berfungsi dengan betul di web',
+    highlights: [
+      { text: 'Delete, reset and other confirmations now appear on the web', ms: 'Padam, set semula dan pengesahan lain kini muncul di web' }, // i18n-ignore
+      { text: 'Export saves a real CSV file you can open in Excel', ms: 'Eksport menyimpan fail CSV sebenar yang boleh dibuka dalam Excel' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'fixed', text: 'Web: with cloud sign-in set up, opening WaKira in a browser no longer stops with a "window is not defined" error while the page is prepared.', ms: 'Web: dengan log masuk awan, membuka WaKira dalam pelayar tidak lagi terhenti dengan ralat "window is not defined" semasa halaman disediakan.' }, // i18n-ignore
+      { kind: 'fixed', text: 'Web: questions such as "Delete this account?" or "Reset all data?" did not appear, so the button did nothing. They now open as a dialog in the app, and messages such as sign-in errors show too.', ms: 'Web: soalan seperti "Padam akaun ini?" atau "Set semula semua data?" tidak muncul, jadi butang tidak berbuat apa-apa. Kini ia dibuka sebagai dialog dalam aplikasi, dan mesej seperti ralat log masuk juga dipaparkan.' }, // i18n-ignore
+      { kind: 'improved', text: 'Export to CSV and the import template are now real .csv files: downloaded on the web, and shared as a file on your phone so you can save them to Files or Drive or open them in Excel.', ms: 'Eksport ke CSV dan templat import kini fail .csv sebenar: dimuat turun di web, dan dikongsi sebagai fail di telefon supaya boleh disimpan ke Files atau Drive atau dibuka dalam Excel.' }, // i18n-ignore
+      { kind: 'improved', text: 'Exported files keep Malay and special characters intact in Excel, and carry the date in their name.', ms: 'Fail eksport mengekalkan huruf khas dalam Excel, dan nama fail mengandungi tarikh.' }, // i18n-ignore
+      { kind: 'improved', text: 'Web: sharing a story or the summary for an AI assistant copies the text when the browser has no share sheet.', ms: 'Web: berkongsi cerita atau ringkasan untuk pembantu AI akan menyalin teks jika pelayar tiada helaian kongsi.' }, // i18n-ignore
+    ],
+  },
   {
     version: '3.0.6',
     date: '2026-10-13',

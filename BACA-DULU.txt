@@ -1,34 +1,26 @@
-WaKira 2.2.0 - Cerita laporan (RAHSIA: tidak disebut dalam changelog)
-Dibina atas 2.1.9.
+WaKira 3.2.0  (semua JavaScript sahaja -> boleh dihantar melalui EAS Update)
 
-APA YANG BARU
-1. Resit mingguan (konsep C, resit kertas) - 6 cerita: pembuka, belanja hari demi hari, berbanding minggu lepas (cop JIMAT!/ALAMAK),
-   top tempat, streak + cabaran minggu depan, ringkasan + cop gred + kod bar.
-2. Cerita bulanan (konsep F, poster nombor) - hingga 7 cerita: pembuka, kadar simpanan, bajet, perubahan paling ketara,
-   peta kalendar, matlamat, ringkasan + cadangan bulan depan.
-3. Imbasan tahunan (konsep A, warna pekat) - hingga 18 cerita: rekod, pendapatan, belanja (cawan teh tarik), kategori,
-   langganan, pembelian terbesar, tempat paling setia, tabiat kecil, hari kegemaran, personaliti, bulan paling boros,
-   momen besar, simpanan (cincin), berbanding tahun lepas, lencana, unjuran tahun depan, ringkasan.
-   Cerita tanpa data cukup dilangkau sendiri.
-4. Pemain cerita: bar kemajuan, ketik kanan/kiri, TEKAN LAMA untuk jeda, maju sendiri setiap 7 saat, butang Kongsi (teks) & Main semula.
+APA BARU
+1. Perancang gaji      (Lagi > Perancang gaji)      - agihkan pendapatan bulan gaji sampai "Belum diagihkan" = RM 0
+2. Kalendar aliran tunai (Lagi > Kalendar aliran tunai) - gaji, bil, ansuran, wang pinjaman ikut tarikh + amaran baki bawah sifar
+3. Laporan bulanan     (Lagi > Laporan bulanan)     - ringkasan, bajet, kategori, matlamat, hutang; kongsi teks / CSV
+4. Pelepasan cukai     (Lagi > Pelepasan cukai)     - penjejak ikut kategori, had YA2025, anggaran cukai dijimatkan
+5. Maklum balas        (Lagi > Maklum balas)        - lapor pepijat/cadangan + jejak status gaya Shopee
 
-DI MANA
-- Analyse > Insight > "Cerita anda" (minggu lepas, bulan lepas, tahun ini setakat ini). Dikunci jika rekod kurang
-  (minggu 5, bulan 15, tahun 60) - "Rekod N lagi untuk buka".
-- Kad di Home: resit minggu (Isnin-Rabu), cerita bulan (5 hari pertama bulan), imbasan tahun (1 Dis - 15 Jan).
-  Hilang selepas dibuka sekali.
-- Changelog 2.2.0: "Penambahbaikan kecil di sana sini. Teruskan merekod, mungkin ada sesuatu yang menanti anda."
-  (ubah dalam src/constants/changelog.ts jika mahu lebih senyap)
+CARA PASANG
+Salin semua fail dalam zip ini ke projek anda (path sama). Tiada pakej baharu. Versi sudah jadi 3.2.0.
 
-FAIL (timpa ikut path; 9 fail BARU)
- app.json, package.json, src/constants/changelog.ts
- src/app/(app)/analyse.tsx, src/app/(app)/index.tsx
- src/i18n/en/index.ts, src/i18n/ms/index.ts
- BARU: src/i18n/en/rpt.ts, src/i18n/ms/rpt.ts, src/utils/report-data.ts,
-       src/components/story/{story-player, story-kit, story-common, weekly-receipt, monthly-poster, annual-wrapped, report-stories}
+WAJIB UNTUK MAKLUM BALAS (sekali sahaja)
+1. Supabase > SQL Editor > New query > tampal seluruh supabase/003_feedback.sql > Run.
+2. Cara balas pengguna: Table Editor > feedback > ubah lajur status (reviewing / planned / in_progress / done / declined),
+   isi dev_note (nota untuk pengguna) dan fixed_in (cth 3.2.1). Setiap perubahan jadi satu langkah dalam garis masa pengguna.
+3. E-mel: isi EXPO_PUBLIC_FEEDBACK_EMAIL=emel@anda.com dalam .env.local dan dalam EAS env. Kosong = butang e-mel disembunyikan.
+   E-mel AUTOMATIK setiap kali ada laporan baharu perlu Database Webhook di Supabase (dijelaskan dalam docs/CLOUD.md bahagian 7); belum disediakan.
 
-TIADA pakej baharu (guna reanimated + svg sedia ada) - boleh jalan dalam Expo Go.
-
-SEMAKAN
- tsc bersih; eslint 10 ralat asas; i18n audit OK; expo export OK; sync-selftest OK; ujian unit data laporan OK;
- web: ketiga-tiga cerita dimainkan hingga habis tanpa ralat. BELUM diuji pada telefon sebenar (animasi & tekan lama).
+JUJUR TENTANG UJIAN
+- Diuji: tsc bersih, eslint kekal 10 (asas), audit bahasa OK, ujian unit logik (cukai, aliran tunai, peruntukan), export web/iOS/Android berjaya,
+  tangkapan skrin web desktop + lebar telefon (BM).
+- BELUM diuji: di telefon sebenar; Supabase sebenar (SQL dan penghantaran laporan ditulis tetapi belum dijalankan terhadap projek anda).
+- Had cukai ialah YA2025 dan boleh berubah: skrin sudah suruh pengguna semak LHDN.
+- Kalendar: "Keluar" termasuk wang yang dipindah keluar daripada akaun harian ke simpanan/hutang (itu mengurangkan wang yang boleh digunakan).
+- Perancang: bil berulang sudah ditolak dahulu. Kalau bajet kategori anda sudah termasuk bil tetap, ia akan dikira dua kali; app beri amaran bila guna "Isi daripada bajet".

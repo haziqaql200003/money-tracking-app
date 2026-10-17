@@ -94,6 +94,7 @@ export function confirmedTransaction(rule: RecurringRule, entry: PendingEntry, a
     type: rule.type,
     accountId: rule.accountId,
     recurringId: rule.id,
+    ...(rule.taxReliefId && rule.type === 'debit' ? { taxReliefId: rule.taxReliefId } : {}),
   };
 }
 
@@ -177,6 +178,7 @@ export function materializeRecurring(
           type: rule.type,
           accountId: rule.accountId,
           recurringId: rule.id,
+          ...(rule.taxReliefId && rule.type === 'debit' ? { taxReliefId: rule.taxReliefId } : {}),
         });
       }
       next = nextOccurrence(rule.startDate, next, rule.frequency);

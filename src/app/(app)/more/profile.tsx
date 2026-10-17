@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { EvenGrid } from '@/components/even-grid';
+import { EvenGrid } from '@/components/ui/even-grid';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
-import { ScreenHeader } from '@/components/screen-header';
-import { Row, Section } from '@/components/settings-ui';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { PaydayHistorySheet } from '@/components/payday-history-sheet';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Row, Section } from '@/components/settings/settings-ui';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
+import { PaydayHistorySheet } from '@/components/settings/payday-history-sheet';
 import { Sheet } from '@/components/ui/sheet';
 import { CARD_COLORS, isLightColor } from '@/constants/card-styles';
 import { MY_STATES } from '@/constants/my-holidays';
@@ -30,6 +30,7 @@ import { cycleInfo, daysToPayday, nextPayday } from '@/utils/cycle';
 import { cycleRangeLabel, toDateKey } from '@/utils/dates';
 import { snapshotOf } from '@/utils/insight-feed';
 import { p1 } from '@/utils/percent';
+import { Alert } from '@/services/dialog';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const STEP = 5;

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Dimensions, PanResponder, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Dimensions, PanResponder, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+
+import { useIsDesktop } from '@/components/desktop/use-desktop';
 
 import { useTheme } from '@/hooks/use-theme';
 
@@ -19,9 +21,11 @@ const CLOSE_VELOCITY = 0.9;
 /**
  * The box of a bottom sheet that can be pulled down to close, like iOS sheets.
  * Only the top strip (handle + title row) starts a drag, so scrolling the form and moving sliders inside still work.
+ * Wide web: the same box becomes a panel on the right edge (full height, no drag), like a desktop app's side panel.
  */
 export function DragSheet({ visible, onClose, style, children }: Props) {
   const colors = useTheme();
+  const desktop = useIsDesktop();
   const box = useRef<View>(null);
   // Mutable bits the gesture reads later (never during render): where the sheet's top is, and what closes it.
   const [live] = useState(() => ({ y: new Animated.Value(0), top: 0 }));
@@ -63,10 +67,26 @@ export function DragSheet({ visible, onClose, style, children }: Props) {
     <Animated.View
       ref={box}
       onLayout={() => box.current?.measureInWindow((_x, top) => (live.top = top))}
-      style={[{ backgroundColor: colors.background }, style, { transform: [{ translateY: y }] }]}
-      {...pan.panHandlers}
+      style={[{ backgroundColor: colors.background }, style, desktop ? styles.desktopPanel : { transform: [{ translateY: y }] }]}
+      {...(desktop ? {} : pan.panHandlers)}
     >
       {children}
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  desktopPanel: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 480,
+    maxWidth: '100%',
+    maxHeight: '100%',
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 28,
+    borderTopLeftRadius: 28,
+    paddingTop: 24,
+  },
+});

@@ -4,7 +4,7 @@
  * Needs Node 22.18+ (it loads the .ts file directly).
  */
 import assert from 'node:assert/strict';
-import { adoptAll, markEdited, pushIfDirty, reconcile } from '../src/services/sync-core.ts';
+import { adoptAll, markEdited, mergeRecordLists, pushIfDirty, reconcile } from '../src/services/sync-core.ts';
 
 // ---- in-memory fakes ----
 function makeCloud() {
@@ -26,6 +26,16 @@ function makeCloud() {
       const updatedAt = cloud.stamp();
       docs.set(key, { value: structuredClone(value), updatedAt });
       return updatedAt;
+    },
+  };
+  // The same cloud with compare-and-save, like the real Supabase store.
+  cloud.casStore = {
+    ...cloud.store,
+    async pushIf(key, value, base) {
+      if (!cloud.online) throw new Error('offline');
+      const d = docs.get(key);
+      if ((d?.updatedAt ?? null) !== base) return null;
+      return cloud.store.push(key, value);
     },
   };
   return cloud;
@@ -230,6 +240,103 @@ await test('adoptAll keeps a never-synced phone copy aside', async () => {
   await adoptAll(phone.store, [{ key: 'a', value: 'theirs', updatedAt: '2026-01-01T00:00:00.000Z' }]);
   assert.equal(phone.data.get('a'), 'theirs');
   assert.equal(phone.data.get('a.bak'), 'mine');
+});
+
+// ---- 3.1.0: record lists merge instead of one side replacing the other ----
+const tx = (id, title, amount = 1) => ({ id, title, amount });
+const ids = (v) => v.map((x) => x.id).sort();
+async function twoPhones(start) {
+  const cloud = makeCloud();
+  const a = makePhone();
+  const b = makePhone();
+  await markEdited(a.store, 'transactions', start, '2026-01-01T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'transactions');
+  await reconcile(b.store, cloud.casStore, 'transactions');
+  return { cloud, a, b };
+}
+
+await test('merge: records added on two devices are both kept', async () => {
+  const { cloud, a, b } = await twoPhones([tx('t1', 'Kopi')]);
+  await markEdited(a.store, 'transactions', [tx('t2', 'Nasi lemak'), tx('t1', 'Kopi')], '2026-01-02T00:00:00.000Z');
+  await markEdited(b.store, 'transactions', [tx('t3', 'Grab'), tx('t1', 'Kopi')], '2026-01-03T00:00:00.000Z');
+  assert.equal(await pushIfDirty(a.store, cloud.casStore, 'transactions'), 'pushed');
+  assert.equal(await pushIfDirty(b.store, cloud.casStore, 'transactions'), 'merged');
+  assert.deepEqual(ids(cloud.docs.get('transactions').value), ['t1', 't2', 't3']);
+  assert.deepEqual(ids(b.data.get('transactions')), ['t1', 't2', 't3']);
+  const r = await reconcile(a.store, cloud.casStore, 'transactions');
+  assert.deepEqual(ids(r.value), ['t1', 't2', 't3']);
+});
+
+await test('merge: a deletion on one device and an edit of another record on the other both stick', async () => {
+  const { cloud, a, b } = await twoPhones([tx('t1', 'Kopi'), tx('t2', 'Roti')]);
+  await markEdited(a.store, 'transactions', [tx('t2', 'Roti')], '2026-01-02T00:00:00.000Z'); // a deletes t1
+  await markEdited(b.store, 'transactions', [tx('t1', 'Kopi'), tx('t2', 'Roti canai', 2)], '2026-01-03T00:00:00.000Z'); // b edits t2
+  await pushIfDirty(a.store, cloud.casStore, 'transactions');
+  await pushIfDirty(b.store, cloud.casStore, 'transactions');
+  assert.deepEqual(cloud.docs.get('transactions').value, [tx('t2', 'Roti canai', 2)]);
+});
+
+await test('merge: a record deleted on one device but edited on the other is kept', async () => {
+  const { cloud, a, b } = await twoPhones([tx('t1', 'Kopi')]);
+  await markEdited(a.store, 'transactions', [], '2026-01-02T00:00:00.000Z');
+  await markEdited(b.store, 'transactions', [tx('t1', 'Kopi O', 3)], '2026-01-03T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'transactions');
+  await pushIfDirty(b.store, cloud.casStore, 'transactions');
+  assert.deepEqual(cloud.docs.get('transactions').value, [tx('t1', 'Kopi O', 3)]);
+});
+
+await test('merge: the same record edited on both devices takes the newer edit', async () => {
+  const { cloud, a, b } = await twoPhones([tx('t1', 'Kopi')]);
+  await markEdited(a.store, 'transactions', [tx('t1', 'Kopi A')], '2026-01-02T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'transactions');
+  await markEdited(b.store, 'transactions', [tx('t1', 'Kopi B')], '2099-01-01T00:00:00.000Z');
+  await pushIfDirty(b.store, cloud.casStore, 'transactions');
+  assert.deepEqual(cloud.docs.get('transactions').value, [tx('t1', 'Kopi B')]);
+});
+
+await test('merge on load: reconcile combines both sides and reports merged', async () => {
+  const { cloud, a, b } = await twoPhones([tx('t1', 'Kopi')]);
+  await markEdited(a.store, 'transactions', [tx('t2', 'A'), tx('t1', 'Kopi')], '2026-01-02T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'transactions');
+  await markEdited(b.store, 'transactions', [tx('t3', 'B'), tx('t1', 'Kopi')], '2026-01-03T00:00:00.000Z');
+  const r = await reconcile(b.store, cloud.casStore, 'transactions');
+  assert.equal(r.source, 'merged');
+  assert.deepEqual(ids(r.value), ['t1', 't2', 't3']);
+  assert.deepEqual(ids(cloud.docs.get('transactions').value), ['t1', 't2', 't3']);
+  assert.equal(b.meta.get('transactions').dirty, false);
+});
+
+await test('merge without a base (phone updated from 3.0) never loses a record', async () => {
+  const m = mergeRecordLists(null, [tx('a', 'x'), tx('b', 'y')], [tx('b', 'y2'), tx('c', 'z')], true);
+  assert.deepEqual(ids(m), ['a', 'b', 'c']);
+  assert.equal(m.find((x) => x.id === 'b').title, 'y');
+});
+
+await test('settings objects still follow newer edit wins', async () => {
+  const cloud = makeCloud();
+  const a = makePhone();
+  const b = makePhone();
+  await markEdited(a.store, 'settings', { theme: 'light' }, '2026-01-01T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'settings');
+  await reconcile(b.store, cloud.casStore, 'settings');
+  await markEdited(a.store, 'settings', { theme: 'dark' }, '2026-01-02T00:00:00.000Z');
+  await pushIfDirty(a.store, cloud.casStore, 'settings');
+  await markEdited(b.store, 'settings', { theme: 'system' }, '2099-01-01T00:00:00.000Z');
+  await pushIfDirty(b.store, cloud.casStore, 'settings');
+  assert.deepEqual(cloud.docs.get('settings').value, { theme: 'system' });
+});
+
+await test('a compare-and-save that keeps refusing while the cloud has not moved falls back to a plain save', async () => {
+  const cloud = makeCloud();
+  const phone = makePhone();
+  await markEdited(phone.store, 'transactions', [tx('t1', 'Kopi')], '2026-01-01T00:00:00.000Z');
+  await pushIfDirty(phone.store, cloud.casStore, 'transactions');
+  const stubborn = { ...cloud.casStore, async pushIf() { return null; } };
+  await markEdited(phone.store, 'transactions', [tx('t1', 'Kopi'), tx('t2', 'Teh')], '2026-01-02T00:00:00.000Z');
+  const r = await pushIfDirty(phone.store, stubborn, 'transactions');
+  assert.notEqual(r, 'failed');
+  assert.deepEqual(ids(cloud.docs.get('transactions').value), ['t1', 't2']);
+  assert.equal(phone.meta.get('transactions').dirty, false);
 });
 
 console.log(process.exitCode ? '\nSync self-test FAILED' : `\nSync self-test OK (${passed} tests)`);

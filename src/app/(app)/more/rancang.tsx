@@ -1,19 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CategoryIcon } from '@/components/category-icon';
-import { GoalDetailModal, STATUS_KEY } from '@/components/goal-detail-modal';
-import { TabungAllocation } from '@/components/tabung-allocation';
+import { CategoryIcon } from '@/components/ui/category-icon';
+import { Split } from '@/components/desktop/split';
+import { GoalDetailModal, STATUS_KEY } from '@/components/goals/goal-detail-modal';
+import { TabungAllocation } from '@/components/goals/tabung-allocation';
 import { SwipeRow } from '@/components/ui/swipe-row';
-import { GoalFormModal } from '@/components/goal-form-modal';
+import { GoalFormModal } from '@/components/goals/goal-form-modal';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
-import { ScreenHeader } from '@/components/screen-header';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
 import type { IconName } from '@/constants/categories';
 import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
@@ -30,6 +31,7 @@ import { dayLabel, monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { goalProgress } from '@/utils/goals';
 import { DAYS_BEFORE_OPTIONS } from '@/utils/reminders';
 import { p1, r1 } from '@/utils/percent';
+import { Alert } from '@/services/dialog';
 
 const MASK = 'RM ••••';
 const WARN_COLOR = '#D97706';
@@ -138,6 +140,9 @@ export default function RancangScreen() {
           {!(txReady && planReady) ? <ScreenSkeleton variant="cards" /> : (
           <>
 
+          <Split
+            a={
+          <>
           {/* Overview */}
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
             <View style={styles.tiles}>
@@ -287,6 +292,10 @@ export default function RancangScreen() {
             </View>
           )}
 
+          </>
+            }
+            b={
+          <>
           {/* Upcoming bills */}
           <View style={styles.rowBetween}>
             <ThemedText type="smallBold" style={styles.sectionTitle}>
@@ -414,6 +423,9 @@ export default function RancangScreen() {
               </>
             ) : null}
           </View>
+          </>
+            }
+          />
           </>
           )}
         </ScrollView>

@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthField } from '@/components/auth-field';
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedView } from '@/components/themed-view';
+import { AuthField } from '@/components/auth/auth-field';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { ThemedView } from '@/components/ui/themed-view';
 import { Button } from '@/components/ui/button';
 import type { IconName } from '@/constants/categories';
 import { Radius, Spacing, Type } from '@/constants/theme';
