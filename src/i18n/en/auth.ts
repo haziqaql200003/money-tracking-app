@@ -117,6 +117,8 @@ export const enAuth = {
   'auth.privacy.purpose.body': 'To run the app\'s features: logging in, keeping your financial records and showing reports. Your data is not sold or used for advertising.',
   'auth.privacy.storage.title': 'Where data is stored',
   'auth.privacy.storage.body': 'In this simulation mode, data is stored on your device only. When a cloud server is used, we will state the server location and data processors here.',
+  'auth.privacy.scan.title': 'Receipt scanning',
+  'auth.privacy.scan.body': 'If you scan a receipt, the picture or PDF is sent through our server to Google Gemini only to read the shop, date and amount. We do not save it and only keep a usage count. On Google’s free plan, Google may use it to improve its products.',
   'auth.privacy.retention.title': 'Retention period',
   'auth.privacy.retention.body': 'For as long as your account is active. When you delete your account, all your data is deleted.',
   'auth.privacy.rights.title': 'Your rights',

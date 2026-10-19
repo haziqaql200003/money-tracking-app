@@ -14,6 +14,7 @@ const SECTIONS: { titleKey: TKey; bodyKey: TKey }[] = [
   { titleKey: 'auth.privacy.collect.title', bodyKey: 'auth.privacy.collect.body' },
   { titleKey: 'auth.privacy.purpose.title', bodyKey: 'auth.privacy.purpose.body' },
   { titleKey: 'auth.privacy.storage.title', bodyKey: 'auth.privacy.storage.body' },
+  { titleKey: 'auth.privacy.scan.title', bodyKey: 'auth.privacy.scan.body' },
   { titleKey: 'auth.privacy.retention.title', bodyKey: 'auth.privacy.retention.body' },
   { titleKey: 'auth.privacy.rights.title', bodyKey: 'auth.privacy.rights.body' },
   { titleKey: 'auth.privacy.contact.title', bodyKey: 'auth.privacy.contact.body' },

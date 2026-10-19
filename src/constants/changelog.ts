@@ -14,9 +14,21 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.2.1';
+export const CURRENT_VERSION = '3.3.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.3.0',
+    date: '2026-10-17',
+    title: 'Scan a receipt', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Imbas resit',
+    highlights: [
+      { text: 'Add a transaction by scanning a receipt: take a photo, pick a screenshot or open a PDF', ms: 'Tambah transaksi dengan mengimbas resit: ambil gambar, pilih tangkap skrin atau buka PDF' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'new', text: 'New Scan receipt button when you add a transaction. The shop, date, total, category and (when they add up) the items are filled in for you, and you check everything before saving. Needs a signed-in account and an internet connection; the picture is not saved.', ms: 'Butang baharu Imbas resit semasa menambah transaksi. Kedai, tarikh, jumlah, kategori dan (jika jumlahnya sepadan) senarai item diisi untuk anda, dan anda menyemak semuanya sebelum menyimpan. Perlu akaun yang sudah log masuk dan sambungan internet; gambar tidak disimpan.' }, // i18n-ignore
+    ],
+  },
   {
     version: '3.2.1',
     date: '2026-10-15',

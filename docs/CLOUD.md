@@ -101,3 +101,16 @@ Pengguna boleh hantar laporan dari **Lagi → Maklum balas** dan menjejaknya sep
 **Cara anda membalas:** Table Editor → `feedback` → ubah lajur `status` (`reviewing`, `planned`, `in_progress`, `done`, `declined`), dan isi `dev_note` (nota untuk pengguna) serta `fixed_in` (cth. `3.2.1`) bila siap. Setiap perubahan automatik menambah satu langkah dalam garis masa pengguna. Pengguna nampak kemas kini bila mereka buka app (ada titik di Maklum balas).
 
 **E-mel:** isi `EXPO_PUBLIC_FEEDBACK_EMAIL=alamat@anda.com` dalam `.env.local` (dan dalam EAS: `eas env:create`). Butang "Hantar melalui e-mel" membuka app e-mel pengguna dengan laporan yang sudah siap ditulis. Kalau mahu **e-mel automatik ke anda setiap kali ada laporan baharu**, di Supabase → Database → Webhooks → buat webhook pada jadual `feedback` (INSERT) ke Edge Function atau perkhidmatan e-mel seperti Resend. Itu tetapan Supabase di luar app, dan belum disediakan.
+
+## 8. Imbas resit (3.3.0)
+
+Fungsi ini guna AI vision (Google Gemini, tier percuma) melalui Supabase Edge Function supaya kunci AI tidak berada dalam app. Perlu Supabase cloud (bukan mod telefon sahaja) dan pengguna sudah log masuk.
+
+1. Supabase → SQL Editor → tampal `supabase/004_receipt_scans.sql` → Run (jadual log penggunaan; gambar resit **tidak** disimpan).
+2. Pasang Supabase CLI, kemudian dalam folder projek: `supabase login`, `supabase link --project-ref <ref>`.
+3. Kunci percuma dari aistudio.google.com (Get API key), kemudian: `supabase secrets set GEMINI_API_KEY=...` (atau Edge Functions → Secrets di dashboard)
+4. Deploy: `supabase functions deploy scan-receipt` (biarkan "Verify JWT" hidup; function juga semak pengguna sendiri).
+5. Pilihan: `supabase secrets set SCAN_DAILY_LIMIT=20` (had imbasan sehari bagi setiap pengguna; kosong = tiada had) dan `SCAN_MODEL=...` untuk tukar model (guna nama model semasa di AI Studio; lalai `gemini-2.5-flash`).
+6. Kerana pakej native baharu (kamera, pemilih fail, pengubah imej), bina APK **baharu**: `eas build --platform android --profile preview`. `eas update` sahaja tidak cukup.
+
+Tier percuma Google ada had permintaan (semak di AI Studio) dan boleh menggunakan kandungan untuk menambah baik produk Google; teks persetujuan dalam app menyatakan ini. Disyorkan tetapkan `SCAN_DAILY_LIMIT` supaya satu pengguna tidak menghabiskan kuota.

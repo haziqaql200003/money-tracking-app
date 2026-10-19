@@ -5,7 +5,7 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    ignores: ["dist/*", "supabase/functions/**"],
   },
   {
     // Alert.alert does nothing on the web; use the one in services/dialog (system alert on phones, in-app dialog on the web).

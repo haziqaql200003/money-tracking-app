@@ -2,7 +2,7 @@
   "expo": {
     "name": "WaKira",
     "slug": "wakira",
-    "version": "3.2.1",
+    "version": "3.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wakira",
@@ -72,6 +72,15 @@
         }
       ],
       "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "WaKira uses the camera so you can scan a receipt.",
+          "photosPermission": "WaKira reads the receipt photo you choose.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-document-picker",
       "expo-apple-authentication"
     ],
     "experiments": {

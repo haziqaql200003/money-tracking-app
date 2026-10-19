@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -5,6 +6,7 @@ import { TransactionForm } from '@/components/transactions/transaction-form/tran
 import { DragSheet } from '@/components/ui/drag-sheet';
 import { Radius, Spacing } from '@/constants/theme';
 import type { Transaction } from '@/context/TransactionsContext';
+import type { ReceiptPrefill } from '@/utils/receipt';
 import { useOpenEpoch } from '@/hooks/use-open-epoch';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -23,6 +25,9 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const epoch = useOpenEpoch(visible);
+  // A scan refills the form by remounting it with new starting values. It belongs to the opening it was made in.
+  const [scan, setScan] = useState<{ epoch: number; n: number; prefill: ReceiptPrefill } | null>(null);
+  const current = scan && scan.epoch === epoch ? scan : null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -37,7 +42,14 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
         >
           <View style={[styles.handle, { backgroundColor: colors.divider }]} />
           {/* Remounted on every open, so the form starts from the transaction (or the defaults) with no reset code. */}
-          <TransactionForm key={epoch} onClose={onClose} onSave={onSave} editingTransaction={editingTransaction} />
+          <TransactionForm
+            key={`${epoch}:${current?.n ?? 0}`}
+            onClose={onClose}
+            onSave={onSave}
+            editingTransaction={editingTransaction}
+            prefill={current?.prefill}
+            onScan={onSave ? (p) => setScan({ epoch, n: (current?.n ?? 0) + 1, prefill: p }) : undefined}
+          />
         </DragSheet>
       </KeyboardAvoidingView>
     </Modal>

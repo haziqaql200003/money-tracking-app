@@ -6,7 +6,7 @@ import { computeBill, type ChargeDraft, type ChargeKind, type ChargeMode } from 
 import { isValidAmount, newItemId, type DraftItem } from './helpers';
 
 /** The "Breakdown" of a transaction: line items plus extras (service charge, tax, tip, delivery, discount). */
-export function useBreakdown(editing?: Transaction | null) {
+export function useBreakdown(editing?: Pick<Transaction, 'items'> | null) {
   const [breakdownOn, setBreakdownOn] = useState(!!editing?.items && editing.items.length > 0);
   const [items, setItems] = useState<DraftItem[]>(
     () => editing?.items?.map((it) => ({ id: it.id, label: it.label, amountText: it.amount ? String(it.amount) : '' })) ?? [],

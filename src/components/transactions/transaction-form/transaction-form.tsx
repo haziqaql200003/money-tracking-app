@@ -13,9 +13,10 @@ import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction, TransactionItem, TransactionType } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
-import { useT } from '@/i18n';
+import { useT, type TKey } from '@/i18n';
 import { categoryName, subcategoryName } from '@/i18n/data';
 import { formatMoney } from '@/utils/currency';
+import type { ReceiptNote, ReceiptPrefill } from '@/utils/receipt';
 import { Alert } from '@/services/dialog';
 
 import { AccountSection } from './account-section';
@@ -24,6 +25,7 @@ import { CategorySection } from './category-section';
 import { DateSection } from './date-section';
 import { CHARGES, isValidAmount, newItemId, toDateString } from './helpers';
 import { styles } from './styles';
+import { ScanReceipt } from './scan-receipt';
 import { useBreakdown } from './use-breakdown';
 
 type Props = {
@@ -32,31 +34,44 @@ type Props = {
   onSave?: (t: Omit<Transaction, 'id'>) => void;
   /** Pass an existing transaction for Edit mode (shows a Delete button in the header). */
   editingTransaction?: Transaction | null;
+  /** Add mode: values read from a scanned receipt. The sheet remounts the form with these as the starting values. */
+  prefill?: ReceiptPrefill | null;
+  /** Add mode: the person scanned a receipt. */
+  onScan?: (p: ReceiptPrefill) => void;
+};
+
+const NOTE_KEY: Record<ReceiptNote, TKey> = {
+  noTotal: 'scan.noteNoTotal',
+  noDate: 'scan.noteNoDate',
+  foreignCurrency: 'scan.noteForeign',
+  itemsDropped: 'scan.noteItems',
 };
 
 /**
  * The add / edit transaction form. It is remounted every time the sheet opens, so each field starts from the
  * transaction being edited (or the defaults) through its useState initialiser; nothing has to be reset by hand.
  */
-export function TransactionForm({ onClose, onSave, editingTransaction }: Props) {
+export function TransactionForm({ onClose, onSave, editingTransaction, prefill, onScan }: Props) {
   const colors = useTheme();
   const { t, tp } = useT();
   const { accounts, updateTransaction, deleteTransaction } = useTransactions();
   const { expenseCategories, incomeCategories, getCategory } = useCategories();
   const isEditing = !!editingTransaction;
 
-  const [title, setTitle] = useState(editingTransaction?.title ?? '');
-  const [amount, setAmount] = useState(editingTransaction ? String(editingTransaction.amount) : '');
+  // A scanned receipt only fills the empty add form; editing always starts from the saved transaction.
+  const seed = editingTransaction ?? prefill ?? null;
+  const [title, setTitle] = useState(seed?.title ?? '');
+  const [amount, setAmount] = useState(seed && seed.amount > 0 ? String(seed.amount) : '');
   const [type, setType] = useState<TransactionType>(editingTransaction?.type ?? 'debit');
   const [taxRelief, setTaxRelief] = useState<string | undefined>(editingTransaction?.taxReliefId);
-  const [date, setDate] = useState(editingTransaction?.date ?? toDateString(new Date()));
-  const [categoryId, setCategoryId] = useState(editingTransaction?.categoryId ?? expenseCategories[0]?.id ?? '');
-  const [subcategory, setSubcategory] = useState(editingTransaction?.subcategory ?? expenseCategories[0]?.subcategories[0] ?? '');
+  const [date, setDate] = useState(seed?.date ?? toDateString(new Date()));
+  const [categoryId, setCategoryId] = useState(seed?.categoryId ?? expenseCategories[0]?.id ?? '');
+  const [subcategory, setSubcategory] = useState(seed?.subcategory ?? expenseCategories[0]?.subcategories[0] ?? '');
   const [accountId, setAccountId] = useState(editingTransaction?.accountId ?? accounts[0]?.id ?? '');
   const [touchedAmount, setTouchedAmount] = useState(false);
   // true = the sheet shows the Transfer form instead of the expense/income form.
   const [transferMode, setTransferMode] = useState(false);
-  const breakdown = useBreakdown(editingTransaction);
+  const breakdown = useBreakdown(seed);
   const { breakdownOn, items, bill, grandTotal } = breakdown;
 
   const visibleCategories = type === 'credit' ? incomeCategories : expenseCategories;
@@ -160,6 +175,7 @@ export function TransactionForm({ onClose, onSave, editingTransaction }: Props) 
     );
   }
 
+  const scanNotes = prefill && !isEditing ? prefill.notes : [];
   const typeAccent = type === 'debit' ? colors.negative : colors.positive;
 
   return (
@@ -183,6 +199,15 @@ export function TransactionForm({ onClose, onSave, editingTransaction }: Props) 
     />
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {!isEditing && !transferMode && onScan ? <ScanReceipt onPrefill={onScan} /> : null}
+      {scanNotes.length > 0 || (prefill && !isEditing) ? (
+        <View style={[styles.scanBanner, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}>
+          <ThemedText type="small" style={{ fontWeight: '600' }}>{t('scan.review')}</ThemedText>
+          {scanNotes.map((n) => (
+            <ThemedText key={n} type="small" style={{ color: colors.textSecondary }}>{t(NOTE_KEY[n])}</ThemedText>
+          ))}
+        </View>
+      ) : null}
       {/* Expense / Income / Transfer */}
       <View style={{ marginBottom: Spacing.four }}>
         <GlassSegmented

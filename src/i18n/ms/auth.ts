@@ -119,6 +119,8 @@ export const msAuth: Record<keyof typeof enAuth, string> = {
   'auth.privacy.purpose.body': 'Untuk menjalankan fungsi aplikasi: log masuk, menyimpan rekod kewangan anda dan memaparkan laporan. Data tidak dijual atau digunakan untuk iklan.',
   'auth.privacy.storage.title': 'Di mana data disimpan',
   'auth.privacy.storage.body': 'Dalam mod simulasi ini, data disimpan pada peranti anda sahaja. Apabila pelayan awan digunakan, kami akan menyatakan lokasi pelayan dan pemproses data di sini.',
+  'auth.privacy.scan.title': 'Imbasan resit',
+  'auth.privacy.scan.body': 'Jika anda mengimbas resit, gambar atau PDF dihantar melalui pelayan kami kepada Google Gemini hanya untuk membaca kedai, tarikh dan jumlah. Kami tidak menyimpannya dan hanya merekod bilangan penggunaan. Pada pelan percuma Google, Google mungkin menggunakannya untuk menambah baik produknya.',
   'auth.privacy.retention.title': 'Tempoh simpanan',
   'auth.privacy.retention.body': 'Selagi akaun anda aktif. Apabila anda memadam akaun, semua data anda dipadam.',
   'auth.privacy.rights.title': 'Hak anda',

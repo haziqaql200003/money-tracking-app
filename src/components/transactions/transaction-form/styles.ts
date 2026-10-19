@@ -4,6 +4,7 @@ import { FontSize, Radius, Spacing } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
+  scanBanner: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, padding: Spacing.three, gap: 4, marginBottom: Spacing.three },
   fieldLabel: { marginBottom: Spacing.one, marginTop: Spacing.three },
   amountInput: {
     borderWidth: StyleSheet.hairlineWidth,
