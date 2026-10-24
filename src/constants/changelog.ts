@@ -14,9 +14,22 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.3.0';
+export const CURRENT_VERSION = '3.3.1';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.3.1',
+    date: '2026-10-19',
+    title: 'Pay debts from Home', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Bayar hutang dari Skrin Utama',
+    highlights: [
+      { text: 'Tap an upcoming payment on Home, pick the account and slide to complete', ms: 'Ketik bayaran yang akan datang di Skrin Utama, pilih akaun dan seret untuk selesai' }, // i18n-ignore
+    ],
+    changes: [
+      { kind: 'new', text: 'Pay what is due right from Home: tap an upcoming payment (an instalment, SPayLater or money with a person), check the amount, pick the account and slide to complete.', ms: 'Bayar terus dari Skrin Utama: ketik bayaran yang akan datang (ansuran, SPayLater atau wang dengan seseorang), semak jumlah, pilih akaun dan seret untuk selesai.' }, // i18n-ignore
+      { kind: 'improved', text: 'Money with people now moves your accounts: a payment you record with an account is added to (or taken from) that account and shows in your records. Paid instalments also show which account paid them.', ms: 'Wang dengan seseorang kini menggerakkan akaun anda: bayaran yang direkodkan dengan akaun ditambah ke (atau diambil daripada) akaun itu dan muncul dalam rekod anda. Ansuran yang dibayar juga menunjukkan akaun yang membayarnya.' }, // i18n-ignore
+    ],
+  },
   {
     version: '3.3.0',
     date: '2026-10-17',
