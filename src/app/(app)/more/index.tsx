@@ -25,13 +25,14 @@ import { daysToPayday } from '@/utils/cycle';
 import { monthKeyFromOffset, toDateKey } from '@/utils/dates';
 import { useT } from '@/i18n';
 import { refreshFeedback, useFeedback } from '@/services/feedback';
+import { useNewReportCount, useStaffRole } from '@/services/staff';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { useUpdates } from '@/context/UpdatesContext';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback' | '/more/inbox'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -47,6 +48,8 @@ export default function MoreScreen() {
   const { hasUnseenUpdate } = useUpdates();
   const { user } = useAuth();
   const { unseen: feedbackUnseen } = useFeedback(user?.id ?? null);
+  const staffRole = useStaffRole(user?.id ?? null);
+  const newReports = useNewReportCount(staffRole);
   useFocusEffect(
     useCallback(() => {
       void refreshFeedback();
@@ -185,6 +188,16 @@ export default function MoreScreen() {
       href: '/more/feedback',
       badge: feedbackUnseen > 0,
     },
+    ...(staffRole
+      ? [{
+          icon: 'file-tray-full-outline' as IconName,
+          label: t('inbox.title'),
+          subtitle: newReports > 0 ? t('inbox.menu.subNew', { count: newReports }) : t('inbox.menu.sub'),
+          tint: '#8B5CF6',
+          href: '/more/inbox' as const,
+          badge: newReports > 0,
+        }]
+      : []),
     {
       icon: 'information-circle-outline',
       label: t('more.about.title'),

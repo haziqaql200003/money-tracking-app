@@ -72,6 +72,8 @@ export type Transaction = {
   taxReliefId?: string;
   /** Set when this transaction belongs to a debt (an instalment's interest or fee). */
   debtId?: string;
+  /** Set when this transaction is a payment on a money-with-a-person record (see Debts > People). */
+  iouId?: string;
 };
 
 /**

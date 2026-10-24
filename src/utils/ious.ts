@@ -3,13 +3,14 @@ import { addDays } from '@/utils/cycle';
 
 /**
  * Money between you and people (a friend, family): who owes whom, how much is left, and when to nudge.
- * Pure functions. This is a reminder list: it does not touch any account balance.
+ * Pure functions. A payment can be tied to an account (the context then writes the record); without one it is only a reminder.
  */
 
 export type IouDirection = 'owe' | 'owed';
 /** How often to nudge again once it is overdue (or, with no due date, from the day it was added). */
 export type IouRepeat = 'none' | 'weekly' | 'monthly';
-export type IouPayment = { date: string; amount: number };
+/** `accountId` + `txId`: the account the money moved through, and the record made for it. Older payments, and ones made without an account, have neither. */
+export type IouPayment = { date: string; amount: number; accountId?: string; txId?: string };
 
 export type Iou = {
   id: string;

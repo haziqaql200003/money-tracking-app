@@ -25,8 +25,11 @@ import {
   AuthContext,
   EMAIL_RE,
   normEmail,
+  normUsername,
   passwordOk,
+  USERNAME_RE,
   validateSignUp,
+  validateUsername,
   type AuthContextValue,
   type AuthUser,
   type Language,
@@ -99,6 +102,7 @@ function explain(error: AuthError | { code?: string; message?: string; name?: st
 }
 
 type ProfileRow = {
+  username?: string | null;
   display_name: string | null;
   avatar_color: string | null;
   language: string | null;
@@ -140,6 +144,7 @@ function buildUser(id: string, email: string, row: Partial<ProfileRow> | null, m
   return {
     id,
     email,
+    username: row?.username || undefined,
     displayName: row?.display_name || metaName(meta),
     fullName: fullNameOf(meta),
     avatarColor: row?.avatar_color || CARD_COLORS[0],
@@ -305,10 +310,15 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
     async (input) => {
       const invalid = validateSignUp(input);
       if (invalid) return { ok: false, error: invalid };
+      const wanted = input.username?.trim() ? normUsername(input.username) : '';
+      if (wanted) {
+        const free = await sb().rpc('username_available', { p_username: wanted });
+        if (free.data === false) return { ok: false, error: t('auth.error.usernameTaken') };
+      }
       const { data, error } = await sb().auth.signUp({
         email: normEmail(input.email),
         password: input.password,
-        options: { data: { display_name: input.displayName.trim(), ...(input.fullName?.trim() ? { full_name: input.fullName.trim() } : {}), language: input.language, consent_at: new Date().toISOString() } },
+        options: { data: { display_name: input.displayName.trim(), ...(wanted ? { username: wanted } : {}), ...(input.fullName?.trim() ? { full_name: input.fullName.trim() } : {}), language: input.language, consent_at: new Date().toISOString() } },
       });
       if (error) return { ok: false, error: explain(error) };
       if (data.user && data.user.identities?.length === 0) return { ok: false, error: t('auth.error.emailTaken') }; // Supabase hides existing accounts this way
@@ -318,9 +328,59 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
     [completeSignIn],
   );
 
+  /** Username sign-in goes through the `login-username` function, so the e-mail behind a username never reaches the phone before the password is proven. */
+  const signInWithUsername = useCallback(
+    async (raw: string, password: string): Promise<Result> => {
+      const username = normUsername(raw);
+      if (!USERNAME_RE.test(username)) return { ok: false, error: t('auth.error.badCredentials') };
+      const { data, error } = await sb().functions.invoke('login-username', { body: { username, password } });
+      if (error) {
+        const res = (error as { context?: unknown }).context;
+        const status = res instanceof Response ? res.status : 0;
+        if (status === 401) return { ok: false, error: t('auth.error.badCredentials') };
+        if (status === 429) return { ok: false, error: t('auth.error.rateLimit') };
+        if (status === 404 || status === 500) return { ok: false, error: t('auth.error.usernameOff') }; // function not deployed yet
+        return { ok: false, error: t('auth.error.network') };
+      }
+      if (data?.needsCode && typeof data.email === 'string') return { ok: true, needsCode: true, email: data.email };
+      const s = data?.session as { access_token?: string; refresh_token?: string } | undefined;
+      if (!s?.access_token || !s.refresh_token) return { ok: false, error: t('auth.error.generic') };
+      const set = await sb().auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
+      if (set.error || !set.data.session) return { ok: false, error: set.error ? explain(set.error) : t('auth.error.generic') };
+      return completeSignIn(set.data.session);
+    },
+    [completeSignIn],
+  );
+
+  const usernameAvailable = useCallback<AuthContextValue['usernameAvailable']>(async (raw) => {
+    const u = normUsername(raw);
+    if (validateUsername(u)) return false;
+    const { data, error } = await sb().rpc('username_available', { p_username: u });
+    if (error || typeof data !== 'boolean') return null;
+    return data;
+  }, []);
+
+  const setUsername = useCallback<AuthContextValue['setUsername']>(async (raw) => {
+    const current = userRef.current;
+    if (!current) return { ok: false, error: t('auth.error.generic') };
+    const u = normUsername(raw);
+    if (u) {
+      const bad = validateUsername(u);
+      if (bad) return { ok: false, error: bad };
+    }
+    const { error } = await sb().from('profiles').update({ username: u || null }).eq('id', current.id);
+    if (error) {
+      if ((error as { code?: string }).code === '23505') return { ok: false, error: t('auth.error.usernameTaken') };
+      return { ok: false, error: explain(error) };
+    }
+    commitUser({ ...current, username: u || undefined });
+    return { ok: true };
+  }, [commitUser]);
+
   const signIn = useCallback<AuthContextValue['signIn']>(
-    async (email, password) => {
-      const e = normEmail(email);
+    async (identifier, password) => {
+      if (!identifier.includes('@')) return signInWithUsername(identifier, password);
+      const e = normEmail(identifier);
       const { data, error } = await sb().auth.signInWithPassword({ email: e, password });
       if (error) {
         if ((error as { code?: string }).code === 'email_not_confirmed') {
@@ -331,7 +391,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       }
       return completeSignIn(data.session);
     },
-    [completeSignIn],
+    [completeSignIn, signInWithUsername],
   );
 
   const verifyCode = useCallback<AuthContextValue['verifyCode']>(
@@ -632,6 +692,8 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       cloud: true,
       signUp,
       signIn,
+      setUsername,
+      usernameAvailable,
       signOut,
       updateProfile,
       deleteAccount,
@@ -654,7 +716,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       importLegacy,
       skipImport,
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, verifyPassword, signOutOthers, signInWithProvider, linkProvider, unlinkProvider, getLogins, hasPassword, acceptConsent, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
+    [user, isReady, signUp, signIn, setUsername, usernameAvailable, signOut, updateProfile, deleteAccount, changePassword, verifyPassword, signOutOthers, signInWithProvider, linkProvider, unlinkProvider, getLogins, hasPassword, acceptConsent, verifyCode, resendCode, requestPasswordReset, resetPassword, syncNow, legacyAccounts, migrationPending, importLegacy, skipImport],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

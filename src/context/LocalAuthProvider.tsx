@@ -14,9 +14,11 @@ import { loadJSON, removeUserData, saveJSON } from '@/services/storage';
 import {
   AuthContext,
   normEmail,
+  normUsername,
   passwordOk,
   notCloud,
   validateSignUp,
+  validateUsername,
   type AuthContextValue,
   type AuthUser,
   type Language,
@@ -66,6 +68,8 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       if (invalid) return { ok: false, error: invalid };
       const e = normEmail(input.email);
       if (users.some((u) => u.email === e)) return { ok: false, error: t('auth.error.emailTaken') };
+      const wanted = input.username?.trim() ? normUsername(input.username) : '';
+      if (wanted && users.some((u) => u.username === wanted)) return { ok: false, error: t('auth.error.usernameTaken') };
 
       const salt = Crypto.randomUUID();
       const stored: StoredUser = {
@@ -75,6 +79,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
         passwordHash: await hashPassword(salt, input.password),
         displayName: input.displayName.trim(),
         ...(input.fullName?.trim() ? { fullName: input.fullName.trim() } : {}),
+        ...(wanted ? { username: wanted } : {}),
         avatarColor: CARD_COLORS[0],
         language: input.language,
         hasOnboarded: false,
@@ -89,8 +94,9 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback<AuthContextValue['signIn']>(
-    async (email, password) => {
-      const found = users.find((u) => u.email === normEmail(email));
+    async (identifier, password) => {
+      const key = identifier.includes('@') ? normEmail(identifier) : normUsername(identifier);
+      const found = users.find((u) => (identifier.includes('@') ? u.email === key : u.username === key));
       const bad = { ok: false, error: t('auth.error.badCredentials') } as const;
       if (!found) return bad;
       if ((await hashPassword(found.salt, password)) !== found.passwordHash) return bad;
@@ -98,6 +104,29 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     },
     [users, startSession],
+  );
+
+  const usernameAvailable = useCallback<AuthContextValue['usernameAvailable']>(
+    async (raw) => {
+      const u = normUsername(raw);
+      return !validateUsername(u) && !users.some((x) => x.username === u && x.id !== sessionId);
+    },
+    [users, sessionId],
+  );
+
+  const setUsername = useCallback<AuthContextValue['setUsername']>(
+    async (raw) => {
+      if (!sessionId) return { ok: false, error: t('auth.error.generic') };
+      const u = normUsername(raw);
+      if (u) {
+        const bad = validateUsername(u);
+        if (bad) return { ok: false, error: bad };
+        if (users.some((x) => x.username === u && x.id !== sessionId)) return { ok: false, error: t('auth.error.usernameTaken') };
+      }
+      persistUsers(users.map((x) => (x.id === sessionId ? { ...x, username: u || undefined } : x)));
+      return { ok: true };
+    },
+    [sessionId, users, persistUsers],
   );
 
   const signOut = useCallback(() => {
@@ -167,6 +196,8 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       cloud: false,
       signUp,
       signIn,
+      setUsername,
+      usernameAvailable,
       signOut,
       updateProfile,
       deleteAccount,
@@ -189,7 +220,7 @@ export function LocalAuthProvider({ children }: { children: ReactNode }) {
       importLegacy: async () => notCloud,
       skipImport: () => {},
     }),
-    [user, isReady, signUp, signIn, signOut, updateProfile, deleteAccount, changePassword, verifyPassword],
+    [user, isReady, signUp, signIn, setUsername, usernameAvailable, signOut, updateProfile, deleteAccount, changePassword, verifyPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

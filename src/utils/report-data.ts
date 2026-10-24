@@ -204,7 +204,7 @@ export function buildReport(inp: Input): Report {
   // Places: the record titles. A title that is just the subcategory or category name says nothing about where.
   const places = new Map<string, Place>();
   for (const t of realDebits) {
-    if (t.recurringId || t.debtId) continue; // rent and bills are not "places you go"
+    if (t.recurringId || t.debtId || t.iouId) continue; // rent and bills are not "places you go"
     const title = t.title.trim();
     if (!title) continue;
     const k = title.toLowerCase();
@@ -220,7 +220,7 @@ export function buildReport(inp: Input): Report {
     .slice(0, 3);
 
   const biggest = realDebits
-    .filter((t) => !t.recurringId && !t.debtId)
+    .filter((t) => !t.recurringId && !t.debtId && !t.iouId)
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 3)
     .map((t) => ({ title: t.title.trim() || subName(t.subcategory), amount: t.amount, date: t.date, categoryId: t.categoryId }));

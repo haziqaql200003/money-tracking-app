@@ -79,11 +79,11 @@ export type IouInput = {
 type DebtsContextValue = {
   ready: boolean;
   debts: Debt[];
-  /** Money between you and people. A reminder list: it never changes an account balance. */
+  /** Money between you and people. A payment recorded with an account moves that account's balance; without one it is only a note. */
   ious: Iou[];
   addIou: (input: IouInput) => void;
   updateIou: (id: string, patch: Partial<IouInput>) => void;
-  addIouPayment: (id: string, amount: number, date?: string) => void;
+  addIouPayment: (id: string, amount: number, date?: string, accountId?: string) => void;
   removeIouPayment: (id: string, index: number) => void;
   deleteIou: (id: string) => void;
   createInstalment: (input: InstalmentInput) => void;
@@ -128,11 +128,33 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
       { id: `iou_${Date.now()}_${Math.floor(Math.random() * 1000)}`, payments: [], createdAt: toDateKey(new Date()), ...input },
     ]);
   const updateIou = (id: string, patch: Partial<IouInput>) => setIous((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  const addIouPayment = (id: string, amount: number, date?: string) =>
-    setIous((prev) => prev.map((i) => (i.id === id ? { ...i, payments: [...i.payments, { date: date ?? toDateKey(new Date()), amount: round2(amount) }] } : i)));
-  const removeIouPayment = (id: string, index: number) =>
+  function addIouPayment(id: string, amount: number, date?: string, accountId?: string) {
+    const iou = ious.find((i) => i.id === id);
+    if (!iou) return;
+    const when = date ?? toDateKey(new Date());
+    const value = round2(amount);
+    // With an account, the payment is a real record: money you pay back leaves it, money paid to you lands in it.
+    const txId = accountId
+      ? tx.addTransaction(
+          iou.direction === 'owe'
+            ? { title: iou.person, date: when, categoryId: FINANCIAL_ID, subcategory: 'Loan Payment', amount: value, type: 'debit', accountId, iouId: id }
+            : { title: iou.person, date: when, categoryId: 'otherincome', subcategory: 'Reimbursement', amount: value, type: 'credit', accountId, iouId: id },
+        )
+      : undefined;
+    const payment = { date: when, amount: value, ...(accountId ? { accountId, txId } : {}) };
+    setIous((prev) => prev.map((i) => (i.id === id ? { ...i, payments: [...i.payments, payment] } : i)));
+  }
+  function removeIouPayment(id: string, index: number) {
+    const txId = ious.find((i) => i.id === id)?.payments[index]?.txId;
+    if (txId) tx.deleteTransaction(txId);
     setIous((prev) => prev.map((i) => (i.id === id ? { ...i, payments: i.payments.filter((_, n) => n !== index) } : i)));
-  const deleteIou = (id: string) => setIous((prev) => prev.filter((i) => i.id !== id));
+  }
+  function deleteIou(id: string) {
+    // The records made for its payments go with it, so the accounts change back.
+    const txIds = (ious.find((i) => i.id === id)?.payments ?? []).flatMap((p) => (p.txId ? [p.txId] : []));
+    if (txIds.length > 0) tx.deleteTransactions(txIds);
+    setIous((prev) => prev.filter((i) => i.id !== id));
+  }
 
   const newDebtId = () => `debt_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const feeCategory = (sub: 'Interest' | 'Bank Fees') => ({ categoryId: FINANCIAL_ID, subcategory: sub });

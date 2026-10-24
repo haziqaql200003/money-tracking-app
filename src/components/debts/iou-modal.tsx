@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DateField } from '@/components/ui/date-field';
-import { DebtAmountInput, DebtInput, FieldLabel, toNumber } from '@/components/debts/debt-ui';
+import { AccountPicker, DebtAmountInput, DebtInput, FieldLabel, toNumber } from '@/components/debts/debt-ui';
 import { SheetHeader } from '@/components/ui/sheet-header';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Chip } from '@/components/ui/chip';
@@ -11,8 +11,10 @@ import { DragSheet } from '@/components/ui/drag-sheet';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { formatDate } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
@@ -60,6 +62,7 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
   const { t } = useT();
   const { addIou, updateIou, addIouPayment, removeIouPayment, deleteIou } = useDebts();
   const { hideAmounts } = usePrivacy();
+  const { selectableAccounts, accounts } = useTransactions();
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
   const [person, setPerson] = useState(editing?.person ?? '');
@@ -70,12 +73,17 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
   const [repeat, setRepeat] = useState<IouRepeat>(editing?.repeat ?? 'none');
   const [note, setNote] = useState(editing?.note ?? '');
   const [pay, setPay] = useState('');
+  // '' = a note only (no account moves). Starts on the first account so a payment lands somewhere by default.
+  const [payAccount, setPayAccount] = useState(selectableAccounts[0]?.id ?? '');
 
   const amountN = toNumber(amount);
   const valid = person.trim().length > 0 && Number.isFinite(amountN) && amountN > 0;
   const payN = toNumber(pay);
   const left = editing ? iouLeft(editing) : 0;
   const payValid = !!editing && Number.isFinite(payN) && payN > 0 && payN <= left + 0.001;
+  const incoming = (editing?.direction ?? direction) === 'owed';
+  // Payments already moved money one way; flipping who owes whom would leave those records backwards.
+  const dirLocked = !!editing && editing.payments.some((p) => !!p.txId);
   const dateLabel = (iso: string) => {
     const [y, m, d] = iso.split('-').map(Number);
     return formatDate(new Date(y, m - 1, d));
@@ -98,7 +106,7 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
 
   function remove() {
     if (!editing) return;
-    Alert.alert(t('debt.iou.form.deleteTitle'), t('debt.iou.form.deleteBody', { person: editing.person }), [
+    Alert.alert(t('debt.iou.form.deleteTitle'), t(editing.payments.some((p) => p.txId) ? 'debt.iou.form.deleteBodyRecords' : 'debt.iou.form.deleteBody', { person: editing.person }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -118,9 +126,10 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
 
       <FieldLabel text={t('debt.iou.form.direction')} />
       <View style={styles.chips}>
-        <Chip label={t('debt.iou.form.dirOwe')} active={direction === 'owe'} onPress={() => setDirection('owe')} />
-        <Chip label={t('debt.iou.form.dirOwed')} active={direction === 'owed'} onPress={() => setDirection('owed')} />
+        <Chip label={t('debt.iou.form.dirOwe')} active={direction === 'owe'} onPress={() => !dirLocked && setDirection('owe')} />
+        <Chip label={t('debt.iou.form.dirOwed')} active={direction === 'owed'} onPress={() => !dirLocked && setDirection('owed')} />
       </View>
+      {dirLocked ? <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: 4 }}>{t('debt.iou.form.dirLocked')}</ThemedText> : null}
 
       <FieldLabel text={t('debt.iou.form.amount')} />
       <DebtAmountInput value={amount} onChangeText={setAmount} placeholder="0.00" />
@@ -170,12 +179,15 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
               <>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.form.recordPaymentSub')}</ThemedText>
                 <DebtAmountInput value={pay} onChangeText={setPay} placeholder={t('debt.iou.form.paymentAmount')} />
+                <FieldLabel text={t(incoming ? 'debt.iou.form.payToOwed' : 'debt.iou.form.payFromOwe')} />
+                <AccountPicker accounts={selectableAccounts} value={payAccount} onChange={setPayAccount} />
+                <Chip label={t('debt.iou.form.noAccount')} active={payAccount === ''} onPress={() => setPayAccount('')} />
                 <View style={styles.payRow}>
                   <Pressable
                     style={[styles.smallButton, { backgroundColor: payValid ? colors.accent : colors.backgroundSelected }]}
                     disabled={!payValid}
                     onPress={() => {
-                      addIouPayment(editing.id, payN);
+                      addIouPayment(editing.id, payN, undefined, payAccount || undefined);
                       setPay('');
                     }}
                     accessibilityRole="button"
@@ -184,7 +196,7 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
                   </Pressable>
                   <Pressable
                     style={[styles.smallButton, { backgroundColor: colors.backgroundSelected }]}
-                    onPress={() => addIouPayment(editing.id, left)}
+                    onPress={() => addIouPayment(editing.id, left, undefined, payAccount || undefined)}
                     accessibilityRole="button"
                   >
                     <ThemedText style={{ fontWeight: '700' }}>{t('debt.iou.form.settleAll')}</ThemedText>
@@ -197,7 +209,11 @@ function IouForm({ editing, onDone }: { editing: Iou | null; onDone: () => void 
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.form.history')}</ThemedText>
                 {editing.payments.map((p, i) => (
                   <View key={`${p.date}-${i}`} style={styles.historyRow}>
-                    <ThemedText type="small" style={styles.flex}>{dateLabel(p.date)}</ThemedText>
+                    <ThemedText type="small" style={styles.flex}>
+                      {p.accountId && accounts.find((a) => a.id === p.accountId)
+                        ? t('debt.iou.history.line', { date: dateLabel(p.date), account: accountName(accounts.find((a) => a.id === p.accountId)!) })
+                        : dateLabel(p.date)}
+                    </ThemedText>
                     <ThemedText type="smallBold">{money(p.amount)}</ThemedText>
                     <Pressable onPress={() => removeIouPayment(editing.id, i)} hitSlop={8} accessibilityRole="button">
                       <ThemedText type="small" style={{ color: colors.negative }}>{t('debt.iou.form.removePayment')}</ThemedText>

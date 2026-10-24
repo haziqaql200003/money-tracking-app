@@ -17,6 +17,7 @@ import { msMrep } from './mrep';
 import { msTax } from './tax';
 import { msTx } from './tx';
 import { msScan } from './scan';
+import { msInbox } from './inbox';
 
 // Typed against the English dictionary: a missing or extra Malay key is a compile error.
-export const ms: Record<keyof typeof en, string> = { ...msCommon, ...msAuth, ...msHome, ...msTx, ...msAcct, ...msPlan, ...msMore, ...msImp, ...msDebt, ...msFc, ...msRpt, ...msOb, ...msTax, ...msCal, ...msAlloc, ...msMrep, ...msFb, ...msScan };
+export const ms: Record<keyof typeof en, string> = { ...msCommon, ...msAuth, ...msHome, ...msTx, ...msAcct, ...msPlan, ...msMore, ...msImp, ...msDebt, ...msFc, ...msRpt, ...msOb, ...msTax, ...msCal, ...msAlloc, ...msMrep, ...msFb, ...msScan, ...msInbox };

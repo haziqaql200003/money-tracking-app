@@ -2,7 +2,7 @@
   "expo": {
     "name": "WaKira",
     "slug": "wakira",
-    "version": "3.3.1",
+    "version": "3.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wakira",
@@ -81,7 +81,8 @@
         }
       ],
       "expo-document-picker",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

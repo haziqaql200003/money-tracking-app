@@ -20,6 +20,8 @@ export type StoredUser = {
   displayName: string;
   /** Full name as typed at sign-up (first + last) or handed over by Google / Apple. displayName is the short name shown in the app. */
   fullName?: string;
+  /** Optional sign-in name (3-20 characters, see USERNAME_RE). Unique. */
+  username?: string;
   avatarColor: string;
   language: Language;
   goal?: Goal;
@@ -36,7 +38,7 @@ export type LinkedLogin = { provider: SocialProvider | 'email'; email?: string }
 export type ProfilePatch = Partial<Pick<AuthUser, 'displayName' | 'avatarColor' | 'language' | 'goal' | 'hasOnboarded'>>;
 
 /** `needsCode`: the server e-mailed a 6-digit code that must be entered before the account is active. */
-export type Result = { ok: true; needsCode?: boolean } | { ok: false; error: string };
+export type Result = { ok: true; needsCode?: boolean; /** E-mail to confirm, when signing in with a username. */ email?: string } | { ok: false; error: string };
 
 export type SignUpInput = {
   email: string;
@@ -44,6 +46,8 @@ export type SignUpInput = {
   displayName: string;
   /** First and last name together. */
   fullName?: string;
+  /** Optional. */
+  username?: string;
   language: Language;
   consent: boolean;
 };
@@ -56,7 +60,12 @@ export type AuthContextValue = {
   /** true when accounts and data live in Supabase */
   cloud: boolean;
   signUp: (input: SignUpInput) => Promise<Result>;
-  signIn: (email: string, password: string) => Promise<Result>;
+  /** `identifier` is an e-mail address or a username. */
+  signIn: (identifier: string, password: string) => Promise<Result>;
+  /** Sets or changes the username (empty = remove). Fails with a readable error when taken or invalid. */
+  setUsername: (username: string) => Promise<Result>;
+  /** Cloud: asks the server. Local: checks this phone. null = could not check (offline); the server decides at sign-up. */
+  usernameAvailable: (username: string) => Promise<boolean | null>;
   signOut: () => void;
   updateProfile: (patch: ProfilePatch) => void;
   deleteAccount: () => Promise<Result>;
@@ -102,12 +111,28 @@ export function useAuth() {
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normEmail = (e: string) => e.trim().toLowerCase();
+/** 3-20 characters: lower-case letters, digits, dot, underscore; starts with a letter. */
+export const USERNAME_RE = /^[a-z][a-z0-9_.]{2,19}$/;
+export const normUsername = (u: string) => u.trim().toLowerCase().replace(/^@/, '');
+const RESERVED = ['admin', 'administrator', 'superadmin', 'staff', 'support', 'help', 'wakira', 'owner', 'root', 'system', 'moderator', 'developer', 'dev', 'team', 'official', 'null', 'undefined'];
+export const usernameReserved = (u: string) => RESERVED.includes(u);
+/** Returns an error text, or null when the username is acceptable. */
+export function validateUsername(raw: string): string | null {
+  const u = normUsername(raw);
+  if (!USERNAME_RE.test(u)) return t('auth.error.usernameInvalid');
+  if (usernameReserved(u)) return t('auth.error.usernameReserved');
+  return null;
+}
 /** 8+ characters with a letter and a number, and not easy to guess (see utils/password). */
 export const passwordOk = (p: string, personal: string[] = []) => checkPassword(p, personal).ok;
 
 /** Checks every sign-up field. Returns the error text, or null when all is fine. */
-export function validateSignUp({ email, password, displayName, fullName, consent }: SignUpInput): string | null {
+export function validateSignUp({ email, password, displayName, fullName, consent, username }: SignUpInput): string | null {
   if (!EMAIL_RE.test(normEmail(email))) return t('auth.error.emailInvalid');
+  if (username?.trim()) {
+    const bad = validateUsername(username);
+    if (bad) return bad;
+  }
   if (displayName.trim().length < 2) return t('auth.error.nameRequired');
   if (!passwordOk(password, [displayName, fullName ?? '', email])) return t('auth.error.passwordWeak');
   if (!consent) return t('auth.error.consentRequired');

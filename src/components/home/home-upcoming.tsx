@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { PayDueSheet, type DueTarget } from '@/components/home/pay-due-sheet';
 import { CategoryIcon } from '@/components/ui/category-icon';
 import type { IconName } from '@/constants/categories';
 import { ThemedText } from '@/components/ui/themed-text';
@@ -16,7 +18,8 @@ import { addDays } from '@/utils/cycle';
 import { dayNumber, dueText, upcomingOccurrences } from '@/utils/bills';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
-import { upcomingInstalments } from '@/utils/debts';
+import { creditStatus, nextCreditDue, upcomingInstalments } from '@/utils/debts';
+import { iouDone, iouLeft } from '@/utils/ious';
 
 const HORIZON_DAYS = 14;
 const SHOWN = 6;
@@ -33,6 +36,8 @@ type Item = {
   icon: IconName;
   color: string;
   href: Href;
+  /** Set for debt payments: tapping opens the pay pop-up instead of leaving Home. */
+  due?: DueTarget;
 };
 
 /**
@@ -43,8 +48,9 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
-  const { recurringRules } = useTransactions();
-  const { debts } = useDebts();
+  const { recurringRules, accountBalance } = useTransactions();
+  const { debts, ious } = useDebts();
+  const [due, setDue] = useState<DueTarget | null>(null);
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
 
@@ -68,7 +74,6 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
       };
     }),
     ...upcomingInstalments(debts, today, until)
-      .filter(({ instalment }) => instalment.dueDate >= today)
       .map(({ debt, instalment }) => ({
         id: `debt_${debt.id}_${instalment.n}`,
         title: debt.name,
@@ -80,6 +85,40 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         icon: 'card' as IconName,
         color: colors.warning,
         href: '/more/debts' as Href,
+        due: { kind: 'instalment' as const, debtId: debt.id, n: instalment.n },
+      })),
+    // Credit lines (SPayLater, cards) with something used and a monthly due day: pay the bill from here.
+    ...debts
+      .filter((d) => d.kind === 'credit' && !!d.dueDay && d.status !== 'done')
+      .map((d) => ({ d, used: creditStatus(d.creditLimit ?? 0, accountBalance(d.accountId)).used, due: nextCreditDue(d.dueDay as number, today) }))
+      .filter(({ used, due }) => used > 0 && due <= until)
+      .map(({ d, used, due }) => ({
+        id: `credit_${d.id}`,
+        title: d.name,
+        date: due,
+        daysUntil: dayNumber(due) - dayNumber(today),
+        amount: used,
+        varies: false,
+        type: 'debit' as const,
+        icon: 'card' as IconName,
+        color: colors.warning,
+        href: '/more/debts' as Href,
+        due: { kind: 'credit' as const, debtId: d.id },
+      })),
+    ...ious
+      .filter((i) => !iouDone(i) && !!i.dueDate && i.dueDate <= until)
+      .map((i) => ({
+        id: `iou_${i.id}`,
+        title: i.person,
+        date: i.dueDate as string,
+        daysUntil: dayNumber(i.dueDate as string) - dayNumber(today),
+        amount: iouLeft(i),
+        varies: false,
+        type: i.direction === 'owed' ? ('credit' as const) : ('debit' as const),
+        icon: 'people' as IconName,
+        color: colors.warning,
+        href: '/more/debts' as Href,
+        due: { kind: 'iou' as const, iouId: i.id },
       })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
 
@@ -92,9 +131,21 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
     return `${i.varies ? '~' : ''}${sign}${formatMoney(i.amount)}`;
   };
 
+  const sheet = (
+    <PayDueSheet
+      target={due}
+      onClose={() => setDue(null)}
+      onOpenDebts={() => {
+        setDue(null);
+        router.push('/more/debts');
+      }}
+    />
+  );
+
   if (variant === 'list') {
     // Desktop web: a column card with one line per item.
     return (
+      <>
       <View style={[styles.listCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <View style={styles.head}>
           <ThemedText type="smallBold" style={styles.title}>
@@ -116,7 +167,7 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
           return (
             <Pressable
               key={i.id}
-              onPress={() => router.push(i.href)}
+              onPress={() => (i.due ? setDue(i.due) : router.push(i.href))}
               style={({ pressed }) => [styles.listRow, n > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
               accessibilityLabel={`${i.title}, ${dueText(i.daysUntil)}, ${amountText(i)}`}
@@ -137,10 +188,13 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
           );
         })}
       </View>
+      {sheet}
+      </>
     );
   }
 
   return (
+    <>
     <View style={styles.wrap}>
       <View style={styles.head}>
         <ThemedText type="smallBold" style={styles.title}>
@@ -158,7 +212,7 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
           return (
             <Pressable
               key={i.id}
-              onPress={() => router.push(i.href)}
+              onPress={() => (i.due ? setDue(i.due) : router.push(i.href))}
               style={({ pressed }) => [styles.card, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
               accessibilityLabel={`${i.title}, ${dueText(i.daysUntil)}, ${amountText(i)}`}
@@ -192,6 +246,8 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         ) : null}
       </ScrollView>
     </View>
+    {sheet}
+    </>
   );
 }
 

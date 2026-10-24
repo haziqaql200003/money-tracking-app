@@ -133,6 +133,8 @@ export const msTx: Record<keyof typeof enTx, string> = {
   'tx.bills.dueToday': 'Hari ini',
   'tx.bills.dueTomorrow': 'Esok',
   'tx.bills.dueInDays.one': 'Dalam {count} hari',
+  'tx.bills.overdue.one': 'Lewat {count} hari',
+  'tx.bills.overdue.other': 'Lewat {count} hari',
   'tx.bills.dueInDays.other': 'Dalam {count} hari',
   // recurring screen
   'tx.recurring.title': 'Berulang',

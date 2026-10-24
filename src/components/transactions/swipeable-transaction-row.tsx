@@ -31,7 +31,7 @@ export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, bac
   const { offer } = useUndo();
   const { transfers, deleteTransaction, restoreTransaction, deleteTransfer, restoreTransfer, addTransaction } = useTransactions();
 
-  const locked = isDebtEntry(item) || isAdjustmentEntry(item) || !!item.debtId;
+  const locked = isDebtEntry(item) || isAdjustmentEntry(item) || !!item.debtId || !!item.iouId;
   const linked = isEditableTransferEntry(item);
 
   function remove() {

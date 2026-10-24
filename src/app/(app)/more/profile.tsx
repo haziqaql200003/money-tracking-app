@@ -40,7 +40,9 @@ export default function ProfileScreen() {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, setUsername: saveUsername } = useAuth();
+  const [unameEdit, setUnameEdit] = useState<string | null>(null);
+  const [unameErr, setUnameErr] = useState<string | null>(null);
   const { displayName, setDisplayName, avatarColor, setAvatarColor } = useProfile();
   const { transactions } = useTransactions();
   const { expenseCategories } = useCategories();
@@ -131,6 +133,39 @@ export default function ProfileScreen() {
               returnKeyType="done"
             />
             {user?.email ? <ThemedText type="small" style={muted}>{user.email}</ThemedText> : null}
+            {unameEdit === null ? (
+              <Pressable onPress={() => { setUnameEdit(user?.username ?? ''); setUnameErr(null); }} hitSlop={8} accessibilityRole="button">
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  {user?.username ? `@${user.username}` : t('auth.username.edit')}
+                </ThemedText>
+              </Pressable>
+            ) : (
+              <View style={styles.unameBox}>
+                <TextInput
+                  style={[styles.unameInput, { color: colors.text, borderColor: colors.divider }]}
+                  value={unameEdit}
+                  onChangeText={(v) => { setUnameEdit(v); setUnameErr(null); }}
+                  placeholder={t('auth.field.usernamePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={21}
+                  autoFocus
+                />
+                {unameErr ? <ThemedText type="small" style={{ color: colors.negative }}>{unameErr}</ThemedText> : <ThemedText type="small" style={muted}>{t('auth.username.hint')}</ThemedText>}
+                <View style={styles.unameActions}>
+                  <Pressable onPress={() => setUnameEdit(null)} hitSlop={8}><ThemedText type="small" style={muted}>{t('common.cancel')}</ThemedText></Pressable>
+                  {user?.username ? (
+                    <Pressable onPress={async () => { const r = await saveUsername(''); if (r.ok) { setUnameEdit(null); Alert.alert(t('auth.username.removed')); } else setUnameErr(r.error); }} hitSlop={8}>
+                      <ThemedText type="small" style={{ color: colors.negative }}>{t('auth.username.remove')}</ThemedText>
+                    </Pressable>
+                  ) : null}
+                  <Pressable onPress={async () => { const r = await saveUsername(unameEdit); if (r.ok) { setUnameEdit(null); Alert.alert(t('auth.username.saved')); } else setUnameErr(r.error); }} hitSlop={8}>
+                    <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>{t('auth.username.save')}</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            )}
             {since ? <ThemedText type="small" style={muted}>{t('acct.profile.since', { date: formatDate(since) })}</ThemedText> : null}
           </View>
 
@@ -330,6 +365,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  unameBox: { alignSelf: 'stretch', gap: 6, paddingHorizontal: Spacing.four, alignItems: 'center' },
+  unameInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8, minWidth: 200, textAlign: 'center' },
+  unameActions: { flexDirection: 'row', gap: Spacing.four },
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },

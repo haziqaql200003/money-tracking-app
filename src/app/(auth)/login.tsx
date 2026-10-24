@@ -33,7 +33,7 @@ export default function LoginScreen() {
     const res = await signIn(email, password);
     setBusy(false);
     if (!res.ok) setError(res.error);
-    else if (res.needsCode) router.push({ pathname: '/verify', params: { email: email.trim(), mode: 'signup' } }); // address not confirmed yet
+    else if (res.needsCode) router.push({ pathname: '/verify', params: { email: (res.email ?? email).trim(), mode: 'signup' } }); // address not confirmed yet
     // Kalau berjaya, Stack.Protected di _layout akan alihkan skrin secara automatik.
   }
 
@@ -57,14 +57,14 @@ export default function LoginScreen() {
             </ThemedText>
 
             <AuthField
-              label={t('auth.field.email')}
+              label={t('auth.field.identifier')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              placeholder={t('auth.field.emailPlaceholder')}
+              textContentType="username"
+              autoComplete="username"
+              placeholder={t('auth.field.identifierPlaceholder')}
             />
             <AuthField
               label={t('auth.field.password')}

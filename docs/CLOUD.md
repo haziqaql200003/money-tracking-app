@@ -114,3 +114,47 @@ Fungsi ini guna AI vision (Google Gemini, tier percuma) melalui Supabase Edge Fu
 6. Kerana pakej native baharu (kamera, pemilih fail, pengubah imej), bina APK **baharu**: `eas build --platform android --profile preview`. `eas update` sahaja tidak cukup.
 
 Tier percuma Google ada had permintaan (semak di AI Studio) dan boleh menggunakan kandungan untuk menambah baik produk Google; teks persetujuan dalam app menyatakan ini. Disyorkan tetapkan `SCAN_DAILY_LIMIT` supaya satu pengguna tidak menghabiskan kuota.
+
+## 9. Peti masuk pembangun / akaun staf (3.3.2)
+
+Skrin **Lagi > Peti masuk** hanya muncul untuk akaun staf. Semua orang lain tidak nampak menu itu, dan pelayan menolak
+permintaan mereka walaupun app diubah suai (semakan dibuat dalam Supabase, bukan dalam app).
+
+1. Supabase > SQL Editor > jalankan `supabase/005_staff_inbox.sql` (jalankan 003 dan 004 dahulu jika belum).
+2. Buat akaun pembangun: daftar dalam app seperti biasa dengan e-mel sebenar anda (boleh guna alias, contoh
+   `nama+dev@gmail.com`), nama paparan **John Doe** (nama DUMMY, boleh ditukar bila-bila masa di Profil). Sahkan e-mel. Dalam contoh di bawah, `john.doe.dev@example.com` ialah e-mel DUMMY: ganti dengan e-mel sebenar akaun itu.
+3. Jadikan akaun itu superadmin (SQL Editor):
+
+```sql
+insert into public.staff (user_id, role)
+select id, 'superadmin' from auth.users where email = 'john.doe.dev@example.com'
+on conflict (user_id) do update set role = excluded.role;
+```
+
+4. Buka semula app dengan akaun itu: menu **Peti masuk** muncul (titik merah jika ada laporan baharu).
+   Pilih laporan > tukar status, tulis nota untuk pengguna, isi "dibetulkan dalam versi" > Simpan. Pengguna nampak
+   perubahan dalam garis masa maklum balas mereka.
+
+Untuk membuang akses staf: `delete from public.staff where user_id = '...';`. Peranan `admin` dan `superadmin` sama
+buat masa ini (superadmin disediakan untuk keupayaan tambahan kelak). Staf hanya nampak laporan maklum balas dan nama
+paparan pelapor, bukan data kewangan, resit atau storan pengguna.
+
+## 10. Nama pengguna (3.4.0)
+
+Pengguna boleh log masuk dengan **e-mel ATAU nama pengguna**. E-mel kekal wajib semasa mendaftar (untuk kod pengesahan dan
+tetap semula kata laluan); nama pengguna pilihan (3-20 aksara: huruf kecil, nombor, titik, garis bawah; mula dengan huruf; unik).
+Ditetapkan semasa daftar atau kemudian di **Lagi > Profil**.
+
+1. SQL Editor: jalankan `supabase/006_username.sql`.
+2. Deploy function: `supabase functions deploy login-username` (tiada secret tambahan).
+3. Selagi function belum di-deploy, log masuk dengan nama pengguna menunjukkan mesej "belum tersedia, guna e-mel"; log masuk e-mel tidak terjejas.
+
+Keselamatan: nama pengguna dicari di dalam function (bukan dalam app), jadi e-mel orang tidak didedahkan kepada sesiapa yang cuba nama pengguna;
+"nama tiada" dan "kata laluan salah" memberi jawapan yang sama. Lupa kata laluan masih guna e-mel.
+Selepas 5 cubaan gagal dalam 15 minit untuk nama pengguna yang sama, function menolak sementara (jadual `login_attempts`, hanya function boleh baca).
+Semua 001-006 telah dijalankan pada Postgres sebenar (dengan skema `auth` tiruan) dan diuji: daftar, nama unik, peranan staf, RLS.
+
+### Data dummy untuk ujian (pilihan)
+- `supabase/dev_dummy_reports.sql`: 7 laporan dummy (semua tajuk "[DUMMY]") untuk mencuba Peti masuk.
+- `supabase/dev_dummy_finance.sql`: akaun, transaksi Jun-Okt 2026, pindahan simpanan dan matlamat dummy untuk akaun John Doe
+  (Maybank RM 9,673.81, Simpanan RM 10,400.00, Tunai RM 284.49; jumlah RM 20,358.30). Ganti e-mel di dalamnya dahulu. Guna pada akaun ujian sahaja kerana ia menggantikan data akaun itu.

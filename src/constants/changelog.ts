@@ -14,9 +14,34 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.3.1';
+export const CURRENT_VERSION = '3.4.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.4.0',
+    date: '2026-10-19',
+    title: 'Sign in with a username', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Log masuk dengan nama pengguna',
+    highlights: [
+      { text: 'Pick a username and use it, or your email, to sign in', ms: 'Pilih nama pengguna dan guna ia, atau e-mel anda, untuk log masuk' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Add an optional username when you sign up, or set one later in Profile. Then sign in with either your email or your username.', ms: 'Tambah nama pengguna (pilihan) semasa mendaftar, atau tetapkan kemudian di Profil. Selepas itu log masuk dengan e-mel atau nama pengguna.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'SPayLater and other credit lines now show on Home when their bill is coming up: tap, pick the account and slide to pay.', ms: 'SPayLater dan kredit lain kini muncul di Skrin Utama bila bil hampir tiba: ketik, pilih akaun dan seret untuk bayar.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Money with people: who owes whom can no longer be switched after payments were recorded in your accounts, so those records stay correct.', ms: 'Hutang dengan orang: arah hutang tidak lagi boleh ditukar selepas bayaran direkod dalam akaun, supaya rekod kekal betul.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Overdue payments to people and instalments now stay in the Coming up list on Home (marked as overdue), so you can pay them from there and the payment is recorded in your transactions.', ms: 'Bayaran kepada orang dan ansuran yang lewat kini kekal dalam senarai Akan datang di Skrin Utama (ditanda lewat), supaya anda boleh bayar dari situ dan bayaran direkodkan dalam transaksi.' }, // i18n-ignore: bilingual data
+    ],
+  },
+  {
+    version: '3.3.2',
+    date: '2026-10-19',
+    title: 'Behind the scenes', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Kerja di belakang tabir',
+    silent: true,
+    changes: [
+      { kind: 'improved', text: 'Faster replies to your feedback: the team now has a proper inbox to read and answer reports.', ms: 'Balasan maklum balas lebih pantas: pasukan kini ada peti masuk khas untuk membaca dan menjawab laporan.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.3.1',
     date: '2026-10-19',

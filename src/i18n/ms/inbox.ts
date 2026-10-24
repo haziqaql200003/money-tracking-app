@@ -1,0 +1,30 @@
+import type { enInbox } from '../en/inbox';
+
+// Malay wording: every key in en/inbox.ts must exist here (TypeScript enforces it).
+export const msInbox: Record<keyof typeof enInbox, string> = {
+  'inbox.title': 'Peti masuk',
+  'inbox.menu.sub': 'Baca dan balas laporan pengguna',
+  'inbox.menu.subNew': '{count} baharu',
+  'inbox.role.admin': 'Log masuk sebagai admin',
+  'inbox.role.superadmin': 'Log masuk sebagai superadmin',
+  'inbox.filter.all': 'Semua',
+  'inbox.filter.new': 'Baharu',
+  'inbox.filter.open': 'Sedang diurus',
+  'inbox.filter.closed': 'Selesai',
+  'inbox.search': 'Cari tajuk, butiran atau nama',
+  'inbox.empty': 'Tiada laporan di sini.',
+  'inbox.loadFail': 'Tidak dapat memuatkan laporan. Semak sambungan dan akses staf anda.',
+  'inbox.by': 'Daripada {name}',
+  'inbox.meta': 'Versi {version} · {platform} {os} · {lang}',
+  'inbox.details': 'Butiran',
+  'inbox.noDetails': 'Tiada butiran ditulis.',
+  'inbox.status': 'Status',
+  'inbox.note': 'Nota untuk pengguna',
+  'inbox.notePlaceholder': 'Mereka nampak ini dalam garis masa kemajuan.',
+  'inbox.fixedIn': 'Dibetulkan dalam versi',
+  'inbox.useCurrent': 'Guna {version}',
+  'inbox.save': 'Simpan dan beritahu pengguna',
+  'inbox.saved': 'Disimpan. Pengguna akan nampak kemas kini ini.',
+  'inbox.saveFail': 'Tidak dapat menyimpan. Cuba lagi.',
+  'inbox.unchanged': 'Belum ada perubahan.',
+};

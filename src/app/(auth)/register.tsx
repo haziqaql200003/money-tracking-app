@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { EMAIL_RE, normEmail } from '@/context/auth-shared';
+import { EMAIL_RE, normEmail, normUsername, validateUsername } from '@/context/auth-shared';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { checkPassword } from '@/utils/password';
@@ -30,11 +30,13 @@ export default function RegisterScreen() {
   const colors = useTheme();
   const { t, lang } = useT();
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, usernameAvailable } = useAuth();
   const [step, setStep] = useState(0);
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [taken, setTaken] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [consent, setConsent] = useState(false);
@@ -54,19 +56,34 @@ export default function RegisterScreen() {
   const typedDomain = at >= 0 ? raw.slice(at).toLowerCase() : '';
   const suggestions = local && !/\s/.test(local) && !emailOk ? DOMAINS.filter((d) => d.startsWith(typedDomain) && d !== typedDomain) : [];
 
-  const canNext = [firstName.length >= 2, emailOk, check.ok && match, consent][step] && !busy;
+  const uname = normUsername(username);
+  const unameBad = uname ? validateUsername(uname) : null;
+  const canNext = [firstName.length >= 2, emailOk && !unameBad && taken !== true, check.ok && match, consent][step] && !busy;
+
+  // Ask the server whether the username is free, a moment after typing stops.
+  useEffect(() => {
+    if (!uname || validateUsername(uname)) return;
+    let alive = true;
+    const id = setTimeout(() => {
+      void usernameAvailable(uname).then((free) => alive && setTaken(free === null ? false : !free));
+    }, 450);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [uname, usernameAvailable]);
 
   async function next() {
     if (!canNext) return;
     setError(null);
     if (step < STEPS - 1) return setStep(step + 1);
     setBusy(true);
-    const res = await signUp({ email, password, displayName: firstName.slice(0, 24), fullName, language: lang, consent });
+    const res = await signUp({ email, password, displayName: firstName.slice(0, 24), fullName, username: uname || undefined, language: lang, consent });
     setBusy(false);
     if (!res.ok) {
       setError(res.error);
       // An e-mail that is already taken belongs to step 2.
-      if (res.error === t('auth.error.emailTaken')) setStep(1);
+      if (res.error === t('auth.error.emailTaken') || res.error === t('auth.error.usernameTaken')) setStep(1);
       return;
     }
     if (res.needsCode) router.push({ pathname: '/verify', params: { email: email.trim(), mode: 'signup', name: firstName } });
@@ -153,6 +170,25 @@ export default function RegisterScreen() {
                 ) : null}
                 {email.length > 3 && !emailOk && suggestions.length === 0 ? (
                   <Text style={[Type.label, { color: colors.negative }]}>{t('ob.reg.emailBad')}</Text>
+                ) : null}
+                <AuthField
+                  label={t('auth.field.username')}
+                  value={username}
+                  onChangeText={(v) => {
+                    setUsername(v);
+                    setTaken(null);
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="username"
+                  placeholder={t('auth.field.usernamePlaceholder')}
+                  maxLength={21}
+                />
+                <Text style={[Type.caption, { color: colors.textSecondary }]}>{t('auth.username.hint')}</Text>
+                {uname ? (
+                  <Text style={[Type.label, { color: unameBad || taken ? colors.negative : colors.positive }]}>
+                    {unameBad ?? (taken === null ? t('auth.username.checking') : taken ? t('auth.username.taken') : t('auth.username.free'))}
+                  </Text>
                 ) : null}
               </>
             ) : null}

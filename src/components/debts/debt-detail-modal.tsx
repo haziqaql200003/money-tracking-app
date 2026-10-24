@@ -13,6 +13,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { accountName } from '@/i18n/data';
 import { formatDate } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
@@ -70,7 +71,7 @@ function DebtDetail({ debtId, onClose, onEdit }: { debtId: string; onClose: () =
   const { t } = useT();
   const { hideAmounts } = usePrivacy();
   const { debts, undoPayment, deleteDebt } = useDebts();
-  const { accountBalance } = useTransactions();
+  const { accountBalance, accounts } = useTransactions();
   const [panel, setPanel] = useState<Panel>(null);
 
   const debt = debts.find((d) => d.id === debtId);
@@ -194,7 +195,11 @@ function DebtDetail({ debtId, onClose, onEdit }: { debtId: string; onClose: () =
               <ThemedText>{t('debt.detail.instalmentN', { n: s.n })}</ThemedText>
               <ThemedText type="small" style={{ color: overdue ? colors.negative : colors.textSecondary }}>
                 {s.paid
-                  ? t(s.paid.historic ? 'debt.detail.paidBefore' : 'debt.detail.paidOn', { date: dateLabel(s.paid.date) })
+                  ? s.paid.historic
+                    ? t('debt.detail.paidBefore', { date: dateLabel(s.paid.date) })
+                    : accounts.find((a) => a.id === s.paid?.accountId)
+                      ? t('debt.detail.paidOnFrom', { date: dateLabel(s.paid.date), account: accountName(accounts.find((a) => a.id === s.paid?.accountId)!) })
+                      : t('debt.detail.paidOn', { date: dateLabel(s.paid.date) })
                   : overdue
                     ? t('debt.detail.overdueShort', { date: dateLabel(s.dueDate) })
                     : dateLabel(s.dueDate)}

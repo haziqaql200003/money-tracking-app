@@ -75,7 +75,8 @@ export function billsTotal(bills: UpcomingBill[]) {
 
 /** "Today", "Tomorrow" or "In 5 days". */
 export function dueText(daysUntil: number) {
-  if (daysUntil <= 0) return t('tx.bills.dueToday');
+  if (daysUntil < 0) return tp('tx.bills.overdue', -daysUntil);
+  if (daysUntil === 0) return t('tx.bills.dueToday');
   if (daysUntil === 1) return t('tx.bills.dueTomorrow');
   return tp('tx.bills.dueInDays', daysUntil);
 }

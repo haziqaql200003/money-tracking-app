@@ -382,7 +382,7 @@ export default function TransactionsScreen() {
                   ? Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'))
                   : isEditableTransferEntry(item)
                   ? setEditingTransfer(transfers.find((tr) => tr.id === savedTransferId(item)) ?? null)
-                  : item.debtId
+                  : item.debtId || item.iouId
                     ? Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'))
                     : setEditing(item)
               }

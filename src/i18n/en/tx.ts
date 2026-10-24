@@ -132,6 +132,8 @@ export const enTx = {
   'tx.bills.dueTomorrow': 'Tomorrow',
   'tx.bills.dueInDays.one': 'In {count} day',
   'tx.bills.dueInDays.other': 'In {count} days',
+  'tx.bills.overdue.one': '{count} day overdue',
+  'tx.bills.overdue.other': '{count} days overdue',
   // recurring screen
   'tx.recurring.title': 'Recurring',
   'tx.recurring.addA11y': 'Add recurring transaction',
