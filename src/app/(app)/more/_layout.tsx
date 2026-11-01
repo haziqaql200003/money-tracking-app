@@ -4,11 +4,13 @@ import { useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 
 // A page opened from elsewhere (e.g. Import from Home) still has the More list under it, so Back leads there.
-export const unstable_settings = { initialRouteName: 'index' };
+export const unstable_settings = { anchor: 'index' };
 
+type StackRoute = { key: string; name: string };
+type StackState = { key: string; index: number; routeNames: string[]; routes: StackRoute[] };
 type StackNav = {
-  getState: () => { index: number; routes: { name: string }[] };
-  reset: (state: { index: number; routes: { name: string }[] }) => void;
+  getState: () => StackState;
+  reset: (state: StackState) => void;
 };
 
 export default function MoreLayout() {
@@ -25,7 +27,10 @@ export default function MoreLayout() {
       if (!nav) return;
       const s = nav.getState();
       const noList = s.routes[0]?.name !== 'index';
-      if (noList || (!onlyIfNoList && s.index > 0)) nav.reset({ index: 0, routes: [{ name: 'index' }] }); // i18n-ignore: route name
+      if (!noList && (onlyIfNoList || s.index === 0)) return;
+      // Since SDK 58 a reset needs the whole state (key, routeNames, route keys); a partial one is no longer completed.
+      const list: StackRoute = s.routes[0]?.name === 'index' ? s.routes[0] : { key: `index-${Date.now()}`, name: 'index' }; // i18n-ignore: route name
+      nav.reset({ ...s, index: 0, routes: [list] });
     };
     const offBlur = tabs.addListener('blur', () => backToList(false));
     // Tapping More again: the stack already goes back to its first page by itself; only a page opened

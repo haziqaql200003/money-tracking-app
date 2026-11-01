@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
@@ -113,6 +114,32 @@ export default function SecurityScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <ScreenHeader title={t('more.security.title')} />
 
+          {/* One line on where things stand: lock on, or a nudge to turn it on */}
+          {(() => {
+            const safe = lock.enabled;
+            const tint = safe ? colors.positive : colors.warning;
+            const count = logins?.length ?? 0;
+            return (
+              <View style={[styles.status, { backgroundColor: `${tint}1A` }]}>
+                <View style={[styles.statusIcon, { backgroundColor: tint }]}>
+                  <Ionicons name={safe ? 'shield-checkmark' : 'shield-outline'} size={18} color="#FFFFFF" />
+                </View>
+                <View style={styles.flex}>
+                  <ThemedText style={{ fontWeight: '800', color: tint }}>{safe ? t('more.security.statusOn') : t('more.security.statusOff')}</ThemedText>
+                  <ThemedText type="small" style={muted}>
+                    {safe
+                      ? cloud && count > 0
+                        ? t('more.security.statusOnSub', { count })
+                        : t('more.security.lockOn')
+                      : lock.supported
+                        ? t('more.security.statusOffSub')
+                        : t('more.security.lockWeb')}
+                  </ThemedText>
+                </View>
+              </View>
+            );
+          })()}
+
           <Section title={t('more.security.lock')} footer={lock.supported ? t('more.security.lockFooter') : t('more.security.lockWeb')}>
             <Row
               first
@@ -192,6 +219,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   pad: { padding: Spacing.three },
+  flex: { flex: 1 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: Spacing.three, marginBottom: Spacing.four },
+  statusIcon: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.two },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.lg },
 });

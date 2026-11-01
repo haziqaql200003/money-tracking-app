@@ -23,6 +23,7 @@ import { formatMoney } from '@/utils/currency';
 import { cycleOf, daysToPayday } from '@/utils/cycle';
 import { cycleRangeLabel, monthKeyFromOffset, monthLabel, toDateKey } from '@/utils/dates';
 import { creditStatus, overview } from '@/utils/debts';
+import { endOfMonth, providerGroups } from '@/utils/provider-groups';
 import { looksLikeSavings } from '@/utils/saved';
 
 const MASK = 'RM ••••'; // i18n-ignore
@@ -84,6 +85,8 @@ export function HomeDesktop() {
   const creditUsed: Record<string, number> = {};
   for (const d of debts) if (d.kind === 'credit') creditUsed[d.id] = creditStatus(d.creditLimit ?? 0, accountBalance(d.accountId)).used;
   const debt = overview(debts, creditUsed, today);
+  // Same total as the Debts screen's "Pay this month" buttons (overdue and credit bills included).
+  const dueThisMonth = providerGroups(debts, accountBalance, today, { until: endOfMonth(today), undatedCredit: true }).reduce((s, g) => s + g.dueAmount, 0);
 
   const statusColor = (s: string) => (s === 'over' ? colors.negative : s === 'warn' ? colors.warning : colors.accent);
   const card = [styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }];
@@ -145,7 +148,7 @@ export function HomeDesktop() {
             {tile(
               t('home.desktop.owed'),
               money(debt.totalOwed),
-              debt.activeCount > 0 ? t('home.desktop.owedSub', { count: debt.activeCount, due: money(debt.dueThisMonth) }) : t('home.desktop.noDebt'),
+              debt.activeCount > 0 ? t('home.desktop.owedSub', { count: debt.activeCount, due: money(Math.round(dueThisMonth * 100) / 100) }) : t('home.desktop.noDebt'),
               '/more/debts',
             )}
           </View>

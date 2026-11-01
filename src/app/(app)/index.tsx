@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BalanceCarousel } from '@/components/accounts/balance-carousel';
@@ -40,7 +41,7 @@ export default function HomeScreen() {
 
   // null = "All accounts". Set by swiping the card carousel; drives the chart and the list below it.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const cardsRef = useRef<View>(null);
+  const cardsRef = useRef<ViewRef>(null);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
   const selectedName = selectedAccount ? accountName(selectedAccount) : undefined;
 

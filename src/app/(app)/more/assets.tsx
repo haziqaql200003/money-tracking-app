@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { AccountDonutChart, type DonutSlice } from '@/components/accounts/account-donut-chart';
 import { AddAccountModal } from '@/components/accounts/add-account-modal';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
 import { TransferModal } from '@/components/transactions/transfer-modal';
 import { accountTypeLabel } from '@/constants/accounts';
+import { findBrand } from '@/constants/brands';
 import { DEFAULT_COLOR } from '@/constants/card-styles';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -25,6 +27,7 @@ import { formatMoney } from '@/utils/currency';
 import { CategoryIcon } from '@/components/ui/category-icon';
 import { ReorderList } from '@/components/ui/reorder-list';
 import { SwipeRow } from '@/components/ui/swipe-row';
+import { accountKindLabel, bundleByProvider, type AccountEntry } from '@/utils/account-groups';
 import { cycleOf } from '@/utils/cycle';
 import { looksLikeSavings } from '@/utils/saved';
 import { p1, r1 } from '@/utils/percent';
@@ -58,6 +61,9 @@ export default function AssetsScreen() {
   // While a row is being dragged the page must not scroll.
   const [sorting, setSorting] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
+  // Provider bundles that are open (Maybank: savings + current).
+  const [openBundles, setOpenBundles] = useState<string[]>([]);
+  const [addProvider, setAddProvider] = useState<string | undefined>(undefined);
 
   const accounts = accountBalances();
 
@@ -127,9 +133,15 @@ export default function AssetsScreen() {
     setSelectedId(null);
   }
 
-  function openAdd() {
+  function openAdd(provider?: string) {
     setEditingAccount(null);
+    setAddProvider(provider);
     setModalVisible(true);
+  }
+
+  function toggleBundle(key: string) {
+    if (Platform.OS !== 'web') LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    setOpenBundles((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
   function openEdit(account: Account) {
@@ -164,6 +176,118 @@ export default function AssetsScreen() {
 
   const flowUp = monthNet > 0;
 
+  type Row = (typeof accounts)[number];
+
+  /** One account as a row, swipe for edit and delete. `inBundle` rows sit under their provider, indented. */
+  const renderAccountRow = (a: Row, i: number, dragging: boolean, inBundle = false) => {
+    const color = colorOf(a);
+    const brand = findBrand(a.provider);
+    const subtitle = [inBundle ? null : brand?.name ?? a.provider, accountKindLabel(a), a.last4 ? `•••• ${a.last4}` : null]
+      .filter(Boolean)
+      .join(' · ');
+    const negative = a.balance < 0;
+    return (
+      <SwipeRow
+        background={colors.backgroundElement}
+        disabled={dragging}
+        rightActions={[
+          { key: 'edit', label: t('common.edit'), icon: 'create-outline', color: colors.accent, onPress: () => openEdit(a) },
+          { key: 'delete', label: t('common.delete'), icon: 'trash-outline', color: colors.negative, onPress: () => confirmDeleteAccount(a) },
+        ]}
+        onFullSwipe={() => confirmDeleteAccount(a)}
+      >
+        <Pressable
+          onPress={() => openEdit(a)}
+          style={({ pressed }) => [
+            styles.accountRow,
+            inBundle && styles.innerRow,
+            i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          {inBundle ? (
+            <CategoryIcon icon={a.icon} color={color} size={34} />
+          ) : brand ? (
+            <BrandAvatar name={brand.name} size={42} />
+          ) : (
+            <CategoryIcon icon={a.icon} color={color} size={42} />
+          )}
+          <View style={styles.flex}>
+            <ThemedText numberOfLines={1}>{accountName(a)}</ThemedText>
+            <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+              {subtitle}
+            </ThemedText>
+          </View>
+          <View style={styles.right}>
+            <ThemedText style={{ fontWeight: '700', color: negative ? colors.negative : colors.text }}>{money(a.balance)}</ThemedText>
+            <ThemedText type="small" style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: FontSize.caption, lineHeight: 16 }}>
+              {negative
+                ? t('acct.assets.overdrawn')
+                : a.balance > 0
+                  ? t('acct.assets.percentOfAssets', { percent: p1(percentOf(a.balance)) })
+                  : t('acct.assets.empty')}
+            </ThemedText>
+          </View>
+        </Pressable>
+      </SwipeRow>
+    );
+  };
+
+  /** A provider with several accounts folds into one row; tap it to open the accounts inside. */
+  const renderEntry = (e: AccountEntry<Row>, i: number, dragging: boolean) => {
+    if (e.kind === 'single') return renderAccountRow(e.account, i, dragging);
+    const open = openBundles.includes(e.key);
+    const total = sumOf(e.accounts);
+    return (
+      <View style={open ? [styles.bundleOpen, { borderColor: colors.accent }] : null}>
+        <Pressable
+          onPress={() => toggleBundle(e.key)}
+          disabled={dragging}
+          style={({ pressed }) => [
+            styles.accountRow,
+            i > 0 && !open && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+            pressed && { opacity: 0.6 },
+          ]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={t('acct.assets.bundleA11y', { name: e.name, count: e.accounts.length })}
+        >
+          <BrandAvatar name={e.name} size={42} />
+          <View style={styles.flex}>
+            <ThemedText numberOfLines={1} style={{ fontWeight: '700' }}>
+              {e.name}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+              {t('acct.assets.nAccounts', { count: e.accounts.length })}
+            </ThemedText>
+          </View>
+          <View style={styles.right}>
+            <ThemedText style={{ fontWeight: '800', color: total < 0 ? colors.negative : colors.text }}>{money(total)}</ThemedText>
+            {total > 0 ? (
+              <ThemedText type="small" style={{ color: colors.textSecondary, fontSize: FontSize.caption, lineHeight: 16 }}>
+                {t('acct.assets.percentOfAssets', { percent: p1(percentOf(total)) })}
+              </ThemedText>
+            ) : null}
+          </View>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+        </Pressable>
+        {open ? (
+          <View style={[styles.bundleBody, { borderTopColor: colors.divider }]}>
+            {e.accounts.map((a, j) => (
+              <View key={a.id}>{renderAccountRow(a, j, false, true)}</View>
+            ))}
+            <Pressable onPress={() => openAdd(e.name)} style={styles.bundleAdd} accessibilityRole="button">
+              <Ionicons name="add" size={16} color={colors.accent} />
+              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
+                {t('acct.assets.addTo', { name: e.name })}
+              </ThemedText>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -182,7 +306,7 @@ export default function AssetsScreen() {
                   <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
                 </Pressable>
                 <Pressable
-                  onPress={openAdd}
+                  onPress={() => openAdd()}
                   hitSlop={8}
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
                   accessibilityRole="button"
@@ -252,7 +376,7 @@ export default function AssetsScreen() {
               <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
                 {t('acct.assets.emptyBody')}
               </ThemedText>
-              <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAdd}>
+              <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={() => openAdd()}>
                 <ThemedText style={styles.emptyButtonText}>{t('acct.add.submit')}</ThemedText>
               </Pressable>
             </View>
@@ -278,64 +402,32 @@ export default function AssetsScreen() {
                       </ThemedText>
                     </View>
                     <View style={[styles.listCard, styles.listFlush, { backgroundColor: colors.backgroundElement }]}>
-                      <ReorderList
-                        items={g.list}
-                        keyOf={(a) => a.id}
-                        rowHeight={ACCOUNT_ROW_H}
-                        background={colors.backgroundElement}
-                        onReorder={(ids) => reorderGroup(g.list.map((a) => a.id), ids)}
-                        onDragChange={setSorting}
-                        renderRow={(a, i, dragging) => {
-                          const color = colorOf(a);
-                          const subtitle = [a.typeLabel ?? accountTypeLabel(a.type), a.provider, a.last4 ? `•••• ${a.last4}` : null]
-                            .filter(Boolean)
-                            .join(' · ');
-                          const negative = a.balance < 0;
-                          return (
-                            <SwipeRow
-                              background={colors.backgroundElement}
-                              disabled={dragging}
-                              rightActions={[
-                                { key: 'edit', label: t('common.edit'), icon: 'create-outline', color: colors.accent, onPress: () => openEdit(a) },
-                                { key: 'delete', label: t('common.delete'), icon: 'trash-outline', color: colors.negative, onPress: () => confirmDeleteAccount(a) },
-                              ]}
-                              onFullSwipe={() => confirmDeleteAccount(a)}
-                            >
-                              <Pressable
-                                onPress={() => openEdit(a)}
-                                style={({ pressed }) => [
-                                  styles.accountRow,
-                                  i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                                  pressed && { opacity: 0.6 },
-                                ]}
-                              >
-                                <CategoryIcon icon={a.icon} color={color} size={42} />
-                                <View style={styles.flex}>
-                                  <ThemedText numberOfLines={1}>{accountName(a)}</ThemedText>
-                                  <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                                    {subtitle}
-                                  </ThemedText>
-                                </View>
-                                <View style={styles.right}>
-                                  <ThemedText style={{ fontWeight: '700', color: negative ? colors.negative : colors.text }}>
-                                    {money(a.balance)}
-                                  </ThemedText>
-                                  <ThemedText
-                                    type="small"
-                                    style={{ color: negative ? colors.negative : colors.textSecondary, fontSize: FontSize.caption, lineHeight: 16 }}
-                                  >
-                                    {negative
-                                      ? t('acct.assets.overdrawn')
-                                      : a.balance > 0
-                                        ? t('acct.assets.percentOfAssets', { percent: p1(percentOf(a.balance)) })
-                                        : t('acct.assets.empty')}
-                                  </ThemedText>
-                                </View>
-                              </Pressable>
-                            </SwipeRow>
-                          );
-                        }}
-                      />
+                      {(() => {
+                        const entries = bundleByProvider(g.list);
+                        const anyOpen = entries.some((e) => e.kind === 'bundle' && openBundles.includes(e.key));
+                        // An open bundle is taller than one row, so the drag list (fixed row height) steps aside while one is open.
+                        if (anyOpen) {
+                          return entries.map((e, i) => <View key={e.key}>{renderEntry(e, i, false)}</View>);
+                        }
+                        return (
+                          <ReorderList
+                            items={entries}
+                            keyOf={(e) => e.key}
+                            rowHeight={ACCOUNT_ROW_H}
+                            background={colors.backgroundElement}
+                            onReorder={(keys) => {
+                              const byKey = new Map(entries.map((e) => [e.key, e] as const));
+                              const ids = keys.flatMap((k) => {
+                                const e = byKey.get(k);
+                                return !e ? [] : e.kind === 'bundle' ? e.accounts.map((a) => a.id) : [e.account.id];
+                              });
+                              reorderGroup(g.list.map((a) => a.id), ids);
+                            }}
+                            onDragChange={setSorting}
+                            renderRow={(e, i, dragging) => renderEntry(e, i, dragging)}
+                          />
+                        );
+                      })()}
                     </View>
                   </View>
                 ))}
@@ -346,7 +438,7 @@ export default function AssetsScreen() {
               ) : null}
 
               <Pressable
-                onPress={openAdd}
+                onPress={() => openAdd()}
                 style={[styles.addRow, { borderColor: colors.divider }]}
                 accessibilityRole="button"
                 accessibilityLabel={t('acct.assets.addNewA11y')}
@@ -496,6 +588,7 @@ export default function AssetsScreen() {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           editingAccount={editingAccount}
+          initialProvider={addProvider}
         />
 
         <TransferModal visible={transferVisible} onClose={() => setTransferVisible(false)} editing={editingTransfer} />
@@ -558,6 +651,10 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: ACCOUNT_ROW_H, paddingHorizontal: Spacing.three },
   listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
+  innerRow: { height: 64, paddingLeft: Spacing.four + 8 },
+  bundleOpen: { borderWidth: 1.5, borderRadius: Radius.lg, overflow: 'hidden' },
+  bundleBody: { borderTopWidth: StyleSheet.hairlineWidth },
+  bundleAdd: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingLeft: Spacing.four + 8 },
   sortHint: { textAlign: 'center', marginTop: -Spacing.two, marginBottom: Spacing.three },
   avatar: { width: 42, height: 42, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   avatarIcon: { fontSize: FontSize.heading },

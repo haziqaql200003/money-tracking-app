@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import type { ScrollViewRef } from '@/utils/rn-refs';
 
 import { CardBackground } from '@/components/accounts/account-card';
 import { ProCardThumb } from '@/components/cards/thumbs';
@@ -41,7 +42,7 @@ type Props = {
 export function LookSection({ design, setDesign, color, pickColor, icon, pickIcon, initialShowCustom, scrollToDesign }: Props) {
   const { t } = useT();
   const colors = useTheme();
-  const proRef = useRef<ScrollView>(null);
+  const proRef = useRef<ScrollViewRef>(null);
   const [showCustom, setShowCustom] = useState(initialShowCustom);
   const [hue, setHue] = useState(220);
   const [light, setLight] = useState(50);

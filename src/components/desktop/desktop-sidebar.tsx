@@ -45,7 +45,7 @@ function typingInField(target: EventTarget | null) {
  * The web's side menu (desktop width), in place of the floating tab bar: the four main places, the things you
  * manage, a New record button (also the N key) and your profile at the bottom.
  */
-export function DesktopSidebar({ navigation }: BottomTabBarProps) {
+export function DesktopSidebar({ state, navigateToTab }: BottomTabBarProps) {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
@@ -74,7 +74,10 @@ export function DesktopSidebar({ navigation }: BottomTabBarProps) {
   }, [openAddRecord]);
 
   const go = (item: Item) => {
-    if (item.tab) navigation.navigate(item.tab);
+    if (item.tab) {
+      const key = state.routes.find((r) => r.name === item.tab)?.key;
+      if (key) navigateToTab(key);
+    }
     else if (item.href) router.navigate(item.href);
   };
 

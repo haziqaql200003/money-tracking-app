@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import type { ScrollViewRef } from '@/utils/rn-refs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SocialButtons } from '@/components/auth/social-buttons';
@@ -44,7 +45,7 @@ export default function WelcomeScreen() {
   const [page, setPage] = useState(0);
   const [sheet, setSheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<ScrollViewRef>(null);
 
   useEffect(() => {
     let alive = true;

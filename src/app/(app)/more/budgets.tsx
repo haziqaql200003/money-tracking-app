@@ -77,6 +77,8 @@ export default function BudgetsScreen() {
     .map((cat) => ({ cat, spent: spent.get(cat.id) ?? 0 }))
     .sort((a, b) => b.spent / b.cat.monthlyLimit - a.spent / a.cat.monthlyLimit);
   const unbudgeted = expenseCategories.filter((c) => c.monthlyLimit <= 0);
+  const attention = budgeted.filter((b) => budgetStatus(b.spent, b.cat.monthlyLimit, warnPercent) !== 'ok');
+  const safe = budgeted.filter((b) => budgetStatus(b.spent, b.cat.monthlyLimit, warnPercent) === 'ok');
 
   const totalLimit = budgeted.reduce((sum, b) => sum + b.cat.monthlyLimit, 0);
   const totalSpent = budgeted.reduce((sum, b) => sum + b.spent, 0);
@@ -190,25 +192,24 @@ export default function BudgetsScreen() {
               </ThemedText>
 
               {isCurrent ? (
-                <View style={[styles.tiles, { borderTopColor: colors.divider }]}>
-                  <View style={styles.tile}>
+                <View style={styles.tiles}>
+                  <View style={[styles.tile, { backgroundColor: colors.background }]}>
                     <ThemedText type="small" style={{ color: colors.textSecondary }}>
                       {t('plan.budget.safePerDay')}
                     </ThemedText>
                     <ThemedText style={styles.tileValue}>{remaining > 0 ? money(daily) : '—'}</ThemedText>
-                    <ThemedText type="small" style={styles.tileHint}>
+                    <ThemedText type="small" style={[styles.tileHint, { color: colors.textSecondary }]}>
                       {tp('plan.budget.daysLeft', daysLeft)}
                     </ThemedText>
                   </View>
-                  <View style={[styles.tileDivider, { backgroundColor: colors.divider }]} />
-                  <View style={styles.tile}>
-                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  <View style={[styles.tile, { backgroundColor: projectedOver ? `${WARN_COLOR}1F` : colors.background }]}>
+                    <ThemedText type="small" style={{ color: projectedOver ? WARN_COLOR : colors.textSecondary }}>
                       {t('plan.budget.onPace')}
                     </ThemedText>
-                    <ThemedText style={[styles.tileValue, projectedOver && { color: colors.negative }]}>
+                    <ThemedText style={[styles.tileValue, projectedOver && { color: WARN_COLOR }]}>
                       {today >= 3 ? money(projected) : '—'}
                     </ThemedText>
-                    <ThemedText type="small" style={styles.tileHint}>
+                    <ThemedText type="small" style={[styles.tileHint, { color: colors.textSecondary }]}>
                       {today < 3 ? t('plan.budget.needsData') : projectedOver ? t('plan.budget.aboveBudget') : t('plan.budget.byMonthEnd')}
                     </ThemedText>
                   </View>
@@ -236,66 +237,102 @@ export default function BudgetsScreen() {
             </View>
           )}
 
-          {/* Budgeted categories */}
+          {/* Budgeted categories: the ones near or over their limit first, then the safe ones */}
           {budgeted.length > 0 ? (
             <>
-              <View style={styles.rowBetween}>
-                <ThemedText type="smallBold" style={styles.sectionTitle}>
-                  {t('plan.budget.categoriesCount', { count: budgeted.length })}
-                </ThemedText>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {t('plan.budget.tapToEdit')}
-                </ThemedText>
-              </View>
-              <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
-                {budgeted.map(({ cat, spent: s }, i) => {
-                  const st = budgetStatus(s, cat.monthlyLimit, warnPercent);
-                  const color = statusColor(st);
-                  const ratio = s / cat.monthlyLimit;
-                  const left = cat.monthlyLimit - s;
-                  return (
-                    <Pressable
-                      key={cat.id}
-                      onPress={() => setEditing(cat)}
-                      style={({ pressed }) => [
-                        styles.catRow,
-                        i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                        pressed && { opacity: 0.6 },
-                      ]}
-                    >
-                      <CategoryIcon icon={cat.icon} color={cat.color} size={40} />
-                      <View style={styles.flex}>
-                        <View style={styles.rowBetween}>
-                          <ThemedText numberOfLines={2} style={styles.flex}>
-                            {categoryName(cat)}
-                          </ThemedText>
-                          <ThemedText type="small" style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: '700', ...tabularNums }}>
-                            {p1(ratio * 100)}%
-                          </ThemedText>
-                        </View>
-                        <View style={styles.barGap}>
+              {attention.length > 0 ? (
+                <>
+                  <View style={styles.rowBetween}>
+                    <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
+                      {t('plan.budget.secAttention', { count: attention.length })}
+                    </ThemedText>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      {t('plan.budget.tapToEdit')}
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
+                    {attention.map(({ cat, spent: s }, i) => {
+                      const st = budgetStatus(s, cat.monthlyLimit, warnPercent);
+                      const color = statusColor(st);
+                      const ratio = s / cat.monthlyLimit;
+                      const left = cat.monthlyLimit - s;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          onPress={() => setEditing(cat)}
+                          style={({ pressed }) => [styles.attRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }, pressed && { opacity: 0.6 }]}
+                        >
+                          <View style={styles.rowBetween}>
+                            <CategoryIcon icon={cat.icon} color={cat.color} size={36} />
+                            <ThemedText numberOfLines={2} style={[styles.flex, { fontWeight: '700' }]}>
+                              {categoryName(cat)}
+                            </ThemedText>
+                            <View style={[styles.pill, { backgroundColor: `${color}1F` }]}>
+                              <ThemedText type="small" style={{ color, fontWeight: '800' }} numberOfLines={1}>
+                                {left >= 0 ? t('plan.budget.leftShort', { amount: money(left) }) : t('plan.budget.overShort', { amount: money(-left) })}
+                              </ThemedText>
+                            </View>
+                          </View>
                           <Bar ratio={ratio} color={color} track={colors.background} />
-                        </View>
-                        <ThemedText type="small" style={tabularNums}>
-                          <ThemedText type="small" style={{ fontWeight: '700' }}>{money(s)}</ThemedText>
-                          <ThemedText type="small" style={{ color: colors.textSecondary }}>{` / ${money(cat.monthlyLimit)} · `}</ThemedText>
-                          <ThemedText type="small" style={{ color: st === 'ok' ? colors.textSecondary : color, fontWeight: st === 'ok' ? '500' : '600' }}>
-                            {left >= 0 ? t('plan.budget.left', { amount: money(left) }) : t('plan.budget.over', { amount: money(-left) })}
+                          <ThemedText type="small" style={[{ color: colors.textSecondary }, tabularNums]}>
+                            {t('plan.budget.spentOfPct', { spent: money(s), limit: money(cat.monthlyLimit), percent: p1(ratio * 100) })}
                           </ThemedText>
-                        </ThemedText>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+
+              {safe.length > 0 ? (
+                <>
+                  <View style={styles.rowBetween}>
+                    <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
+                      {t('plan.budget.secSafe', { count: safe.length })}
+                    </ThemedText>
+                    {attention.length === 0 ? (
+                      <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                        {t('plan.budget.tapToEdit')}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
+                    {safe.map(({ cat, spent: s }, i) => {
+                      const ratio = s / cat.monthlyLimit;
+                      const left = cat.monthlyLimit - s;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          onPress={() => setEditing(cat)}
+                          style={({ pressed }) => [styles.catRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }, pressed && { opacity: 0.6 }]}
+                        >
+                          <CategoryIcon icon={cat.icon} color={cat.color} size={36} />
+                          <View style={styles.flex}>
+                            <ThemedText numberOfLines={1} style={{ fontWeight: '600' }}>
+                              {categoryName(cat)}
+                            </ThemedText>
+                            <View style={styles.barGap}>
+                              <Bar ratio={ratio} color={colors.positive} track={colors.background} height={6} />
+                            </View>
+                          </View>
+                          <View style={styles.right}>
+                            <ThemedText type="smallBold" style={tabularNums}>{money(left)}</ThemedText>
+                            <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('plan.budget.leftWord')}</ThemedText>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
             </>
           ) : null}
 
           {/* No budget yet */}
           {unbudgeted.length > 0 ? (
             <>
-              <ThemedText type="smallBold" style={styles.sectionTitle}>
-                {t('plan.budget.noBudgetYet')}
+              <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
+                {t('plan.budget.noBudgetYet').toUpperCase()}
               </ThemedText>
               <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>
                 {unbudgeted.map((cat, i) => {
@@ -358,19 +395,16 @@ const styles = StyleSheet.create({
   monthLabel: { fontSize: FontSize.body, fontWeight: '700' },
 
   card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three },
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.md },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill, flexShrink: 0 },
   bigAmount: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700', marginTop: 4, marginBottom: Spacing.two },
 
-  tiles: {
-    flexDirection: 'row',
-    marginTop: Spacing.three,
-    paddingTop: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  tile: { flex: 1, alignItems: 'center' },
-  tileValue: { fontSize: FontSize.body, fontWeight: '700', marginTop: 2 },
-  tileHint: { fontSize: FontSize.micro, lineHeight: 14, opacity: 0.7 },
-  tileDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
+  tiles: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
+  tile: { flex: 1, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 10 },
+  tileValue: { fontSize: FontSize.body, fontWeight: '800', marginTop: 2 },
+  tileHint: { fontSize: FontSize.micro, lineHeight: 14 },
+  secLabel: { fontWeight: '700', letterSpacing: 0.8, marginTop: Spacing.three, marginBottom: Spacing.two },
+  attRow: { paddingVertical: 14, gap: 8 },
+  right: { alignItems: 'flex-end' },
   footnote: { fontSize: FontSize.caption, lineHeight: 16, marginTop: Spacing.three },
 
   intro: { alignItems: 'center', gap: Spacing.two },
@@ -382,4 +416,4 @@ const styles = StyleSheet.create({
   listCard: { borderRadius: Radius.lg, paddingHorizontal: Spacing.three, marginBottom: Spacing.three },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   barGap: { marginVertical: 6 },
-});
+});

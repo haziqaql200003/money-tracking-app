@@ -6,7 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DebtDetailModal } from '@/components/debts/debt-detail-modal';
 import { DebtFormModal } from '@/components/debts/debt-form-modal';
 import { IouModal } from '@/components/debts/iou-modal';
-import { ProgressBar } from '@/components/debts/debt-ui';
+import { IouDetail } from '@/components/debts/iou-detail';
+import { IouSheet } from '@/components/debts/iou-sheet';
+import { PeopleList } from '@/components/debts/people-list';
+import { ProviderSheet } from '@/components/debts/provider-sheet';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -20,8 +24,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { formatDate } from '@/i18n/format';
 import { formatMoney } from '@/utils/currency';
+import { dayNumber, dueText } from '@/utils/bills';
 import { toDateKey } from '@/utils/dates';
-import { iouDone, iouLeft, iouOverdue, iouPaid, iouTotals, type Iou } from '@/utils/ious';
+import { iouDone, type Iou } from '@/utils/ious';
 import {
   creditStatus,
   instalmentAmount,
@@ -32,12 +37,13 @@ import {
   remainingPrincipal,
   type Debt,
 } from '@/utils/debts';
+import { endOfMonth, providerGroups, type ProviderGroup } from '@/utils/provider-groups';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
 type Tab = 'mine' | 'people';
-type SectionId = 'installment' | 'loan' | 'credit' | 'done' | 'iouDone';
+type SectionId = 'done' | 'iouDone';
 
 /** Newest purchase or start date first; ties by name. */
 const byBought = (a: Debt, b: Debt) => b.startDate.localeCompare(a.startDate) || a.name.localeCompare(b.name);
@@ -59,7 +65,13 @@ export default function DebtsScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [iouForm, setIouForm] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
-  const [shut, setShut] = useState<Record<SectionId, boolean>>({ installment: false, loan: false, credit: false, done: true, iouDone: true });
+  // A person's quick pay pop-up, and their full page.
+  const [iouPay, setIouPay] = useState<{ id: string } | null>(null);
+  const [iouDetailId, setIouDetailId] = useState<string | null>(null);
+  const [shut, setShut] = useState<Record<SectionId, boolean>>({ done: true, iouDone: true });
+  const [providerKey, setProviderKey] = useState<string | null>(null);
+  // Which company the list shows: 'all' (every provider card) or one provider's key.
+  const [prov, setProv] = useState<string>('all');
 
   const today = toDateKey(new Date());
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
@@ -74,15 +86,16 @@ export default function DebtsScreen() {
   const sum = overview(debts, creditUsed, today);
 
   const sorted = [...debts].sort(byBought);
-  const instalments = sorted.filter((d) => d.kind === 'installment' && d.status === 'active');
-  const loans = sorted.filter((d) => d.kind === 'loan' && d.status === 'active');
-  const credits = sorted.filter((d) => d.kind === 'credit');
   const done = sorted.filter((d) => d.kind !== 'credit' && d.status === 'done');
+  // One card per company you owe (SPayLater, TikTok PayLater...), overdue ones first.
+  const monthEnd = endOfMonth(today);
+  const groups = providerGroups(debts, accountBalance, today, { until: monthEnd, undatedCredit: true });
+  // The same total as the "Pay this month" buttons: instalments due (overdue included) and credit bills.
+  const dueThisMonth = Math.round(groups.reduce((s2, g) => s2 + g.dueAmount, 0) * 100) / 100;
+  const selGroup = prov === 'all' ? null : groups.find((g) => g.key === prov) ?? null;
   const opened = debts.find((d) => d.id === openId) ?? null;
   const editing = debts.find((d) => d.id === editingId) ?? null;
   const openIous = ious.filter((i) => !iouDone(i)).sort(byIouNewest);
-  const doneIous = ious.filter((i) => iouDone(i)).sort(byIouNewest);
-  const iouSum = iouTotals(ious);
   const editingIou = ious.find((i) => i.id === iouForm.id) ?? null;
 
   function addNew() {
@@ -101,7 +114,61 @@ export default function DebtsScreen() {
     }, 400);
   }
 
-  const owedOf = (list: Debt[]) => list.reduce((s2, d) => s2 + remainingPrincipal(d), 0);
+  /** From the provider sheet to one debt: close the sheet first (iOS cannot show a sheet while another is closing). */
+  function openDebtFromProvider(id: string) {
+    setProviderKey(null);
+    setTimeout(() => setOpenId(id), 400);
+  }
+
+  const providerCard = (g: ProviderGroup) => {
+    const late = g.overdueCount > 0;
+    const firstDue = g.due.find((it) => it.dueDate)?.dueDate ?? null;
+    const days = firstDue ? dayNumber(firstDue) - dayNumber(today) : null;
+    return (
+      <Pressable
+        key={g.key}
+        onPress={() => setProviderKey(g.key)}
+        style={({ pressed }) => [
+          styles.provCard,
+          { backgroundColor: colors.backgroundElement, borderColor: late ? colors.negative : 'transparent' },
+          pressed && { opacity: 0.75 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`${g.name}, ${money(g.owed)}${late ? `, ${t('debt.prov.overdueShort', { count: g.overdueCount })}` : ''}`}
+      >
+        <View style={styles.rowTop}>
+          <BrandAvatar name={g.name} size={44} alert={late} alertColor={colors.negative} />
+          <View style={styles.flex}>
+            <ThemedText style={styles.provName} numberOfLines={1}>{g.name}</ThemedText>
+            <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+              {[t('debt.prov.items', { count: g.debts.length }), g.limit > 0 ? `${t('debt.pv.limitAvail')} ${money(g.available)}` : `${t('debt.pv.statOwed')} ${money(g.owed)}`].join(' · ')}
+            </ThemedText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </View>
+        {g.dueAmount > 0 ? (
+          <View style={[styles.billStrip, { backgroundColor: late ? colors.negative + '14' : colors.backgroundSelected }]}>
+            <View style={styles.flex}>
+              <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary, fontWeight: late ? '700' : '500' }}>
+                {late ? t('debt.pv.billOverdue') : t('debt.pv.billNow')}
+              </ThemedText>
+              <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary }} numberOfLines={1}>
+                {firstDue ? t('debt.pv.dueOn', { date: dateLabel(firstDue) }) : t('debt.prov.noDueDay')}
+              </ThemedText>
+            </View>
+            <View style={styles.billRight}>
+              <ThemedText style={[styles.billAmount, { color: late ? colors.negative : colors.text }]} numberOfLines={1}>{money(g.dueAmount)}</ThemedText>
+              {days !== null ? <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary, fontWeight: '700' }} numberOfLines={1}>{dueText(days)}</ThemedText> : null}
+            </View>
+          </View>
+        ) : (
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+            {g.nextDue ? t('debt.prov.nextDue', { date: dateLabel(g.nextDue) }) : t('debt.prov.clear')}
+          </ThemedText>
+        )}
+      </Pressable>
+    );
+  };
 
   const debtRow = (d: Debt, i: number) => {
     const isCredit = d.kind === 'credit';
@@ -207,63 +274,123 @@ export default function DebtsScreen() {
                   </View>
                 ) : (
                   <>
-                    <View style={[styles.summary, { backgroundColor: colors.backgroundElement }]}>
-                      <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.summary.totalOwed')}</ThemedText>
-                      <ThemedText style={styles.big}>{money(sum.totalOwed)}</ThemedText>
+                    <View style={[styles.summary, { backgroundColor: colors.accent }]}>
+                      <View style={styles.rowTop}>
+                        <ThemedText type="small" style={[styles.flex, styles.onAccentDim]}>{t('debt.summary.totalOwed')}</ThemedText>
+                        {sum.overdueCount > 0 ? (
+                          <View style={styles.latePill}>
+                            <ThemedText type="small" style={styles.latePillText}>{t('debt.prov.overdueShort', { count: sum.overdueCount })}</ThemedText>
+                          </View>
+                        ) : null}
+                      </View>
+                      <ThemedText style={[styles.big, styles.onAccent]} numberOfLines={1}>{money(sum.totalOwed)}</ThemedText>
                       <View style={styles.stats}>
-                        <View style={styles.flex}>
-                          <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.summary.dueThisMonth')}</ThemedText>
-                          <ThemedText type="smallBold">{money(sum.dueThisMonth)}</ThemedText>
+                        <View style={[styles.statBox, styles.statOnAccent]}>
+                          <ThemedText type="small" style={styles.onAccentDim}>{t('debt.summary.dueThisMonth')}</ThemedText>
+                          <ThemedText type="smallBold" style={styles.onAccent}>{money(dueThisMonth)}</ThemedText>
                         </View>
-                        <View style={styles.flex}>
-                          <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.summary.debtFree')}</ThemedText>
-                          <ThemedText type="smallBold">{sum.debtFreeDate ? dateLabel(sum.debtFreeDate) : t('debt.summary.none')}</ThemedText>
+                        <View style={[styles.statBox, styles.statOnAccent]}>
+                          <ThemedText type="small" style={styles.onAccentDim}>{t('debt.summary.debtFree')}</ThemedText>
+                          <ThemedText type="smallBold" style={styles.onAccent}>{sum.debtFreeDate ? dateLabel(sum.debtFreeDate) : t('debt.summary.none')}</ThemedText>
                         </View>
                       </View>
-                      {sum.overdueCount > 0 ? (
-                        <ThemedText type="small" style={{ color: colors.negative, fontWeight: '600' }}>
-                          {t('debt.summary.overdue', { count: sum.overdueCount })}
-                        </ThemedText>
-                      ) : null}
                     </View>
-                    <ThemedText type="small" style={[styles.sortNote, { color: colors.textSecondary }]}>{t('debt.newestFirst')}</ThemedText>
-                    {section('installment', t('debt.section.installment'), instalments.length, money(owedOf(instalments)), instalments.map(debtRow))}
-                    {section('loan', t('debt.section.loan'), loans.length, money(owedOf(loans)), loans.map(debtRow))}
-                    {section('credit', t('debt.section.credit'), credits.length, null, credits.map(debtRow))}
-                    {section('done', t('debt.section.done'), done.length, null, done.map(debtRow))}
+
+                    {/* One company at a time, or all of them */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chips}>
+                      {[{ key: 'all', name: t('common.all'), late: false, group: null as ProviderGroup | null }, ...groups.map((g) => ({ key: g.key, name: g.name, late: g.overdueCount > 0, group: g as ProviderGroup | null }))].map((c) => {
+                        const on = (selGroup ? selGroup.key : 'all') === c.key;
+                        return (
+                          <Pressable
+                            key={c.key}
+                            onPress={() => setProv(c.key)}
+                            style={[styles.chip, { backgroundColor: on ? colors.accentSoft : colors.backgroundElement, borderColor: on ? colors.accent : colors.divider }]}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: on }}
+                            accessibilityLabel={c.late ? `${c.name}, ${t('debt.pv.billOverdue')}` : c.name}
+                          >
+                            {c.group ? (
+                              <BrandAvatar name={c.name} size={26} />
+                            ) : (
+                              <View style={[styles.allDot, { backgroundColor: on ? colors.accent : colors.backgroundSelected }]}>
+                                <Ionicons name="apps" size={13} color={on ? colors.onAccent : colors.textSecondary} />
+                              </View>
+                            )}
+                            <ThemedText type="small" style={{ fontWeight: '700', color: on ? colors.accent : colors.text }} numberOfLines={1}>
+                              {c.name}
+                            </ThemedText>
+                            {c.late ? <View style={[styles.lateDot, { backgroundColor: colors.negative }]} /> : null}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+
+                    {selGroup ? (
+                      <>
+                        <View style={[styles.provDetail, { backgroundColor: colors.backgroundElement }]}>
+                          <View style={styles.rowTop}>
+                            <View style={styles.flex}>
+                              <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.prov.owedAt', { name: selGroup.name })}</ThemedText>
+                              <ThemedText style={styles.mid} numberOfLines={1}>{money(selGroup.owed)}</ThemedText>
+                            </View>
+                            <View style={styles.billRight}>
+                              <ThemedText type="small" style={{ color: colors.textSecondary }}>{selGroup.limit > 0 ? t('debt.pv.limitAvail') : t('debt.prov.itemsLabel')}</ThemedText>
+                              <ThemedText type="smallBold">{selGroup.limit > 0 ? money(selGroup.available) : String(selGroup.debts.filter((d) => d.status !== 'done').length)}</ThemedText>
+                            </View>
+                          </View>
+                          {selGroup.limit > 0 ? (
+                            <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
+                              <View style={[styles.trackFill, { width: `${Math.min(100, Math.max(2, ((selGroup.limit - selGroup.available) / selGroup.limit) * 100))}%`, backgroundColor: colors.accent }]} />
+                            </View>
+                          ) : null}
+                          {selGroup.dueAmount > 0 ? (() => {
+                            const late = selGroup.overdueCount > 0;
+                            const firstDue = selGroup.due.find((it) => it.dueDate)?.dueDate ?? null;
+                            const days = firstDue ? dayNumber(firstDue) - dayNumber(today) : null;
+                            return (
+                              <View style={[styles.billStrip, { backgroundColor: late ? colors.negative + '14' : colors.backgroundSelected }]}>
+                                <View style={styles.flex}>
+                                  <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary, fontWeight: '700' }}>
+                                    {late ? t('debt.pv.billOverdue') : t('debt.pv.billNow')}
+                                  </ThemedText>
+                                  <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary }} numberOfLines={1}>
+                                    {firstDue ? t('debt.pv.dueOn', { date: dateLabel(firstDue) }) : t('debt.prov.noDueDay')}
+                                  </ThemedText>
+                                </View>
+                                <View style={styles.billRight}>
+                                  <ThemedText style={[styles.billAmount, { color: late ? colors.negative : colors.text }]}>{money(selGroup.dueAmount)}</ThemedText>
+                                  {days !== null ? <ThemedText type="small" style={{ color: late ? colors.negative : colors.textSecondary, fontWeight: '700' }}>{dueText(days)}</ThemedText> : null}
+                                </View>
+                              </View>
+                            );
+                          })() : null}
+                          <Pressable
+                            onPress={() => setProviderKey(selGroup.key)}
+                            style={({ pressed }) => [styles.payBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}
+                            accessibilityRole="button"
+                          >
+                            <ThemedText style={[styles.payBtnText, { color: colors.onAccent }]}>
+                              {selGroup.dueAmount > 0 ? t('debt.prov.payAmount', { amount: money(selGroup.dueAmount) }) : t('debt.prov.allDebts', { name: selGroup.name })}
+                            </ThemedText>
+                          </Pressable>
+                        </View>
+                        <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
+                          {t('debt.prov.items', { count: selGroup.debts.length }).toUpperCase()}
+                        </ThemedText>
+                        <View style={[styles.listCard, { backgroundColor: colors.backgroundElement }]}>{selGroup.debts.map(debtRow)}</View>
+                      </>
+                    ) : (
+                      <>
+                        <ThemedText type="small" style={[styles.sortNote, { color: colors.textSecondary }]}>{t('debt.prov.section')}</ThemedText>
+                        {groups.map(providerCard)}
+                      </>
+                    )}
+                    {selGroup ? null : section('done', t('debt.section.done'), done.length, null, done.map(debtRow))}
                   </>
                 )
               ) : (
                 <>
-                  <View style={[styles.summary, { backgroundColor: colors.backgroundElement }]}>
-                    <View style={[styles.stats, { marginTop: 0 }]}>
-                      <View style={styles.flex}>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.youOwe')}</ThemedText>
-                        <ThemedText style={[styles.mid, { color: iouSum.owe > 0 ? colors.negative : colors.text }]}>{money(iouSum.owe)}</ThemedText>
-                      </View>
-                      <View style={styles.flex}>
-                        <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.owedToYou')}</ThemedText>
-                        <ThemedText style={[styles.mid, { color: iouSum.owed > 0 ? colors.positive : colors.text }]}>{money(iouSum.owed)}</ThemedText>
-                      </View>
-                    </View>
-                  </View>
-                  <Pressable onPress={addNew} style={[styles.addRow, { borderColor: colors.accent }]} accessibilityRole="button">
-                    <Ionicons name="add" size={18} color={colors.accent} />
-                    <ThemedText type="smallBold" style={{ color: colors.accent }}>{t('debt.iou.add')}</ThemedText>
-                  </Pressable>
-                  {ious.length === 0 ? <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.empty')}</ThemedText> : null}
-                  {openIous.map((i) => (
-                    <IouCard key={i.id} iou={i} today={today} money={money} dateLabel={dateLabel} onPress={() => setIouForm({ open: true, id: i.id })} />
-                  ))}
-                  {section(
-                    'iouDone',
-                    t('debt.iou.sectionDone'),
-                    doneIous.length,
-                    null,
-                    doneIous.map((i) => (
-                      <IouCard key={i.id} iou={i} today={today} money={money} dateLabel={dateLabel} onPress={() => setIouForm({ open: true, id: i.id })} flat />
-                    )),
-                  )}
+                  <PeopleList ious={ious} onOpen={(i) => setIouDetailId(i.id)} onPay={(i) => setIouPay({ id: i.id })} />
                   <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>{t('debt.iou.note')}</ThemedText>
                 </>
               )}
@@ -279,39 +406,12 @@ export default function DebtsScreen() {
           setEditingId(null);
         }}
       />
+      <ProviderSheet groupKey={providerKey} until={monthEnd} onClose={() => setProviderKey(null)} onOpenDebt={openDebtFromProvider} />
       <DebtDetailModal debt={opened} onClose={() => setOpenId(null)} onEdit={startEdit} />
       <IouModal visible={iouForm.open} editing={editingIou} onClose={() => setIouForm({ open: false, id: null })} />
+      <IouSheet iouId={iouPay?.id ?? null} mode="pay" onClose={() => setIouPay(null)} onOpenDetail={(id) => { setIouPay(null); setTimeout(() => setIouDetailId(id), 350); }} />
+      <IouDetail iouId={iouDetailId} onClose={() => setIouDetailId(null)} />
     </ThemedView>
-  );
-}
-
-function IouCard({ iou, today, money, dateLabel, onPress, flat }: { iou: Iou; today: string; money: (n: number) => string; dateLabel: (iso: string) => string; onPress: () => void; /** Inside a section card: no card of its own. */ flat?: boolean }) {
-  const colors = useTheme();
-  const { t } = useT();
-  const done = iouDone(iou);
-  const overdue = iouOverdue(iou, today);
-  const mine = iou.direction === 'owe';
-  return (
-    <Pressable onPress={onPress} style={[styles.card, flat ? styles.flatCard : { backgroundColor: colors.backgroundElement }]} accessibilityRole="button">
-      <View style={styles.cardTop}>
-        <View style={styles.flex}>
-          <ThemedText type="smallBold" numberOfLines={1}>{t(mine ? 'debt.iou.youOweLine' : 'debt.iou.theyOweLine', { person: iou.person })}</ThemedText>
-          {iou.note ? <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>{iou.note}</ThemedText> : null}
-        </View>
-        <ThemedText type="smallBold" style={{ color: done ? colors.textSecondary : mine ? colors.negative : colors.positive }}>
-          {done ? t('debt.iou.settled') : money(iouLeft(iou))}
-        </ThemedText>
-      </View>
-      {!done ? (
-        <>
-          {iouPaid(iou) > 0 ? <ProgressBar percent={(iouPaid(iou) / iou.amount) * 100} color={colors.positive} /> : null}
-          {iouPaid(iou) > 0 ? <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.iou.paidOf', { paid: money(iouPaid(iou)), total: money(iou.amount) })}</ThemedText> : null}
-          <ThemedText type="small" style={{ color: overdue ? colors.negative : colors.textSecondary, fontWeight: overdue ? '600' : '400' }}>
-            {iou.dueDate ? t(overdue ? 'debt.iou.overdueOn' : 'debt.iou.dueOn', { date: dateLabel(iou.dueDate) }) : t('debt.iou.noDue')}
-          </ThemedText>
-        </>
-      ) : null}
-    </Pressable>
   );
 }
 
@@ -323,9 +423,26 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   emptyButton: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: Radius.md, marginTop: Spacing.three },
   emptyButtonText: { color: '#fff', fontWeight: '700' },
-  summary: { padding: Spacing.three, borderRadius: Radius.lg, gap: 6 },
+  summary: { padding: Spacing.three + 2, borderRadius: Radius.xl, gap: 4 },
+  onAccent: { color: '#FFFFFF' },
+  onAccentDim: { color: 'rgba(255,255,255,0.78)' },
+  latePill: { backgroundColor: '#FBE4E1', borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  latePillText: { color: '#8F1D17', fontWeight: '800' },
+  statBox: { flex: 1, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8 },
+  statOnAccent: { backgroundColor: 'rgba(255,255,255,0.13)' },
+  chipScroll: { marginHorizontal: -Spacing.four, marginTop: Spacing.three },
+  chips: { paddingHorizontal: Spacing.four, gap: Spacing.two },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 6, paddingRight: 14, minHeight: 40, borderRadius: Radius.pill, borderWidth: 1.5 },
+  allDot: { width: 26, height: 26, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  lateDot: { width: 8, height: 8, borderRadius: Radius.pill },
+  provDetail: { padding: Spacing.three, borderRadius: Radius.xl, gap: 12, marginTop: Spacing.three },
+  track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden' },
+  trackFill: { height: 8, borderRadius: Radius.pill },
+  payBtn: { borderRadius: Radius.pill, paddingVertical: 14, alignItems: 'center' },
+  payBtnText: { fontWeight: '800' },
+  secLabel: { fontWeight: '700', letterSpacing: 0.8, marginTop: Spacing.four, marginBottom: Spacing.two },
   big: { fontSize: FontSize.display, lineHeight: 40, fontWeight: '700' },
-  stats: { flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.two },
+  stats: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two },
   tabs: { marginBottom: Spacing.three },
   mid: { fontSize: FontSize.title, fontWeight: '800' },
   sortNote: { marginTop: Spacing.three, marginBottom: Spacing.one },
@@ -341,6 +458,11 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.md, paddingVertical: 12, marginVertical: Spacing.three },
   flatCard: { paddingHorizontal: 0, marginBottom: 0 },
   note: { marginTop: Spacing.three },
+  provCard: { padding: Spacing.three, borderRadius: Radius.xl, gap: 12, marginBottom: Spacing.two, borderWidth: 1.5 },
+  provName: { fontSize: 17, fontWeight: '800' },
+  billStrip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: 10, borderRadius: Radius.lg },
+  billRight: { alignItems: 'flex-end', flexShrink: 0 },
+  billAmount: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
   card: { padding: Spacing.three, borderRadius: Radius.lg, gap: 8, marginBottom: Spacing.two },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
 });

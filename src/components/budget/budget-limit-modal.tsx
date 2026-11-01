@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,10 +10,13 @@ import { ThemedText } from '@/components/ui/themed-text';
 import type { Category } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
+import { useTransactions } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { categoryName } from '@/i18n/data';
+import { spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
+import { monthKeyFromOffset } from '@/utils/dates';
 
 type Props = {
   /** The category being edited. null = closed. */
@@ -24,7 +27,7 @@ type Props = {
   onClose: () => void;
 };
 
-const QUICK = [100, 200, 300, 500, 1000];
+const QUICK = [100, 300, 500, 1000, 2000];
 
 export function BudgetLimitModal({ category, spent, monthName, onClose }: Props) {
   const colors = useTheme();
@@ -56,7 +59,16 @@ function LimitForm({ category, spent, monthName, onClose }: { category: Category
   const colors = useTheme();
   const { t } = useT();
   const { updateCategory } = useCategories();
+  const { budgetEntries } = useTransactions();
   const [value, setValue] = useState(category.monthlyLimit > 0 ? String(category.monthlyLimit) : '');
+
+  // What the last three months looked like for this category, to suggest a limit that fits.
+  const history = useMemo(() => {
+    const months = [-1, -2, -3].map((o) => spentByCategory(budgetEntries, monthKeyFromOffset(o)).get(category.id) ?? 0).filter((v) => v > 0);
+    if (months.length === 0) return null;
+    const avg = months.reduce((a, b) => a + b, 0) / months.length;
+    return { avg, max: Math.max(...months), count: months.length, suggest: Math.ceil(avg / 10) * 10 };
+  }, [budgetEntries, category.id]);
 
   const parsed = parseFloat(value.replace(',', '.'));
   const valid = Number.isFinite(parsed) && parsed > 0;
@@ -87,46 +99,88 @@ function LimitForm({ category, spent, monthName, onClose }: { category: Category
         }
       />
       <View style={styles.summary}>
-        <CategoryIcon icon={category.icon} color={category.color} size={56} />
-        <ThemedText style={styles.title}>{categoryName(category)}</ThemedText>
-        <ThemedText type="small" style={{ color: colors.textSecondary }}>
-          {t('plan.budgetLimit.spentIn', { amount: formatMoney(spent), month: monthName })}
-        </ThemedText>
+        <CategoryIcon icon={category.icon} color={category.color} size={52} />
+        <View style={styles.flex}>
+          <ThemedText style={styles.title} numberOfLines={2}>{categoryName(category)}</ThemedText>
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+            {t('plan.budgetLimit.spentIn', { amount: formatMoney(spent), month: monthName })}
+          </ThemedText>
+        </View>
       </View>
 
+      {/* The amount itself is a field: tap it and type any limit. The chips are shortcuts. */}
       <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
         {t('plan.budgetLimit.monthlyRm')}
       </ThemedText>
       <AmountInput
-        style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
+        style={[styles.input, { color: colors.text, backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
         placeholder="0.00"
         placeholderTextColor={colors.textSecondary}
         value={value}
         onChange={setValue}
+        textAlign="center"
         autoFocus
+        accessibilityLabel={t('plan.budgetLimit.monthlyRm')}
       />
+      <ThemedText type="small" style={[styles.typeHint, { color: colors.textSecondary }]}>
+        {t('plan.budgetLimit.typeHint')}
+      </ThemedText>
 
       <View style={styles.quickRow}>
-        {QUICK.map((q) => (
-          <Pressable
-            key={q}
-            onPress={() => setValue(String(q))}
-            style={[styles.quick, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-          >
-            <ThemedText type="small">{q}</ThemedText>
-          </Pressable>
-        ))}
-        {matchAmount > 0 ? (
-          <Pressable
-            onPress={() => setValue(String(matchAmount))}
-            style={[styles.quick, styles.quickWide, { backgroundColor: colors.backgroundElement, borderColor: colors.accent }]}
-          >
-            <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
-              {t('plan.budgetLimit.match', { amount: matchAmount })}
+        {QUICK.map((q) => {
+          const on = valid && parsed === q;
+          return (
+            <Pressable
+              key={q}
+              onPress={() => setValue(String(q))}
+              style={[styles.quick, { backgroundColor: on ? colors.accentSoft : colors.backgroundElement, borderColor: on ? colors.accent : colors.divider }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+            >
+              <ThemedText type="small" style={{ fontWeight: '700', color: on ? colors.accent : colors.text }}>{q.toLocaleString('en-US')}</ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {history ? (
+        <View style={[styles.suggest, { backgroundColor: colors.backgroundElement }]}>
+          <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '700' }}>
+            {t('plan.budgetLimit.historyTitle', { count: history.count })}
+          </ThemedText>
+          <View style={styles.suggestRow}>
+            <ThemedText type="small">{t('plan.budgetLimit.avg')}</ThemedText>
+            <ThemedText type="smallBold">{formatMoney(history.avg)}</ThemedText>
+          </View>
+          <View style={styles.suggestRow}>
+            <ThemedText type="small">{t('plan.budgetLimit.highest')}</ThemedText>
+            <ThemedText type="smallBold">{formatMoney(history.max)}</ThemedText>
+          </View>
+          <Pressable onPress={() => setValue(String(history.suggest))} hitSlop={8} accessibilityRole="button">
+            <ThemedText type="small" style={{ color: colors.accent, fontWeight: '800', marginTop: 4 }}>
+              {t('plan.budgetLimit.useAmount', { amount: formatMoney(history.suggest) })}
             </ThemedText>
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : matchAmount > 0 ? (
+        <Pressable
+          onPress={() => setValue(String(matchAmount))}
+          style={[styles.suggest, { backgroundColor: colors.backgroundElement }]}
+          accessibilityRole="button"
+        >
+          <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
+            {t('plan.budgetLimit.match', { amount: matchAmount })}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+
+      {valid && spent > parsed ? (
+        <View style={[styles.warn, { backgroundColor: '#D9770622' }]}>
+          <ThemedText type="small" style={{ color: colors.warning, fontWeight: '600' }}>
+            {t('plan.budgetLimit.alreadyOver', { amount: formatMoney(spent - parsed) })}
+          </ThemedText>
+        </View>
+      ) : null}
 
       <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
         {t('plan.budgetLimit.repeats')}
@@ -162,24 +216,27 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
   },
   handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
-  summary: { alignItems: 'center', gap: 4, marginTop: Spacing.two },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: Spacing.two },
   title: { fontSize: FontSize.heading, fontWeight: '700' },
   label: { marginTop: Spacing.four, marginBottom: Spacing.one },
   input: {
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: FontSize.largeTitle,
-    fontWeight: '600',
-    lineHeight: 34,
+    fontSize: 38,
+    fontWeight: '800',
+    lineHeight: 46,
     textAlign: 'center',
+    borderWidth: 1.5,
   },
+  typeHint: { textAlign: 'center', marginTop: 6 },
+  suggest: { borderRadius: Radius.md, padding: Spacing.three, marginTop: Spacing.three, gap: 4 },
+  suggestRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  warn: { borderRadius: Radius.md, padding: 12, marginTop: Spacing.three },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.three },
-  quick: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.lg, borderWidth: StyleSheet.hairlineWidth },
-  quickWide: { flexGrow: 0, flexShrink: 0, flexBasis: '100%' },
+  quick: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.pill, borderWidth: 1.5 },
   note: { marginTop: Spacing.three, fontSize: FontSize.caption, lineHeight: 16 },
   saveButton: { padding: 16, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.three, marginBottom: Spacing.two },
   saveText: { color: '#fff', fontWeight: '700', fontSize: FontSize.body },
   removeButton: { padding: 14, alignItems: 'center' },
-});
+});

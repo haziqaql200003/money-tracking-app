@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AmountInput } from '@/components/ui/amount-input';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { DateField } from '@/components/ui/date-field';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Chip } from '@/components/ui/chip';
@@ -31,42 +32,76 @@ function parseAmount(raw: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function AccountChips({
+/** One side of a transfer: the chosen account as a card; tap it to open the list of accounts. */
+function AccountCardSelect({
+  label,
   accounts,
   selectedId,
+  balanceOf,
+  open,
+  onToggle,
   onSelect,
 }: {
+  label: string;
   accounts: Account[];
   selectedId: string;
+  balanceOf: (id: string) => number;
+  open: boolean;
+  onToggle: () => void;
   onSelect: (id: string) => void;
 }) {
   const colors = useTheme();
+  const { t } = useT();
+  const acc = accounts.find((a) => a.id === selectedId);
+  const avatar = (a: Account, size: number) =>
+    a.provider ? (
+      <BrandAvatar name={a.provider} size={size} />
+    ) : (
+      <View style={[styles.accIcon, { width: size, height: size, backgroundColor: `${a.color ?? colors.accent}22` }]}>
+        <Ionicons name={a.icon} size={size * 0.48} color={a.color ?? colors.accent} />
+      </View>
+    );
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-      {accounts.map((acc) => {
-        const active = selectedId === acc.id;
-        return (
-          <Pressable
-            key={acc.id}
-            onPress={() => onSelect(acc.id)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: active ? colors.accent : colors.backgroundElement,
-                borderColor: active ? colors.accent : colors.divider,
-              },
-            ]}
-          >
-            <View style={styles.chipInner}>
-              <Ionicons name={acc.icon} size={15} color={active ? '#fff' : colors.text} />
-              <ThemedText type="small" style={active ? styles.chipTextActive : { color: colors.text }}>
-                {accountName(acc)}
-              </ThemedText>
-            </View>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+    <View>
+      <Pressable
+        onPress={onToggle}
+        style={({ pressed }) => [styles.side, { backgroundColor: colors.backgroundElement, borderColor: open ? colors.accent : colors.divider }, pressed && { opacity: 0.8 }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${label}: ${acc ? accountName(acc) : ''}`}
+      >
+        {acc ? avatar(acc, 42) : null}
+        <View style={styles.sideText}>
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>{label}</ThemedText>
+          <ThemedText style={{ fontWeight: '800' }} numberOfLines={1}>{acc ? accountName(acc) : ''}</ThemedText>
+        </View>
+        <View style={styles.sideRight}>
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('tx.transfer.balanceShort')}</ThemedText>
+          <ThemedText type="smallBold">{acc ? formatMoney(balanceOf(acc.id)) : ''}</ThemedText>
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.accent} />
+      </Pressable>
+      {open ? (
+        <View style={[styles.menu, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+          {accounts.map((a) => {
+            const on = a.id === selectedId;
+            return (
+              <Pressable
+                key={a.id}
+                onPress={() => onSelect(a.id)}
+                style={({ pressed }) => [styles.menuItem, on && { backgroundColor: colors.backgroundSelected }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                {avatar(a, 30)}
+                <ThemedText style={[styles.sideText, { fontWeight: on ? '700' : '500' }]} numberOfLines={1}>{accountName(a)}</ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>{formatMoney(balanceOf(a.id))}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -86,6 +121,7 @@ export function TransferForm({ editing, onDone }: Props) {
   // "Count in budget": on by default when the money goes into something that looks like a savings account, until the user decides.
   const [countChoice, setCountChoice] = useState<boolean | null>(editing ? !!editing.budgetCategoryId : null);
   const [budgetCat, setBudgetCat] = useState(editing?.budgetCategoryId ?? 'financial');
+  const [openSide, setOpenSide] = useState<'from' | 'to' | null>(null);
 
   if (accounts.length < 2) {
     return (
@@ -106,6 +142,7 @@ export function TransferForm({ editing, onDone }: Props) {
   const value = Math.round(parseAmount(amount) * 100) / 100;
   const canSave = value > 0 && !!fromId && !!toId && fromId !== toId;
   const fromAccount = accounts.find((a) => a.id === fromId);
+  const toAccount = accounts.find((a) => a.id === toId);
   const fromBalance = fromId ? accountBalance(fromId) : 0;
   // When editing, this transfer's own amount is already taken out of the balance.
   const availableBefore = editing && editing.fromAccountId === fromId ? fromBalance + editing.amount : fromBalance;
@@ -165,36 +202,46 @@ export function TransferForm({ editing, onDone }: Props) {
 
   return (
     <View>
-      <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
-        {t('tx.transfer.from')}
-      </ThemedText>
-      <AccountChips accounts={accounts} selectedId={fromId} onSelect={pickFrom} />
-      {fromAccount ? (
-        <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.one }}>
-          {t('tx.transfer.balance', { amount: formatMoney(availableBefore) })}
-        </ThemedText>
-      ) : null}
-
-      <View style={styles.swapRow}>
-        <View style={[styles.swapLine, { backgroundColor: colors.divider }]} />
-        <Pressable
-          onPress={swap}
-          hitSlop={8}
-          style={[styles.swapButton, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}
-          accessibilityRole="button"
-          accessibilityLabel={t('tx.transfer.swapA11y')}
-        >
-          <Ionicons name="swap-vertical" size={18} color={colors.accent} />
-        </Pressable>
-        <View style={[styles.swapLine, { backgroundColor: colors.divider }]} />
+      {/* From and To as two cards, the swap button between them. Tap a card to choose its account. */}
+      <View>
+        <AccountCardSelect
+          label={t('tx.transfer.from')}
+          accounts={accounts}
+          selectedId={fromId}
+          balanceOf={(id) => (editing && editing.fromAccountId === id ? accountBalance(id) + editing.amount : accountBalance(id))}
+          open={openSide === 'from'}
+          onToggle={() => setOpenSide(openSide === 'from' ? null : 'from')}
+          onSelect={(id) => {
+            pickFrom(id);
+            setOpenSide(null);
+          }}
+        />
+        <View style={styles.swapRow}>
+          <Pressable
+            onPress={swap}
+            hitSlop={8}
+            style={[styles.swapButton, { backgroundColor: colors.accent, borderColor: colors.background }]}
+            accessibilityRole="button"
+            accessibilityLabel={t('tx.transfer.swapA11y')}
+          >
+            <Ionicons name="swap-vertical" size={18} color={colors.onAccent} />
+          </Pressable>
+        </View>
+        <AccountCardSelect
+          label={t('tx.transfer.to')}
+          accounts={accounts}
+          selectedId={toId}
+          balanceOf={(id) => accountBalance(id)}
+          open={openSide === 'to'}
+          onToggle={() => setOpenSide(openSide === 'to' ? null : 'to')}
+          onSelect={(id) => {
+            pickTo(id);
+            setOpenSide(null);
+          }}
+        />
       </View>
 
-      <ThemedText type="small" style={[styles.labelTight, { color: colors.textSecondary }]}>
-        {t('tx.transfer.to')}
-      </ThemedText>
-      <AccountChips accounts={accounts} selectedId={toId} onSelect={pickTo} />
-
-      <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
+      <ThemedText type="small" style={[styles.label, styles.center, { color: colors.textSecondary }]}>
         {t('tx.add.amountRm')}
       </ThemedText>
       <AmountInput
@@ -203,8 +250,17 @@ export function TransferForm({ editing, onDone }: Props) {
         placeholderTextColor={colors.textSecondary}
         value={amount}
         onChange={setAmount}
+        textAlign="center"
         accessibilityLabel={t('tx.transfer.amountA11y')}
       />
+      <View style={styles.quickRow}>
+        {[50, 100, 200].map((n) => (
+          <Chip key={n} label={`RM ${n}`} active={value === n} onPress={() => setAmount(n.toFixed(2))} />
+        ))}
+        {availableBefore > 0 ? (
+          <Chip label={t('tx.transfer.all')} active={value === Math.round(availableBefore * 100) / 100} onPress={() => setAmount((Math.round(availableBefore * 100) / 100).toFixed(2))} />
+        ) : null}
+      </View>
       {overdraws ? (
         <ThemedText type="small" style={{ color: colors.negative, marginTop: Spacing.one }}>
           {t('tx.transfer.overdraw', { name: fromAccount ? accountName(fromAccount) : '' })}
@@ -241,11 +297,11 @@ export function TransferForm({ editing, onDone }: Props) {
           <ThemedText type="small" style={[styles.label, { color: colors.textSecondary }]}>
             {t('tx.transfer.budgetCategory')}
           </ThemedText>
-          <View style={styles.catChips}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineChips}>
             {expenseCategories.map((c) => (
               <Chip key={c.id} label={categoryName(c)} active={c.id === chosenCat?.id} onPress={() => setBudgetCat(c.id)} />
             ))}
-          </View>
+          </ScrollView>
         </>
       ) : null}
 
@@ -271,6 +327,18 @@ export function TransferForm({ editing, onDone }: Props) {
         </>
       ) : null}
 
+      {value > 0 && fromAccount && toAccount ? (
+        <View style={[styles.after, { backgroundColor: `${colors.positive}14` }]}>
+          <ThemedText type="small" style={{ color: colors.positive, fontWeight: '600' }}>
+            {t('tx.transfer.after', {
+              from: accountName(fromAccount),
+              fromAmount: formatMoney(availableBefore - value),
+              to: accountName(toAccount),
+              toAmount: formatMoney(accountBalance(toId) - (editing && editing.toAccountId === toId ? editing.amount : 0) + value),
+            })}
+          </ThemedText>
+        </View>
+      ) : null}
       <ThemedText type="small" style={[styles.note, { color: colors.textSecondary }]}>
         {t('tx.transfer.explain')}
       </ThemedText>
@@ -281,7 +349,7 @@ export function TransferForm({ editing, onDone }: Props) {
         disabled={!canSave}
       >
         <ThemedText style={[styles.saveText, !canSave && { color: colors.textSecondary }]}>
-          {editing ? t('tx.add.saveChanges') : t('tx.transfer.save')}
+          {editing ? t('tx.add.saveChanges') : value > 0 ? t('tx.transfer.saveAmount', { amount: formatMoney(value) }) : t('tx.transfer.save')}
         </ThemedText>
       </Pressable>
 
@@ -305,18 +373,27 @@ const styles = StyleSheet.create({
   chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
-  swapRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginVertical: Spacing.two },
-  swapLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  swapButton: { width: 36, height: 36, borderRadius: Radius.pill, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  swapRow: { height: 8, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  swapButton: { width: 38, height: 38, borderRadius: Radius.pill, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  side: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three, borderRadius: Radius.lg, borderWidth: 1.5 },
+  sideText: { flex: 1, minWidth: 0 },
+  sideRight: { alignItems: 'flex-end' },
+  accIcon: { borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  menu: { borderWidth: 1, borderRadius: Radius.md, marginTop: Spacing.two, padding: 6 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 10, borderRadius: Radius.sm },
+  center: { textAlign: 'center' },
+  lineChips: { gap: Spacing.two },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.two, marginTop: Spacing.two },
+  after: { borderRadius: Radius.md, padding: 12, marginTop: Spacing.three },
 
   amountInput: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.three,
     paddingVertical: 16,
-    fontSize: FontSize.largeTitle,
-    fontWeight: '600',
-    lineHeight: 34,
+    fontSize: 38,
+    fontWeight: '800',
+    lineHeight: 46,
     textAlign: 'center',
   },
   input: {
@@ -333,4 +410,4 @@ const styles = StyleSheet.create({
 
   info: { borderRadius: Radius.lg, padding: Spacing.four, alignItems: 'center', gap: Spacing.two },
   infoTitle: { fontSize: FontSize.body, fontWeight: '700' },
-});
+});

@@ -85,7 +85,15 @@ export default function InboxScreen() {
           />
 
           {failed ? <ThemedText type="small" style={[muted, styles.mt]}>{t('inbox.loadFail')}</ThemedText> : null}
-          {!failed && items && shown.length === 0 ? <ThemedText type="small" style={[muted, styles.mt]}>{t('inbox.empty')}</ThemedText> : null}
+          {!failed && items && shown.length === 0 ? (
+            <View style={[styles.empty, { backgroundColor: colors.backgroundElement }]}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="mail-open-outline" size={28} color={colors.accent} />
+              </View>
+              <ThemedText style={{ fontWeight: '800' }}>{t('inbox.empty')}</ThemedText>
+              <ThemedText type="small" style={[muted, { textAlign: 'center' }]}>{t('inbox.emptySub')}</ThemedText>
+            </View>
+          ) : null}
           <View style={styles.list}>
             {shown.map((x) => (
               <Card key={x.id} onPress={() => setOpenId(x.id)} style={styles.gap}>
@@ -162,6 +170,8 @@ function Reply({ item, onSaved }: { item: InboxItem; onSaved: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  empty: { alignItems: 'center', gap: 8, borderRadius: Radius.xl, paddingVertical: Spacing.five, paddingHorizontal: Spacing.four, marginTop: Spacing.three },
+  emptyIcon: { width: 60, height: 60, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   container: { flex: 1 },
   safe: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },

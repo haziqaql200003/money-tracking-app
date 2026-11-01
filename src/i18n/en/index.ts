@@ -17,5 +17,6 @@ import { enTax } from './tax';
 import { enTx } from './tx';
 import { enScan } from './scan';
 import { enInbox } from './inbox';
+import { enAi } from './ai';
 
-export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb, ...enTax, ...enCal, ...enAlloc, ...enMrep, ...enFb, ...enScan, ...enInbox };
+export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb, ...enTax, ...enCal, ...enAlloc, ...enMrep, ...enFb, ...enScan, ...enInbox, ...enAi };

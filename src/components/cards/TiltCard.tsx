@@ -1,7 +1,8 @@
 import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState, type ReactNode } from 'react';
-import { Animated, GestureResponderEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Animated, GestureResponderEvent, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 
 import { CARD_RADIUS } from './shared';
 import { gyroX, gyroY, useGyro, useGyroEnabled, useMotionAllowed } from './motion';
@@ -28,7 +29,7 @@ export function TiltCard({ style, children }: Props) {
   const [touchX] = useState(() => new Animated.Value(0));
   const [touchY] = useState(() => new Animated.Value(0));
   const [press] = useState(() => new Animated.Value(0));
-  const box = useRef<View>(null);
+  const box = useRef<ViewRef>(null);
   const frame = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const measure = () =>

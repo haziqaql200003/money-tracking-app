@@ -21,6 +21,9 @@ const ERROR_KEY: Record<ScanErrorCode, TKey> = {
   tooLarge: 'scan.errTooLarge',
   limit: 'scan.errLimit',
   unreadable: 'scan.errUnreadable',
+  openFail: 'scan.errOpen',
+  setup: 'scan.errSetup',
+  busy: 'scan.errBusy',
   network: 'scan.errNetwork',
 };
 
@@ -44,7 +47,8 @@ export function ScanReceipt({ onPrefill }: { onPrefill: (p: ReceiptPrefill) => v
       if (result) onPrefill(receiptToPrefill(result, expenseCategories, toDateString(new Date()), newItemId));
     } catch (e) {
       const code = e instanceof ScanError ? e.code : 'network';
-      Alert.alert(t('scan.errTitle'), t(ERROR_KEY[code]));
+      const detail = e instanceof ScanError && e.detail ? `\n\n${t('scan.errCode', { code: e.detail })}` : '';
+      Alert.alert(t('scan.errTitle'), t(ERROR_KEY[code]) + detail);
     } finally {
       setBusy(false);
     }

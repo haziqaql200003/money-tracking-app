@@ -3,6 +3,7 @@ import { usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 import { BlurTargetView } from 'expo-blur';
 
 import { DesktopSidebar } from '@/components/desktop/desktop-sidebar';
@@ -23,7 +24,7 @@ export default function AppTabs() {
   const colors = useTheme();
   const { hasUnseenUpdate } = useUpdates();
   // Android blur needs to know what to blur: the screens sit in this target, the tab bar blurs it.
-  const blurTarget = useRef<View>(null);
+  const blurTarget = useRef<ViewRef>(null);
   // Wide web: a side menu instead of the floating tab bar.
   const desktop = useIsDesktop();
   const pathname = usePathname();
@@ -56,14 +57,14 @@ export default function AppTabs() {
         name="index"
         options={{
           title: t('home.tabs.home'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="transactions"
         options={{
           title: t('home.tabs.transactions'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -76,7 +77,7 @@ export default function AppTabs() {
         name="analyse"
         options={{
           title: t('home.tabs.analyse'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -85,7 +86,7 @@ export default function AppTabs() {
           title: t('home.tabs.more'),
           tabBarIcon: ({ color, size }) => (
             <View>
-              <Ionicons name="ellipsis-horizontal" size={size} color={color} />
+              <Ionicons name="ellipsis-horizontal" size={size} color={color as string} />
               {hasUnseenUpdate ? <View style={[styles.tabBadge, { borderColor: colors.background }]} /> : null}
             </View>
           ),

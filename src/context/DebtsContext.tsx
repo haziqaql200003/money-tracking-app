@@ -89,7 +89,12 @@ type DebtsContextValue = {
   createInstalment: (input: InstalmentInput) => void;
   createLoan: (input: LoanInput) => void;
   createCredit: (input: CreditInput) => void;
-  payInstalment: (debtId: string, n: number, pay: { date: string; amount: number; fromAccountId: string }) => void;
+  payInstalment: (debtId: string, n: number, pay: InstalmentPay) => void;
+  /**
+   * Pay several things at once (everything due with one provider): instalments and credit line bills,
+   * all on the same date. Each item records exactly what paying it alone would.
+   */
+  payMany: (items: BatchItem[], pay: { date: string; fromAccountId: string }) => void;
   undoPayment: (debtId: string, n: number) => void;
   /** Pay off the whole remaining principal at once (plus any extra fee) and close the debt. */
   settle: (debtId: string, pay: { date: string; extra: number; fromAccountId: string }) => void;
@@ -100,6 +105,13 @@ type DebtsContextValue = {
   reviseLoan: (id: string, input: LoanInput) => void;
   deleteDebt: (id: string) => void;
 };
+
+/** `lateFee`: a late charge paid with this instalment, recorded as its own bank fee so it can be seen and undone. */
+export type InstalmentPay = { date: string; amount: number; fromAccountId: string; lateFee?: { amount: number; title: string } };
+
+export type BatchItem =
+  | { kind: 'instalment'; debtId: string; n: number; amount: number; lateFee?: { amount: number; title: string } }
+  | { kind: 'credit'; debtId: string; amount: number };
 
 export type DebtPatch = { name?: string; provider?: string; dueDay?: number; creditLimit?: number; payFromAccountId?: string; categoryId?: string };
 
@@ -215,10 +227,11 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     setDebts((prev) => [debt, ...prev]);
   }
 
-  function payInstalment(debtId: string, n: number, pay: { date: string; amount: number; fromAccountId: string }) {
-    const debt = debts.find((d) => d.id === debtId);
-    const inst = debt?.schedule.find((s) => s.n === n);
-    if (!debt || !inst || inst.paid) return;
+  /** Writes the records for paying instalment `n` of `debt` and returns the debt with it marked paid (state not set). */
+  function recordInstalment(debt: Debt, n: number, pay: InstalmentPay): Debt | null {
+    const inst = debt.schedule.find((s) => s.n === n);
+    if (!inst || inst.paid) return null;
+    const debtId = debt.id;
     const { principal, extra } = splitPayment(inst, pay.amount);
     const spendNow = debt.spendOn === 'pay';
     const transferId = !spendNow && principal > 0
@@ -231,9 +244,39 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
           accountId: pay.fromAccountId, debtId,
         })
       : undefined;
-    const info = { date: pay.date, amount: round2(pay.amount), accountId: pay.fromAccountId, transferId, expenseId, purchaseExpenseId };
-    if (spendNow) tx.updateAccount(debt.accountId, { initialBalance: -remainingPrincipal(applyPayment(debt, n, info)) });
-    setDebts((prev) => prev.map((d) => (d.id === debtId ? applyPayment(d, n, info) : d)));
+    const lateFeeExpenseId = pay.lateFee && pay.lateFee.amount > 0
+      ? tx.addTransaction({
+          title: pay.lateFee.title, date: pay.date, ...feeCategory('Bank Fees'), amount: round2(pay.lateFee.amount), type: 'debit',
+          accountId: pay.fromAccountId, debtId,
+        })
+      : undefined;
+    const info = { date: pay.date, amount: round2(pay.amount), accountId: pay.fromAccountId, transferId, expenseId, purchaseExpenseId, lateFeeExpenseId };
+    const next = applyPayment(debt, n, info);
+    if (spendNow) tx.updateAccount(debt.accountId, { initialBalance: -remainingPrincipal(next) });
+    return next;
+  }
+
+  function payInstalment(debtId: string, n: number, pay: InstalmentPay) {
+    const debt = debts.find((d) => d.id === debtId);
+    if (!debt) return;
+    const next = recordInstalment(debt, n, pay);
+    if (next) setDebts((prev) => prev.map((d) => (d.id === debtId ? next : d)));
+  }
+
+  function payMany(items: BatchItem[], pay: { date: string; fromAccountId: string }) {
+    // Several instalments of the same debt: each one builds on the debt as the previous one left it.
+    const updated = new Map<string, Debt>();
+    for (const it of items) {
+      if (it.kind === 'credit') {
+        repayCredit(it.debtId, { date: pay.date, amount: it.amount, fromAccountId: pay.fromAccountId });
+        continue;
+      }
+      const debt = updated.get(it.debtId) ?? debts.find((d) => d.id === it.debtId);
+      if (!debt) continue;
+      const next = recordInstalment(debt, it.n, { date: pay.date, amount: it.amount, fromAccountId: pay.fromAccountId, lateFee: it.lateFee });
+      if (next) updated.set(it.debtId, next);
+    }
+    if (updated.size > 0) setDebts((prev) => prev.map((d) => updated.get(d.id) ?? d));
   }
 
   /** The principal part of a payment on an instalment purchase: spending in the category of what was bought. */
@@ -251,6 +294,7 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
     if (paid.transferId) tx.deleteTransfer(paid.transferId);
     if (paid.expenseId) tx.deleteTransaction(paid.expenseId);
     if (paid.purchaseExpenseId) tx.deleteTransaction(paid.purchaseExpenseId);
+    if (paid.lateFeeExpenseId) tx.deleteTransaction(paid.lateFeeExpenseId);
     if (debt.spendOn === 'pay') tx.updateAccount(debt.accountId, { initialBalance: -remainingPrincipal(undoPaymentOn(debt, n)) });
     setDebts((prev) => prev.map((d) => (d.id === debtId ? undoPaymentOn(d, n) : d)));
   }
@@ -384,7 +428,7 @@ export function DebtsProvider({ children }: { children: ReactNode }) {
   }, [ready, tx.ready, debts]);
 
   return (
-    <DebtsContext.Provider value={{ ready, debts, ious, addIou, updateIou, addIouPayment, removeIouPayment, deleteIou, createInstalment, createLoan, createCredit, payInstalment, undoPayment, settle, repayCredit, updateDebt, reviseInstalment, reviseLoan, deleteDebt }}>
+    <DebtsContext.Provider value={{ ready, debts, ious, addIou, updateIou, addIouPayment, removeIouPayment, deleteIou, createInstalment, createLoan, createCredit, payInstalment, payMany, undoPayment, settle, repayCredit, updateDebt, reviseInstalment, reviseLoan, deleteDebt }}>
       {children}
     </DebtsContext.Provider>
   );

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useState, type RefObject } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddAccountModal } from '@/components/accounts/add-account-modal';
@@ -42,7 +43,7 @@ type Phase = 'loading' | 'welcomeBack' | 'coach' | 'idle';
  * - the "Start here" card, whose items tick themselves from the data;
  * - the What's New popup after an update, when nothing else is on screen.
  */
-export function HomeGuide({ cardsRef }: { cardsRef: RefObject<View | null> }) {
+export function HomeGuide({ cardsRef }: { cardsRef: RefObject<ViewRef | null> }) {
   const router = useRouter();
   const focused = useIsFocused();
   const { user } = useAuth();

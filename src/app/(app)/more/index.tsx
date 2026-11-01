@@ -32,7 +32,7 @@ import { useUpdates } from '@/context/UpdatesContext';
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback' | '/more/inbox'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/goals' | '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback' | '/more/inbox'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -70,13 +70,22 @@ export default function MoreScreen() {
   const accountList = accountBalances();
   const netWorth = accountList.reduce((sum, a) => sum + a.balance, 0);
 
-  const features: MenuItem[] = [
+  // Money: the four places people open most, as tiles.
+  const debtsOwed = debts.filter((d) => d.status !== 'done').length;
+  const tiles: MenuItem[] = [
     {
       icon: 'wallet-outline',
       label: t('more.index.menu.assets'),
       subtitle: tp('more.index.assets.sub', accountList.length, { amount: money(netWorth) }),
-      tint: '#0EA5E9',
+      tint: '#0B84B8',
       href: '/more/assets',
+    },
+    {
+      icon: 'card-outline',
+      label: t('more.index.menu.debts'),
+      subtitle: debts.length > 0 ? tp('more.index.debts.sub', debtsOwed) : t('more.index.debts.empty'),
+      tint: '#C2410C',
+      href: '/more/debts',
     },
     {
       icon: 'pie-chart-outline',
@@ -87,10 +96,25 @@ export default function MoreScreen() {
     },
     {
       icon: 'flag-outline',
-      label: t('more.index.menu.rancang'),
-      subtitle: goals.length > 0 ? tp('more.index.rancang.withGoals', goals.length) : t('more.index.rancang.empty'),
-      tint: '#22C55E',
-      href: '/more/rancang',
+      label: t('plan.goals.title'),
+      subtitle: goals.length > 0 ? tp('plan.rancang.goalCount', goals.length) : t('more.index.goals.empty'),
+      tint: '#15803D',
+      href: '/more/goals',
+    },
+  ];
+  const planning: MenuItem[] = [
+    {
+      icon: 'repeat',
+      label: t('more.index.menu.recurring'),
+      subtitle:
+        pendingEntries.length > 0
+          ? t('more.index.recurring.pending', { count: pendingEntries.length })
+          : activeRecurring > 0
+            ? t('more.index.recurring.active', { count: activeRecurring })
+            : t('more.index.recurring.empty'),
+      tint: '#8B5CF6',
+      href: '/more/recurring',
+      badge: pendingEntries.length > 0,
     },
     {
       icon: 'cash-outline',
@@ -107,6 +131,15 @@ export default function MoreScreen() {
       href: '/more/cashflow',
     },
     {
+      icon: 'notifications-outline',
+      label: t('more.index.menu.rancang'),
+      subtitle: t('more.index.rancang.billsSub'),
+      tint: '#22C55E',
+      href: '/more/rancang',
+    },
+  ];
+  const reports: MenuItem[] = [
+    {
       icon: 'document-text-outline',
       label: t('mrep.title'),
       subtitle: t('mrep.menu.sub'),
@@ -117,28 +150,8 @@ export default function MoreScreen() {
       icon: 'receipt-outline',
       label: t('tax.title'),
       subtitle: t('tax.menu.sub'),
-      tint: '#EAB308',
+      tint: '#CA8A04',
       href: '/more/tax',
-    },
-    {
-      icon: 'repeat',
-      label: t('more.index.menu.recurring'),
-      subtitle:
-        pendingEntries.length > 0
-          ? t('more.index.recurring.pending', { count: pendingEntries.length })
-          : activeRecurring > 0
-            ? t('more.index.recurring.active', { count: activeRecurring })
-            : t('more.index.recurring.empty'),
-      tint: '#8B5CF6',
-      href: '/more/recurring',
-      badge: pendingEntries.length > 0,
-    },
-    {
-      icon: 'card-outline',
-      label: t('more.index.menu.debts'),
-      subtitle: debts.length > 0 ? tp('more.index.debts.sub', debts.length) : t('more.index.debts.empty'),
-      tint: '#F97316',
-      href: '/more/debts',
     },
     {
       icon: 'pricetags-outline',
@@ -148,30 +161,15 @@ export default function MoreScreen() {
       href: '/more/categories',
     },
   ];
-  const settingsItems: MenuItem[] = [
+  // Settings opens one hub (display, privacy, sign-in, data); help and app info follow.
+  const helpItems: MenuItem[] = [
     {
       icon: 'settings-outline',
       label: t('more.index.menu.settings'),
-      subtitle: t('more.index.settings.sub'),
+      subtitle: t('more.index.settingsHub.sub'),
       tint: '#14B8A6',
       href: '/more/settings',
     },
-    {
-      icon: 'lock-closed-outline',
-      label: t('more.security.title'),
-      subtitle: t('more.index.security.sub'),
-      tint: '#6366F1',
-      href: '/more/security',
-    },
-    {
-      icon: 'shield-checkmark-outline',
-      label: t('more.data.title'),
-      subtitle: t('more.settings.dataSub'),
-      tint: '#0EA5E9',
-      href: '/more/data',
-    },
-  ];
-  const aboutItems: MenuItem[] = [
     {
       icon: 'megaphone-outline',
       label: t('more.index.menu.whatsNew'),
@@ -211,28 +209,26 @@ export default function MoreScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <View style={styles.header}>
+          <View style={[styles.header, styles.rowBetween]}>
             <ThemedText type="title" style={styles.heading}>
               {t('more.index.title')}
             </ThemedText>
-          </View>
-
-          {/* Profile */}
-          <Pressable
-            style={[styles.card, styles.profileRow, { backgroundColor: colors.backgroundElement }]}
-            onPress={() => router.push('/more/profile')}
-          >
-            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
-            </View>
-            <View style={styles.flex}>
-              <ThemedText style={styles.profileName}>{displayName}</ThemedText>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                {t('more.index.editProfile')}
+            {/* Profile: the avatar opens it */}
+            <Pressable
+              onPress={() => router.push('/more/profile')}
+              style={({ pressed }) => [styles.profileChip, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
+              accessibilityRole="button"
+              accessibilityLabel={t('more.index.editProfile')}
+            >
+              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                <ThemedText style={[styles.avatarLetter, { color: isLightColor(avatarColor) ? '#111827' : '#FFFFFF' }]}>{displayName.charAt(0).toUpperCase()}</ThemedText>
+              </View>
+              <ThemedText type="small" style={{ fontWeight: '700', maxWidth: 110 }} numberOfLines={1}>
+                {displayName}
               </ThemedText>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-          </Pressable>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+            </Pressable>
+          </View>
 
           {hasUnseenUpdate ? (
             <Pressable
@@ -294,11 +290,35 @@ export default function MoreScreen() {
             )}
           </Pressable>
 
-          {/* Features, settings and about, each under its own heading */}
+          {/* My money: tiles */}
+          <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
+            {t('more.index.section.money')}
+          </ThemedText>
+          <View style={styles.grid}>
+            {tiles.map((item) => (
+              <Pressable
+                key={item.href}
+                onPress={() => router.push(item.href)}
+                style={({ pressed }) => [styles.tile, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.label}, ${item.subtitle}`}
+              >
+                <View style={[styles.tileIcon, { backgroundColor: `${item.tint}1F` }]}>
+                  <Ionicons name={item.icon} size={22} color={item.tint} />
+                </View>
+                <View>
+                  <ThemedText style={styles.tileLabel} numberOfLines={1}>{item.label}</ThemedText>
+                  <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={2}>{item.subtitle}</ThemedText>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Planning, reports and help, each under its own heading */}
           {[
-            { title: t('more.index.section.features'), items: features },
-            { title: t('more.index.section.settings'), items: settingsItems },
-            { title: t('more.index.section.about'), items: aboutItems },
+            { title: t('more.index.section.planning'), items: planning },
+            { title: t('more.index.section.reports'), items: reports },
+            { title: t('more.index.section.help'), items: helpItems },
           ].map((group) => (
             <Section key={group.title} title={group.title}>
               {group.items.map((item, i) => (
@@ -324,13 +344,17 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   header: { paddingVertical: Spacing.three },
+  profileChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderRadius: Radius.pill },
+  secLabel: { fontWeight: '700', letterSpacing: 0.8, marginBottom: Spacing.two, marginLeft: Spacing.one, textTransform: 'uppercase' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginBottom: Spacing.four },
+  tile: { flexBasis: '47%', flexGrow: 1, borderRadius: Radius.lg, padding: 14, gap: 10, minHeight: 124 },
+  tileIcon: { width: 42, height: 42, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  tileLabel: { fontWeight: '700' },
   heading: { fontSize: FontSize.display, lineHeight: 40 },
   card: { borderRadius: Radius.lg, marginBottom: Spacing.three },
 
-  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: Spacing.three },
-  avatar: { width: 48, height: 48, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontSize: FontSize.heading, fontWeight: '700' },
-  profileName: { fontSize: FontSize.heading, fontWeight: '700' },
+  avatar: { width: 34, height: 34, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontSize: FontSize.body, fontWeight: '800' },
 
   budgetCard: { padding: 20, gap: 8 },
   budgetAmount: { fontSize: FontSize.largeTitle, lineHeight: 34, fontWeight: '700' },

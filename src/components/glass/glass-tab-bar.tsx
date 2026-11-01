@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useRef, useState, type RefObject } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glass } from '@/components/glass/glass';
@@ -19,7 +20,7 @@ const HINT_W = 140;
  * Floating glass tab bar. The lens under the active tab glides between tabs, stretches while it moves,
  * and can be held and dragged. The centre "+" is a button, not a tab, so the lens never rests on it.
  */
-export function GlassTabBar({ state, descriptors, navigation, blurTarget }: BottomTabBarProps & { blurTarget?: RefObject<View | null> }) {
+export function GlassTabBar({ state, descriptors, emitter, navigateToTab, blurTarget }: BottomTabBarProps & { blurTarget?: RefObject<ViewRef | null> }) {
   const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -45,8 +46,8 @@ export function GlassTabBar({ state, descriptors, navigation, blurTarget }: Bott
   function goTo(i: number) {
     const route = routes[i];
     if (!route || route.name === ADD_ROUTE) return;
-    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-    if (state.index !== i && !event.defaultPrevented) navigation.navigate(route.name);
+    const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (state.index !== i && !event.defaultPrevented) navigateToTab(route.key);
   }
 
   return (

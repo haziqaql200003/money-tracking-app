@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { PanResponder, type View } from 'react-native';
+import { PanResponder } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 
 /** Turns a touch position inside the chart (x, y in px, plus the chart's size) into the index it points at. */
 export type Locate = (x: number, y: number, width: number, height: number) => number;
@@ -18,7 +19,7 @@ export function useScrub(count: number, locate: Locate, initial: number | null =
   const [index, setIndex] = useState<number | null>(initial);
   const [dragging, setDragging] = useState(false);
   const [width, setWidth] = useState(0);
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewRef>(null);
   // Everything the gesture needs later lives in a closure, so render code never touches mutable values.
   const [live] = useState(() => {
     const m = { left: 0, top: 0, w: 0, h: 0, count: 0, locked: false, locate: null as Locate | null };
@@ -31,7 +32,7 @@ export function useScrub(count: number, locate: Locate, initial: number | null =
         m.w = w;
         m.h = h;
       },
-      measure: (view: View | null) => {
+      measure: (view: ViewRef | null) => {
         view?.measureInWindow((x, y) => {
           m.left = x;
           m.top = y;

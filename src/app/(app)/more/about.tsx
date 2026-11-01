@@ -1,14 +1,15 @@
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Row, Section } from '@/components/settings/settings-ui';
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
-import { FontSize, Spacing } from '@/constants/theme';
+import { CHANGELOG } from '@/constants/changelog';
+import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { Alert } from '@/services/dialog';
@@ -28,7 +29,8 @@ const PRINCIPLES: TKey[] = ['more.about.p1', 'more.about.p2', 'more.about.p3'];
 export default function AboutScreen() {
   const colors = useTheme();
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const latest = CHANGELOG[0];
   const muted = { color: colors.textSecondary };
   const [errorCount, setErrorCount] = useState(0);
   useFocusEffect(
@@ -63,9 +65,33 @@ export default function AboutScreen() {
           <ScreenHeader title={t('more.about.title')} />
 
           <View style={styles.hero}>
+            <View style={[styles.logo, { backgroundColor: colors.accent }]}>
+              <ThemedText style={[styles.logoLetter, { color: colors.onAccent }]}>W{/* i18n-ignore */}</ThemedText>
+            </View>
             <ThemedText style={styles.brand}>WaKira{/* i18n-ignore */}</ThemedText>
             <ThemedText type="small" style={[styles.tagline, muted]}>{t('more.about.tagline')}</ThemedText>
           </View>
+
+          {/* The newest release, right here */}
+          {latest ? (
+            <Pressable
+              onPress={() => router.push('/more/whats-new')}
+              style={({ pressed }) => [styles.newCard, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.8 }]}
+              accessibilityRole="button"
+            >
+              <View style={styles.newTop}>
+                <View style={[styles.versionPill, { backgroundColor: colors.accentSoft }]}>
+                  <ThemedText type="small" style={{ color: colors.accent, fontWeight: '800' }}>v{latest.version}</ThemedText>
+                </View>
+                <ThemedText type="small" style={muted}>{t('more.about.latest')}</ThemedText>
+              </View>
+              <ThemedText style={styles.newTitle}>{lang === 'ms' ? latest.titleMs : latest.title}</ThemedText>
+              {(latest.highlights ?? []).map((h) => (
+                <ThemedText key={h.text} type="small" style={muted}>{'•  ' + (lang === 'ms' ? h.ms : h.text)}</ThemedText>
+              ))}
+              <ThemedText type="small" style={{ color: colors.accent, fontWeight: '800', marginTop: 4 }}>{t('more.about.allVersions')}</ThemedText>
+            </Pressable>
+          ) : null}
 
           <Section title={t('more.about.version')}>
             <Row first icon="information-circle-outline" label={t('more.about.version')} value={`v${Constants.expoConfig?.version ?? '1.0.0'}`} />
@@ -106,7 +132,13 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   pad: { padding: Spacing.three },
-  hero: { alignItems: 'center', paddingVertical: Spacing.three, marginBottom: Spacing.three, gap: 6 },
+  hero: { alignItems: 'center', paddingVertical: Spacing.three, marginBottom: Spacing.two, gap: 6 },
+  logo: { width: 64, height: 64, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
+  logoLetter: { fontSize: 30, lineHeight: 36, fontWeight: '800' },
+  newCard: { borderRadius: Radius.lg, padding: Spacing.three, gap: 4, marginBottom: Spacing.four },
+  newTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  versionPill: { borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  newTitle: { fontSize: FontSize.heading, fontWeight: '800', marginVertical: 4 },
   brand: { fontSize: FontSize.largeTitle, lineHeight: 38, fontWeight: '800' },
   tagline: { textAlign: 'center', paddingHorizontal: Spacing.three },
   point: { marginBottom: 8 },

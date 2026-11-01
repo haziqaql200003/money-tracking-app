@@ -19,10 +19,14 @@ export type ScanErrorCode =
   | 'tooLarge'
   | 'limit' // daily limit reached (only when the server sets one)
   | 'unreadable' // the AI could not read a receipt in the file
+  | 'openFail' // the picked photo / PDF could not be opened on the phone
+  | 'setup' // the server side is not finished (function not deployed, AI key or model wrong)
+  | 'busy' // the free AI quota is used up for now, or the AI is overloaded
   | 'network';
 
 export class ScanError extends Error {
-  constructor(public code: ScanErrorCode) {
+  /** `detail`: the server's own reason, shown small so it can be reported. */
+  constructor(public code: ScanErrorCode, public detail?: string) {
     super(code);
   }
 }
@@ -71,6 +75,16 @@ async function pick(source: ScanSource): Promise<Picked> {
   return { data: await shrink(res.assets[0].uri), mediaType: 'image/jpeg' };
 }
 
+/** Picks and shrinks a photo / PDF without reading it (used by Ask WaKira). `null` = cancelled. */
+export async function pickScanFile(source: ScanSource): Promise<Picked> {
+  try {
+    return await pick(source);
+  } catch (e) {
+    if (e instanceof ScanError) throw e;
+    throw new ScanError('openFail', e instanceof Error ? e.message.slice(0, 80) : undefined);
+  }
+}
+
 /**
  * Picks a file and reads it. Resolves to `null` when the person cancels the picker.
  * Throws ScanError for everything that can go wrong in a way the UI should explain.
@@ -87,22 +101,34 @@ export async function scanReceipt(
     picked = await pick(source);
   } catch (e) {
     if (e instanceof ScanError) throw e;
-    throw new ScanError('unreadable');
+    throw new ScanError('openFail', e instanceof Error ? e.message.slice(0, 80) : undefined);
   }
   if (!picked) return null;
-  if (!picked.data) throw new ScanError('unreadable');
+  if (!picked.data) throw new ScanError('openFail');
 
   const { data, error } = await supabase.functions.invoke('scan-receipt', {
     body: { data: picked.data, mediaType: picked.mediaType, categories, lang },
   });
 
   if (error) {
-    const status = (error as { context?: { status?: number } }).context?.status;
-    if (status === 401) throw new ScanError('unavailable');
-    if (status === 413) throw new ScanError('tooLarge');
-    if (status === 429) throw new ScanError('limit');
-    if (status === 502) throw new ScanError('unreadable');
-    throw new ScanError('network');
+    const ctx = (error as { context?: unknown }).context;
+    const status = ctx instanceof Response ? ctx.status : (ctx as { status?: number } | undefined)?.status;
+    let reason = '';
+    try {
+      if (ctx instanceof Response) reason = String(((await ctx.json()) as { error?: unknown })?.error ?? '');
+    } catch {
+      // not JSON (e.g. the gateway's own page)
+    }
+    const detail = `${status ?? '-'}${reason ? ` ${reason}` : ''}`;
+    if (!status) throw new ScanError('network');
+    if (status === 401) throw new ScanError('unavailable', detail);
+    if (status === 404) throw new ScanError('setup', detail); // function not deployed (or named differently)
+    if (status === 413) throw new ScanError('tooLarge', detail);
+    if (status === 429) throw new ScanError('limit', detail);
+    if (reason === 'not_configured' || reason === 'bad_key' || reason === 'bad_model') throw new ScanError('setup', detail);
+    if (reason === 'quota' || reason === 'busy' || reason === 'upstream') throw new ScanError('busy', detail);
+    if (reason === 'unparsable') throw new ScanError('unreadable', detail);
+    throw new ScanError('busy', detail);
   }
 
   const result = data as ScanResult | null;

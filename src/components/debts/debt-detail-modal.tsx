@@ -7,6 +7,7 @@ import { DateField } from '@/components/ui/date-field';
 import { SheetHeader } from '@/components/ui/sheet-header';
 import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/ui/themed-text';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useDebts } from '@/context/DebtsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -20,6 +21,7 @@ import { toDateKey } from '@/utils/dates';
 import {
   creditStatus,
   instalmentAmount,
+  isBnpl,
   nextCreditDue,
   nextInstalment,
   progressPercent,
@@ -111,7 +113,12 @@ function DebtDetail({ debtId, onClose, onEdit }: { debtId: string; onClose: () =
     const barColor = status.usedPercent >= 90 ? colors.negative : status.usedPercent >= 70 ? WARN_COLOR : colors.accent;
     return (
       <View>
-        {debt.provider ? <ThemedText type="small" style={{ color: colors.textSecondary }}>{debt.provider}</ThemedText> : null}
+        {debt.provider ? (
+          <View style={styles.provLine}>
+            <BrandAvatar name={debt.provider} size={22} />
+            <ThemedText type="small" style={{ color: colors.textSecondary }}>{debt.provider}</ThemedText>
+          </View>
+        ) : null}
         <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
           <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.credit.available')}</ThemedText>
           <ThemedText style={styles.big}>{money(status.available)}</ThemedText>
@@ -152,9 +159,12 @@ function DebtDetail({ debtId, onClose, onEdit }: { debtId: string; onClose: () =
 
   return (
     <View>
-      <ThemedText type="small" style={{ color: colors.textSecondary }}>
-        {[debt.provider, t(debt.kind === 'loan' ? 'debt.kind.loan' : 'debt.kind.installment')].filter(Boolean).join(' · ')}
-      </ThemedText>
+      <View style={styles.provLine}>
+        {debt.provider ? <BrandAvatar name={debt.provider} size={22} /> : null}
+        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+          {[debt.provider, t(debt.kind === 'loan' ? 'debt.kind.loan' : isBnpl(debt) ? 'debt.kind.bnpl' : 'debt.kind.installment')].filter(Boolean).join(' · ')}
+        </ThemedText>
+      </View>
       <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
         <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.detail.stillOwed')}</ThemedText>
         <ThemedText style={styles.big}>{money(debt.status === 'done' ? 0 : remaining)}</ThemedText>
@@ -364,6 +374,7 @@ function EditPanel({ debt, onDone }: { debt: Debt; onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  provLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
   box: { paddingHorizontal: Spacing.four, paddingTop: Spacing.two, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%' },

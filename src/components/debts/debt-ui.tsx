@@ -1,8 +1,9 @@
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { AmountInput } from '@/components/ui/amount-input';
 import { ThemedText } from '@/components/ui/themed-text';
-import { Chip } from '@/components/ui/chip';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
+import { findBrand } from '@/constants/brands';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Account } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -55,9 +56,27 @@ export function AccountPicker({ accounts, value, onChange }: { accounts: Account
   return (
     <View style={styles.chips}>
       {accounts.map((a) => (
-        <Chip key={a.id} label={accountName(a)} active={a.id === value} onPress={() => onChange(a.id)} />
+        <AccountChip key={a.id} account={a} active={a.id === value} onPress={() => onChange(a.id)} />
       ))}
     </View>
+  );
+}
+
+/** An account to pick: its bank's or e-wallet's logo (or letter) when WaKira knows it, then its name. */
+function AccountChip({ account, active, onPress }: { account: Account; active: boolean; onPress: () => void }) {
+  const colors = useTheme();
+  const label = accountName(account);
+  const brandName = findBrand(account.provider) ? account.provider : findBrand(account.name) ? account.name : null;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, { borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.backgroundSelected : 'transparent' }]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      {brandName ? <BrandAvatar name={brandName} size={20} /> : null}
+      <ThemedText type="small" style={{ fontWeight: active ? '700' : '500', color: active ? colors.accent : colors.text }}>{label}</ThemedText>
+    </Pressable>
   );
 }
 
@@ -79,6 +98,7 @@ const styles = StyleSheet.create({
   labelBlock: { marginTop: Spacing.three, marginBottom: Spacing.one },
   input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: FontSize.body },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.pill, borderWidth: 1 },
   track: { height: 8, borderRadius: Radius.pill, overflow: 'hidden' },
   fill: { height: 8, borderRadius: Radius.pill },
 });

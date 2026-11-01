@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { PayDueSheet, type DueTarget } from '@/components/home/pay-due-sheet';
+import { ProviderSheet } from '@/components/debts/provider-sheet';
+import { IouDetail } from '@/components/debts/iou-detail';
+import { IouSheet } from '@/components/debts/iou-sheet';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { CategoryIcon } from '@/components/ui/category-icon';
 import type { IconName } from '@/constants/categories';
 import { ThemedText } from '@/components/ui/themed-text';
@@ -18,11 +21,10 @@ import { addDays } from '@/utils/cycle';
 import { dayNumber, dueText, upcomingOccurrences } from '@/utils/bills';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
-import { creditStatus, nextCreditDue, upcomingInstalments } from '@/utils/debts';
+import { providerGroups } from '@/utils/provider-groups';
 import { iouDone, iouLeft } from '@/utils/ious';
 
 const HORIZON_DAYS = 14;
-const SHOWN = 6;
 const MASK = 'RM ••••';
 
 type Item = {
@@ -36,8 +38,10 @@ type Item = {
   icon: IconName;
   color: string;
   href: Href;
-  /** Set for debt payments: tapping opens the pay pop-up instead of leaving Home. */
-  due?: DueTarget;
+  /** Set for money with people: tapping opens their pop-up instead of leaving Home. */
+  iouId?: string;
+  /** Set for debts: everything due with one company (SPayLater...) is one item; tapping opens its sheet. */
+  provider?: { key: string; count: number };
 };
 
 /**
@@ -50,7 +54,9 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
   const router = useRouter();
   const { recurringRules, accountBalance } = useTransactions();
   const { debts, ious } = useDebts();
-  const [due, setDue] = useState<DueTarget | null>(null);
+  const [iouId, setIouId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [providerKey, setProviderKey] = useState<string | null>(null);
   const { getCategory } = useCategories();
   const { hideAmounts } = usePrivacy();
 
@@ -73,38 +79,25 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         href: '/more/recurring' as Href,
       };
     }),
-    ...upcomingInstalments(debts, today, until)
-      .map(({ debt, instalment }) => ({
-        id: `debt_${debt.id}_${instalment.n}`,
-        title: debt.name,
-        date: instalment.dueDate,
-        daysUntil: dayNumber(instalment.dueDate) - dayNumber(today),
-        amount: Math.round((instalment.principal + instalment.interest) * 100) / 100,
-        varies: false,
-        type: 'debit' as const,
-        icon: 'card' as IconName,
-        color: colors.warning,
-        href: '/more/debts' as Href,
-        due: { kind: 'instalment' as const, debtId: debt.id, n: instalment.n },
-      })),
-    // Credit lines (SPayLater, cards) with something used and a monthly due day: pay the bill from here.
-    ...debts
-      .filter((d) => d.kind === 'credit' && !!d.dueDay && d.status !== 'done')
-      .map((d) => ({ d, used: creditStatus(d.creditLimit ?? 0, accountBalance(d.accountId)).used, due: nextCreditDue(d.dueDay as number, today) }))
-      .filter(({ used, due }) => used > 0 && due <= until)
-      .map(({ d, used, due }) => ({
-        id: `credit_${d.id}`,
-        title: d.name,
-        date: due,
-        daysUntil: dayNumber(due) - dayNumber(today),
-        amount: used,
-        varies: false,
-        type: 'debit' as const,
-        icon: 'card' as IconName,
-        color: colors.warning,
-        href: '/more/debts' as Href,
-        due: { kind: 'credit' as const, debtId: d.id },
-      })),
+    // Debts: one item per company, with everything due with it in the next two weeks (overdue included).
+    ...providerGroups(debts, accountBalance, today, { until, undatedCredit: false })
+      .filter((g) => g.due.length > 0)
+      .map((g) => {
+        const date = g.due[0].dueDate ?? today;
+        return {
+          id: `prov_${g.key}`,
+          title: g.name,
+          date,
+          daysUntil: dayNumber(date) - dayNumber(today),
+          amount: g.dueAmount,
+          varies: false,
+          type: 'debit' as const,
+          icon: 'card' as IconName,
+          color: colors.warning,
+          href: '/more/debts' as Href,
+          provider: { key: g.key, count: g.due.length },
+        };
+      }),
     ...ious
       .filter((i) => !iouDone(i) && !!i.dueDate && i.dueDate <= until)
       .map((i) => ({
@@ -118,7 +111,7 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         icon: 'people' as IconName,
         color: colors.warning,
         href: '/more/debts' as Href,
-        due: { kind: 'iou' as const, iouId: i.id },
+        iouId: i.id,
       })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
 
@@ -131,15 +124,35 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
     return `${i.varies ? '~' : ''}${sign}${formatMoney(i.amount)}`;
   };
 
+  const open = (i: Item) => (i.provider ? setProviderKey(i.provider.key) : i.iouId ? setIouId(i.iouId) : router.push(i.href));
+  // Overdue is red, due within three days is amber.
+  const dueColor = (i: Item) => (i.daysUntil < 0 ? colors.negative : i.daysUntil <= 3 ? colors.warning : colors.textSecondary);
+  const icon = (i: Item, size: number) =>
+    i.provider ? <BrandAvatar name={i.title} size={size} alert={i.daysUntil < 0} alertColor={colors.negative} /> : <CategoryIcon icon={i.icon} color={i.color} size={size} />;
+  const whenText = (i: Item) => (i.provider && i.provider.count > 1 ? `${dueText(i.daysUntil)} · ${t('debt.prov.homeCount', { count: i.provider.count })}` : dueText(i.daysUntil));
+
   const sheet = (
-    <PayDueSheet
-      target={due}
-      onClose={() => setDue(null)}
-      onOpenDebts={() => {
-        setDue(null);
+    <>
+    <ProviderSheet
+      groupKey={providerKey}
+      until={until}
+      onClose={() => setProviderKey(null)}
+      onOpenDebt={() => {
+        setProviderKey(null);
         router.push('/more/debts');
       }}
     />
+    <IouSheet
+      iouId={iouId}
+      onClose={() => setIouId(null)}
+      onOpenDetail={(id) => {
+        setIouId(null);
+        // Let the pop-up finish closing before the page opens (two modals at once can fail to appear on iOS).
+        setTimeout(() => setDetailId(id), 350);
+      }}
+    />
+    <IouDetail iouId={detailId} onClose={() => setDetailId(null)} />
+    </>
   );
 
   if (variant === 'list') {
@@ -163,25 +176,24 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
           </ThemedText>
         ) : null}
         {items.slice(0, 7).map((i, n) => {
-          const soon = i.daysUntil <= 3;
           return (
             <Pressable
               key={i.id}
-              onPress={() => (i.due ? setDue(i.due) : router.push(i.href))}
+              onPress={() => open(i)}
               style={({ pressed }) => [styles.listRow, n > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
-              accessibilityLabel={`${i.title}, ${dueText(i.daysUntil)}, ${amountText(i)}`}
+              accessibilityLabel={`${i.title}, ${whenText(i)}, ${amountText(i)}`}
             >
-              <CategoryIcon icon={i.icon} color={i.color} size={32} />
+              {icon(i, 32)}
               <View style={styles.listBody}>
                 <ThemedText style={styles.name} numberOfLines={1}>
                   {i.title}
                 </ThemedText>
-                <ThemedText type="small" style={{ color: soon ? colors.warning : colors.textSecondary, fontWeight: soon ? '700' : '500' }} numberOfLines={1}>
-                  {dueText(i.daysUntil)}
+                <ThemedText type="small" style={{ color: dueColor(i), fontWeight: i.daysUntil <= 3 ? '700' : '500' }} numberOfLines={1}>
+                  {whenText(i)}
                 </ThemedText>
               </View>
-              <ThemedText style={[styles.amount, { color: i.type === 'credit' ? colors.positive : colors.text }]} numberOfLines={1}>
+              <ThemedText style={[styles.amount, { color: i.type === 'credit' ? colors.positive : i.daysUntil < 0 ? colors.negative : colors.text }]} numberOfLines={1}>
                 {amountText(i)}
               </ThemedText>
             </Pressable>
@@ -193,6 +205,9 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
     );
   }
 
+  const SHOWN_ROWS = 4;
+  const toPay = items.filter((i) => i.type === 'debit').reduce((sum, i) => sum + i.amount, 0);
+  const lateCount = items.filter((i) => i.daysUntil < 0).length;
   return (
     <>
     <View style={styles.wrap}>
@@ -206,45 +221,56 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
           </ThemedText>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row} style={styles.scroll}>
-        {items.slice(0, SHOWN).map((i) => {
-          const soon = i.daysUntil <= 3;
+      <View style={[styles.panel, { backgroundColor: colors.backgroundElement }]}>
+        <View style={styles.panelTop}>
+          <View style={styles.listBody}>
+            <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('home.upcoming.toPay')}</ThemedText>
+            <ThemedText style={[styles.total, { color: lateCount > 0 ? colors.negative : colors.text }]} numberOfLines={1}>
+              {hideAmounts ? MASK : formatMoney(Math.round(toPay * 100) / 100)}
+            </ThemedText>
+          </View>
+          {lateCount > 0 ? (
+            <View style={[styles.latePill, { backgroundColor: colors.negative }]}>
+              <Ionicons name="alert-circle" size={14} color="#FFFFFF" />
+              <ThemedText type="small" style={styles.latePillText}>{t('home.upcoming.late', { count: lateCount })}</ThemedText>
+            </View>
+          ) : null}
+        </View>
+        {items.slice(0, SHOWN_ROWS).map((i) => {
+          const late = i.daysUntil < 0;
           return (
             <Pressable
               key={i.id}
-              onPress={() => (i.due ? setDue(i.due) : router.push(i.href))}
-              style={({ pressed }) => [styles.card, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
+              onPress={() => open(i)}
+              style={({ pressed }) => [styles.rowItem, late && { backgroundColor: colors.negative + '12' }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
-              accessibilityLabel={`${i.title}, ${dueText(i.daysUntil)}, ${amountText(i)}`}
+              accessibilityLabel={`${i.title}, ${whenText(i)}, ${amountText(i)}`}
             >
-              <View style={styles.cardTop}>
-                <CategoryIcon icon={i.icon} color={i.color} size={30} />
-                <ThemedText type="small" style={[styles.due, { color: soon ? colors.warning : colors.textSecondary }]} numberOfLines={1}>
+              {icon(i, 40)}
+              <View style={styles.listBody}>
+                <ThemedText style={styles.name} numberOfLines={1}>{i.title}</ThemedText>
+                <ThemedText type="small" style={{ color: dueColor(i), fontWeight: i.daysUntil <= 3 ? '700' : '500' }} numberOfLines={1}>
                   {dueText(i.daysUntil)}
                 </ThemedText>
+                {i.provider && i.provider.count > 1 ? (
+                  <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>{t('debt.prov.homeCount', { count: i.provider.count })}</ThemedText>
+                ) : null}
               </View>
-              <ThemedText style={styles.name} numberOfLines={1}>
-                {i.title}
-              </ThemedText>
-              <ThemedText style={[styles.amount, { color: i.type === 'credit' ? colors.positive : colors.text }]} numberOfLines={1}>
+              <ThemedText style={[styles.amount, { color: i.type === 'credit' ? colors.positive : late ? colors.negative : colors.text }]} numberOfLines={1}>
                 {amountText(i)}
               </ThemedText>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </Pressable>
           );
         })}
-        {items.length > SHOWN ? (
-          <Pressable
-            onPress={() => router.push('/more/rancang')}
-            style={[styles.card, styles.moreCard, { backgroundColor: colors.backgroundSelected }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        {items.length > SHOWN_ROWS ? (
+          <Pressable onPress={() => router.push('/more/rancang')} style={styles.seeAll} accessibilityRole="button">
             <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
-              {t('home.upcoming.more', { n: items.length - SHOWN })}
+              {t('home.upcoming.seeAll')} · {t('home.upcoming.more', { n: items.length - SHOWN_ROWS })}
             </ThemedText>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </View>
     </View>
     {sheet}
     </>
@@ -255,15 +281,16 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: Spacing.four },
   head: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: Spacing.two },
   title: { fontSize: FontSize.body },
-  scroll: { marginHorizontal: -Spacing.four, flexGrow: 0 },
-  row: { paddingHorizontal: Spacing.four, gap: 10 },
-  card: { width: 150, borderRadius: Radius.lg, padding: 14, gap: 4 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  due: { flex: 1, fontWeight: '700', fontSize: FontSize.caption },
-  name: { fontSize: FontSize.label, fontWeight: '600' },
+  panel: { borderRadius: Radius.xl, padding: Spacing.three, gap: 4 },
+  panelTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.two },
+  total: { fontSize: FontSize.title, lineHeight: 28, fontWeight: '800', ...tabularNums },
+  latePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.pill },
+  latePillText: { color: '#FFFFFF', fontWeight: '700' },
+  rowItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 8, marginHorizontal: -8, borderRadius: Radius.md },
+  seeAll: { alignItems: 'center', paddingTop: Spacing.two },
+  name: { fontSize: FontSize.label, fontWeight: '700' },
   amount: { fontSize: FontSize.body, fontWeight: '800', ...tabularNums },
   listCard: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, padding: 20, gap: 4 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   listBody: { flex: 1, minWidth: 0 },
-  moreCard: { width: 110, alignItems: 'center', justifyContent: 'center', gap: 6 },
 });

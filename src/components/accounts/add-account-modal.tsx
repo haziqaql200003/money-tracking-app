@@ -16,9 +16,11 @@ type Props = {
   onClose: () => void;
   /** Pass an existing account to edit/delete it. Omit (or null) to create a new one. */
   editingAccount?: Account | null;
+  /** Start a new account with this provider already picked. */
+  initialProvider?: string;
 };
 
-export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
+export function AddAccountModal({ visible, onClose, editingAccount, initialProvider }: Props) {
   const { t } = useT();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,7 +41,7 @@ export function AddAccountModal({ visible, onClose, editingAccount }: Props) {
           >
             <View style={[styles.handle, { backgroundColor: colors.divider }]} />
             {/* Remounted on every open, so the form starts from the account (or the defaults) with no reset effect. */}
-            <AccountForm key={epoch} onClose={onClose} editingAccount={editingAccount} onOpenAdjustments={setAdjView} />
+            <AccountForm key={epoch} onClose={onClose} editingAccount={editingAccount} onOpenAdjustments={setAdjView} initialProvider={initialProvider} />
             {visible ? <AdjustmentsModal visible={!!adjView} onClose={() => setAdjView(null)} accountId={adjView} /> : null}
           </DragSheet>
         </KeyboardAvoidingView>

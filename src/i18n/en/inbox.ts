@@ -25,4 +25,5 @@ export const enInbox = {
   'inbox.saved': 'Saved. The user will see the update.',
   'inbox.saveFail': 'Could not save. Try again.',
   'inbox.unchanged': 'Nothing changed yet.',
+  'inbox.emptySub': 'New bug reports and ideas from users show up here. Pull down to refresh.',
 } as const;

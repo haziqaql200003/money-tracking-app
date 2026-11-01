@@ -6,6 +6,9 @@ export const enHome = {
   'home.upcoming.title': 'Coming up',
   'home.upcoming.none': 'Nothing due in the next two weeks.',
   'home.upcoming.more': '{n} more',
+  'home.upcoming.toPay': 'To pay in the next two weeks',
+  'home.upcoming.late': '{count} overdue',
+  'home.upcoming.seeAll': 'See all',
   'home.index.greeting': 'Hi, ',
   // Balance carousel
   'home.carousel.allAccounts': 'All accounts',

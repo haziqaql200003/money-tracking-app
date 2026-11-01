@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Switch } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Row, Section } from '@/components/settings/settings-ui';
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePlan } from '@/context/PlanContext';
@@ -25,9 +27,12 @@ import { CURRENT_VERSION } from '@/constants/changelog';
 import { toDateKey } from '@/utils/dates';
 
 /** Everything about where your data lives and how to take it with you or remove it. */
+type DataTab = 'backup' | 'import' | 'privacy';
+
 export default function DataPrivacyScreen() {
   const colors = useTheme();
   const router = useRouter();
+  const [tab, setTab] = useState<DataTab>('backup');
   const { t, tp } = useT();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const { transactions, accounts, resetAllData } = useTransactions();
@@ -127,17 +132,60 @@ export default function DataPrivacyScreen() {
     ]);
   }
 
+  const steps = [
+    { n: 1, title: t('more.data.step1'), sub: t('more.data.step1Sub') },
+    { n: 2, title: t('more.data.step2'), sub: t('more.data.step2Sub') },
+    { n: 3, title: t('more.data.step3'), sub: t('more.data.step3Sub') },
+  ];
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <ScreenHeader title={t('more.data.title')} />
 
+          {/* Three tabs instead of one long page */}
+          <View style={styles.tabs}>
+            <GlassSegmented
+              options={[
+                { key: 'backup' as DataTab, label: t('more.data.tabBackup') },
+                { key: 'import' as DataTab, label: t('more.data.tabImport') },
+                { key: 'privacy' as DataTab, label: t('more.data.tabPrivacy') },
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+          </View>
+
+          {tab === 'import' ? (
+            <>
+              {steps.map((st) => (
+                <View key={st.n} style={[styles.step, { backgroundColor: colors.backgroundElement }]}>
+                  <View style={[styles.stepNo, { backgroundColor: colors.accent }]}>
+                    <ThemedText style={{ color: colors.onAccent, fontWeight: '800' }}>{st.n}</ThemedText>
+                  </View>
+                  <View style={styles.flex}>
+                    <ThemedText style={{ fontWeight: '800' }}>{st.title}</ThemedText>
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>{st.sub}</ThemedText>
+                  </View>
+                </View>
+              ))}
+              <Pressable onPress={() => router.push('/more/import')} style={({ pressed }) => [styles.primary, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]} accessibilityRole="button">
+                <ThemedText style={{ color: colors.onAccent, fontWeight: '800' }}>{t('more.data.startImport')}</ThemedText>
+              </Pressable>
+              <ThemedText type="small" style={[styles.intro, { color: colors.textSecondary, marginTop: Spacing.three }]}>
+                {t('more.data.importFormats')}
+              </ThemedText>
+            </>
+          ) : null}
+
+          {tab === 'privacy' ? (
           <ThemedText type="small" style={[styles.intro, { color: colors.textSecondary }]}>
             {t('more.data.principles')} {t('more.data.local')}
           </ThemedText>
+          ) : null}
 
-          {cloud ? (
+          {tab === 'backup' && cloud ? (
             <Section title={t('more.settings.cloudSync')}>
               <Row first icon="cloud-done-outline" label={t('more.settings.cloudSync')} subtitle={syncText} />
               <Row icon="sync-outline" label={t('more.settings.syncNow')} subtitle={t('more.settings.syncNowSub')} onPress={() => void syncNow()} />
@@ -145,6 +193,8 @@ export default function DataPrivacyScreen() {
             </Section>
           ) : null}
 
+          {tab === 'privacy' ? (
+          <>
           <Section title={t('more.settings.privacy')} footer={t('more.settings.privacyFooter')}>
             <Row
               first
@@ -154,16 +204,24 @@ export default function DataPrivacyScreen() {
             />
           </Section>
 
+          </>
+          ) : null}
+
+          {tab === 'backup' ? (
+          <>
           <Section title={t('more.settings.data')}>
             <Row first icon="download-outline" label={t('more.settings.export')} subtitle={t('more.settings.exportSub')} onPress={exportAll} />
-            <Row icon="push-outline" label={t('more.settings.import')} subtitle={t('more.settings.importSub')} onPress={() => router.push('/more/import')} />
           </Section>
 
           <Section title={t('more.data.backupTitle')} footer={t('more.data.backupFooter')}>
             <Row first icon="archive-outline" label={t('more.data.backup')} subtitle={t('more.data.backupSub')} onPress={() => void backupAll()} />
             <Row icon="refresh-outline" label={t('more.data.restoreFile')} subtitle={t('more.data.restoreFileSub')} onPress={() => void restoreFromFile()} />
           </Section>
+          </>
+          ) : null}
 
+          {tab === 'privacy' ? (
+          <>
           <Section title={t('more.data.policies')}>
             <Row first icon="document-text-outline" label={t('more.data.privacyPolicy')} onPress={() => router.push('/privacy')} />
             <Row icon="reader-outline" label={t('more.data.terms')} onPress={() => router.push('/more/terms')} />
@@ -173,6 +231,8 @@ export default function DataPrivacyScreen() {
             <Row first icon="trash-outline" label={t('more.settings.resetData')} subtitle={t('more.settings.resetDataSub')} danger onPress={confirmReset} />
             <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={() => router.push('/more/delete-account')} />
           </Section>
+          </>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -184,4 +244,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },
   content: { paddingBottom: 130 },
   intro: { marginBottom: Spacing.four, marginLeft: 4 },
+  flex: { flex: 1 },
+  tabs: { marginBottom: Spacing.three },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.lg, padding: Spacing.three, marginBottom: Spacing.two },
+  stepNo: { width: 30, height: 30, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  primary: { borderRadius: Radius.pill, paddingVertical: 15, alignItems: 'center', marginTop: Spacing.two },
 });

@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { TextInputRef } from '@/utils/rn-refs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthField } from '@/components/auth/auth-field';
@@ -33,7 +34,7 @@ export default function VerifyScreen() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [wait, setWait] = useState(RESEND_WAIT);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputRef>(null);
 
   useEffect(() => {
     if (wait <= 0) return;

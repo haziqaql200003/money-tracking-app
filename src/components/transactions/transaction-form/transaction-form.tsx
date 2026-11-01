@@ -226,7 +226,7 @@ export function TransactionForm({ onClose, onSave, editingTransaction, prefill, 
         ) : (
           <>
         {/* Amount */}
-        <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+        <ThemedText type="small" style={[styles.fieldLabel, styles.amountLabel, { color: colors.textSecondary, marginTop: 0 }]}>
           {t('tx.add.amountRm')}
         </ThemedText>
         {breakdownOn ? (
@@ -275,8 +275,6 @@ export function TransactionForm({ onClose, onSave, editingTransaction, prefill, 
           onChangeText={setTitle}
         />
 
-            <BreakdownSection breakdown={breakdown} amount={amount} />
-
             <AccountSection accountId={accountId} setAccountId={setAccountId} typeAccent={typeAccent} />
 
             <CategorySection
@@ -291,10 +289,12 @@ export function TransactionForm({ onClose, onSave, editingTransaction, prefill, 
               pickCategory={pickCategory}
             />
 
-            {/* Tax relief (expenses only) */}
-          {type === 'debit' ? <TaxReliefPicker value={taxRelief} onChange={setTaxRelief} /> : null}
-
             <DateSection date={date} setDate={setDate} typeAccent={typeAccent} />
+
+            {/* Item breakdown, then tax relief (expenses only): optional extras last */}
+            <BreakdownSection breakdown={breakdown} amount={amount} />
+            {type === 'debit' ? <TaxReliefPicker value={taxRelief} onChange={setTaxRelief} /> : null}
+            <View style={{ height: Spacing.three }} />
           </>
         )}
       </ScrollView>

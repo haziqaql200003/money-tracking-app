@@ -1,4 +1,4 @@
-import { ScrollViewStyleReset } from 'expo-router/html';
+import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
 const APP_NAME = 'WaKira'; // i18n-ignore: brand name
@@ -6,10 +6,12 @@ const APP_NAME = 'WaKira'; // i18n-ignore: brand name
 /**
  * The web page around the app (web only). It makes "Add to Home Screen" open WaKira like an app:
  * no browser bar, its own icon and name, and the screen reaching under the notch.
+ * Since SDK 58 the page's scripts and styles arrive as `headNodes` / `bodyNodes`, so they must be rendered here.
  */
 export default function Root({ children }: PropsWithChildren) {
+  const { htmlAttributes, bodyAttributes, headNodes, bodyNodes } = useServerDocumentContext();
   return (
-    <html lang="ms">
+    <html lang="ms" {...htmlAttributes}>
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -24,8 +26,12 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="WaKira" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <ScrollViewStyleReset />
+        {headNodes}
       </head>
-      <body>{children}</body>
+      <body {...bodyAttributes}>
+        {children}
+        {bodyNodes}
+      </body>
     </html>
   );
 }

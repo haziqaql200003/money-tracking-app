@@ -6,9 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryIcon } from '@/components/ui/category-icon';
 import { Split } from '@/components/desktop/split';
-import { GoalDetailModal, STATUS_KEY } from '@/components/goals/goal-detail-modal';
-import { TabungAllocation } from '@/components/goals/tabung-allocation';
-import { SwipeRow } from '@/components/ui/swipe-row';
+import { GoalDetailModal } from '@/components/goals/goal-detail-modal';
 import { GoalFormModal } from '@/components/goals/goal-form-modal';
 import { ScreenSkeleton } from '@/components/ui/skeleton';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -49,7 +47,6 @@ export default function RancangScreen() {
   const {
     goals,
     goalEntries,
-    deleteGoal,
     reminderPrefs,
     permission,
     enableReminders,
@@ -91,13 +88,6 @@ export default function RancangScreen() {
   function openAdd() {
     setEditingId(null);
     setFormVisible(true);
-  }
-
-  function confirmDeleteGoal(id: string, name: string) {
-    Alert.alert(t('plan.goalForm.deleteTitle'), t('plan.goalForm.deleteBody', { name }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteGoal(id) },
-    ]);
   }
 
   function openEdit(id: string) {
@@ -224,73 +214,39 @@ export default function RancangScreen() {
               <Ionicons name="add" size={20} color="#fff" />
             </Pressable>
           </View>
-          {goalRows.length > 0 ? <TabungAllocation /> : null}
-          {goalRows.length === 0 ? (
-            <View style={[styles.card, styles.empty, { backgroundColor: colors.backgroundElement }]}>
-              <Ionicons name="flag-outline" size={30} color={colors.textSecondary} />
-              <ThemedText style={styles.emptyTitle}>{t('plan.rancang.goalsEmptyTitle')}</ThemedText>
-              <ThemedText type="small" style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                {t('plan.rancang.goalsEmptyBody')}
-              </ThemedText>
-              <Pressable style={[styles.emptyButton, { backgroundColor: colors.accent }]} onPress={openAdd}>
-                <ThemedText style={styles.emptyButtonText}>{t('plan.rancang.createGoal')}</ThemedText>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={[styles.listCard, styles.listFlush, { backgroundColor: colors.backgroundElement }]}>
-              {goalRows.map(({ goal, progress }, i) => {
-                const tone =
-                  progress.status === 'done' || progress.status === 'on_track'
-                    ? colors.positive
-                    : progress.status === 'open'
-                      ? colors.textSecondary
-                      : colors.negative;
-                return (
-                  <SwipeRow
-                    key={goal.id}
-                    background={colors.backgroundElement}
-                    rightActions={[
-                      { key: 'edit', label: t('common.edit'), icon: 'create-outline', color: colors.accent, onPress: () => openEdit(goal.id) },
-                      { key: 'delete', label: t('common.delete'), icon: 'trash-outline', color: colors.negative, onPress: () => confirmDeleteGoal(goal.id, goal.name) },
-                    ]}
-                    onFullSwipe={() => confirmDeleteGoal(goal.id, goal.name)}
-                  >
-                  <Pressable
-                    onPress={() => setViewingId(goal.id)}
-                    style={({ pressed }) => [
-                      styles.goalRow,
-                      i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-                      (pressed || goal.paused) && { opacity: 0.6 },
-                    ]}
-                  >
-                    <CategoryIcon icon={goal.icon as IconName} color={goal.color} size={42} />
+          {/* Goals have their own page now; here a short summary that opens it */}
+          <Pressable
+            onPress={() => router.push('/more/goals')}
+            style={({ pressed }) => [styles.card, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.6 }]}
+            accessibilityRole="button"
+            accessibilityLabel={t('plan.goals.title')}
+          >
+            {goalRows.length > 0 ? (
+              <>
+                <View style={styles.rowBetween}>
+                  <ThemedText style={{ fontWeight: '700' }}>{tp('plan.rancang.goalCount', goals.length)}</ThemedText>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </View>
+                {goalRows.slice(0, 3).map(({ goal, progress }) => (
+                  <View key={goal.id} style={styles.goalMini}>
+                    <CategoryIcon icon={goal.icon as IconName} color={goal.color} size={28} />
                     <View style={styles.flex}>
-                      <View style={styles.rowBetween}>
-                        <ThemedText numberOfLines={2} style={styles.flex}>
-                          {goal.name}
-                        </ThemedText>
-                        <ThemedText type="small" style={{ fontWeight: '700' }}>
-                          {p1(progress.percent)}%
-                        </ThemedText>
-                      </View>
+                      <ThemedText type="small" numberOfLines={1} style={{ fontWeight: '600' }}>{goal.name}</ThemedText>
                       <View style={[styles.track, styles.trackThin, { backgroundColor: colors.backgroundSelected }]}>
                         <View style={[styles.fill, styles.fillThin, { width: `${Math.max(progress.percent, progress.saved > 0 ? 2 : 0)}%`, backgroundColor: goal.color }]} />
                       </View>
-                      <View style={styles.rowBetween}>
-                        <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]} numberOfLines={2}>
-                          {t('plan.rancang.spentOf', { spent: money(progress.saved), limit: money(goal.target) })}
-                        </ThemedText>
-                        <ThemedText type="small" style={{ color: tone, fontWeight: '700' }}>
-                          {goal.paused ? t('plan.goalDetail.pauseBadge') : t(STATUS_KEY[progress.status])}
-                        </ThemedText>
-                      </View>
                     </View>
-                  </Pressable>
-                  </SwipeRow>
-                );
-              })}
-            </View>
-          )}
+                    <ThemedText type="small" style={{ fontWeight: '700' }}>{p1(progress.percent)}%</ThemedText>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <View style={styles.rowBetween}>
+                <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]}>{t('plan.rancang.goalsEmptyBody')}</ThemedText>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </View>
+            )}
+          </Pressable>
 
           </>
             }
@@ -467,6 +423,7 @@ const styles = StyleSheet.create({
   listFlush: { paddingHorizontal: 0, overflow: 'hidden' },
   emptyList: { padding: 20 },
   goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: Spacing.three },
+  goalMini: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: Spacing.two },
   billRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   more: { textAlign: 'center', paddingBottom: 12 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.three, borderRadius: Radius.lg, borderWidth: 1.5, marginBottom: Spacing.two },

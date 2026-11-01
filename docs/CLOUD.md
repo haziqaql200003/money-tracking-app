@@ -158,3 +158,13 @@ Semua 001-006 telah dijalankan pada Postgres sebenar (dengan skema `auth` tiruan
 - `supabase/dev_dummy_reports.sql`: 7 laporan dummy (semua tajuk "[DUMMY]") untuk mencuba Peti masuk.
 - `supabase/dev_dummy_finance.sql`: akaun, transaksi Jun-Okt 2026, pindahan simpanan dan matlamat dummy untuk akaun John Doe
   (Maybank RM 9,673.81, Simpanan RM 10,400.00, Tunai RM 284.49; jumlah RM 20,358.30). Ganti e-mel di dalamnya dahulu. Guna pada akaun ujian sahaja kerana ia menggantikan data akaun itu.
+
+### Imbas resit gagal? (3.4.1)
+Mesej ralat dalam app kini ada **Kod**:
+- `404`: function `scan-receipt` belum di-deploy (atau nama lain). Deploy semula dengan nama tepat `scan-receipt`.
+- `500 not_configured`: secret `GEMINI_API_KEY` belum ditetapkan (Edge Functions > Secrets).
+- `502 bad_key`: kunci Gemini salah / dibatalkan. Buat kunci baharu di Google AI Studio dan tetapkan semula.
+- `502 bad_model`: nama model tiada lagi; function cuba `gemini-flash-latest` secara automatik. Boleh tetapkan `SCAN_MODEL`.
+- `502 quota` / `busy`: kuota percuma Gemini habis atau AI sibuk; cuba lagi kemudian.
+- `401`: sesi tamat; log keluar dan log masuk semula.
+Butiran penuh: Supabase > Edge Functions > scan-receipt > **Logs** (baris bermula `[scan]`).

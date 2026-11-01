@@ -15,6 +15,7 @@ import { formatMoney } from '@/utils/currency';
 import { aiSummary, buildFeed, monthRows, type FeedTone, type ScoreFactor } from '@/utils/insight-feed';
 import { useHealthScore } from '@/hooks/use-health-score';
 import { ScoreRing } from '@/components/charts/score-ring';
+import { AskWakiraCard } from '@/components/ai/ask-card';
 import { monthKeysEnding } from '@/utils/insights';
 import { shareText } from '@/services/share-file';
 
@@ -97,6 +98,8 @@ export function AnalyseInsight({ todayKey }: Props) {
 
   return (
     <View>
+      <AskWakiraCard feed={feed} />
+
       {!score && feed.length === 0 ? (
         <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
           <ThemedText type="small" style={muted}>{t('fc.insight.empty')}</ThemedText>

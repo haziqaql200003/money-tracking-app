@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/context/AuthContext';
@@ -38,6 +39,7 @@ export default function SettingsScreen() {
   const gyroEnabled = useGyroEnabled();
   const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
   const { user, updateProfile } = useAuth();
+  const { hideAmounts, toggleHideAmounts } = usePrivacy();
   // The tutorial questions are done once; "repeat" replays the Home walkthrough instead.
   function replayTour() {
     if (user) setCoachSeen(user.id, false);
@@ -99,6 +101,20 @@ export default function SettingsScreen() {
             />
           </Section>
 
+          {/* Privacy and sign-in, gathered here so Settings is the one place to look */}
+          <Section title={t('more.settings.privacySecurity')}>
+            <Row
+              first
+              icon="eye-off-outline"
+              label={t('more.settings.hideAmounts')}
+              subtitle={t('more.settings.hideAmountsSub')}
+              tint="#15803D"
+              right={<Switch value={hideAmounts} onValueChange={toggleHideAmounts} trackColor={{ true: colors.accent }} />}
+            />
+            <Row icon="lock-closed-outline" label={t('more.security.title')} subtitle={t('more.index.security.sub')} tint="#6366F1" onPress={() => router.push('/more/security')} />
+            <Row icon="notifications-outline" label={t('more.settings.reminders')} subtitle={t('more.settings.remindersSub')} tint="#22C55E" onPress={() => router.push('/more/rancang')} />
+          </Section>
+
           <Section title={t('more.settings.budgets')} footer={t('more.settings.budgetsFooter')}>
             <View style={styles.pad}>
               <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: Spacing.two }}>
@@ -143,9 +159,11 @@ export default function SettingsScreen() {
             <Row icon="school-outline" label={t('more.settings.repeatTutorial')} onPress={replayTour} />
           </Section>
 
-          <Section title={t('more.settings.more')}>
-            <Row first icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} onPress={() => router.push('/more/data')} />
-            <Row icon="information-circle-outline" label={t('more.about.title')} subtitle={t('more.settings.aboutSub')} onPress={() => router.push('/more/about')} />
+          <Section title={t('more.settings.dataSection')}>
+            <Row first icon="shield-checkmark-outline" label={t('more.data.title')} subtitle={t('more.settings.dataSub')} tint="#0EA5E9" onPress={() => router.push('/more/data')} />
+            <Row icon="push-outline" label={t('more.settings.import')} subtitle={t('more.settings.importSub')} tint="#0EA5E9" onPress={() => router.push('/more/import')} />
+            <Row icon="information-circle-outline" label={t('more.about.title')} subtitle={t('more.settings.aboutSub')} tint="#64748B" onPress={() => router.push('/more/about')} />
+            <Row icon="trash-outline" label={t('more.settings.deleteAccount')} subtitle={t('more.settings.deleteAccountSub')} danger onPress={() => router.push('/more/delete-account')} />
           </Section>
         </ScrollView>
       </SafeAreaView>

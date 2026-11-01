@@ -2,6 +2,7 @@ import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import type { ReactNode, RefObject } from 'react';
 import { Platform, StyleSheet, View, useColorScheme, type StyleProp, type ViewStyle } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 
 import { Radius } from '@/constants/theme';
 
@@ -33,7 +34,7 @@ type Props = {
    * Android only: the BlurTargetView holding whatever sits behind this surface. Without it Android shows a plain
    * translucent surface (a blur needs to know what to blur). iOS older than 26 blurs on its own.
    */
-  blurTarget?: RefObject<View | null>;
+  blurTarget?: RefObject<ViewRef | null>;
 };
 
 /**

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Dimensions, PanResponder, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Dimensions, PanResponder, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import type { ViewRef } from '@/utils/rn-refs';
 
 import { useIsDesktop } from '@/components/desktop/use-desktop';
 
@@ -26,7 +27,7 @@ const CLOSE_VELOCITY = 0.9;
 export function DragSheet({ visible, onClose, style, children }: Props) {
   const colors = useTheme();
   const desktop = useIsDesktop();
-  const box = useRef<View>(null);
+  const box = useRef<ViewRef>(null);
   // Mutable bits the gesture reads later (never during render): where the sheet's top is, and what closes it.
   const [live] = useState(() => ({ y: new Animated.Value(0), top: 0 }));
   const y = live.y;

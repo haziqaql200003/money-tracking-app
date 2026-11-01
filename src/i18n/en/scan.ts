@@ -23,4 +23,8 @@ export const enScan = {
   'scan.errLimit': "You have reached today's scan limit. Try again tomorrow.",
   'scan.errUnreadable': 'No receipt could be read in that file. Try a clearer photo.',
   'scan.errNetwork': 'Could not reach the scanner. Check your connection and try again.',
+  'scan.errOpen': 'This photo or PDF could not be opened on your phone. Try another one.',
+  'scan.errSetup': 'The scanner is not set up yet on the server. Please let the WaKira team know.',
+  'scan.errBusy': 'The scanner is busy or its free daily quota is used up. Try again in a little while.',
+  'scan.errCode': 'Code: {code}',
 } as const;

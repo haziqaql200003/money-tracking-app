@@ -111,6 +111,14 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const tile = (label: string, value: string, color?: string, sub?: string) => (
+    <View style={[styles.tile, { backgroundColor: colors.background }]}>
+      <ThemedText type="small" style={muted}>{label}</ThemedText>
+      <ThemedText style={[styles.tileValue, color ? { color } : null]} numberOfLines={1}>{value}</ThemedText>
+      {sub ? <ThemedText type="small" style={muted}>{sub}</ThemedText> : null}
+    </View>
+  );
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -187,12 +195,13 @@ export default function ProfileScreen() {
             <View style={styles.pad}>
               {snapshot ? (
                 <>
-                  {stat(t('more.profile.snap.income'), money(snapshot.income))}
-                  {stat(t('more.profile.snap.spending'), money(snapshot.spending))}
-                  {stat(t('more.profile.snap.saved'), money(snapshot.saved), snapshot.saved >= 0 ? colors.positive : colors.negative)}
-                  {snapshot.rate !== null
-                    ? stat(t('more.profile.snap.rate'), t('more.profile.snap.rateVs', { rate: p1(snapshot.rate), target: savingsTarget }), rateColor)
-                    : null}
+                  {/* The month in four tiles, then goals and budgets on one line */}
+                  <View style={styles.tiles}>
+                    {tile(t('more.profile.snap.income'), money(snapshot.income))}
+                    {tile(t('more.profile.snap.spending'), money(snapshot.spending))}
+                    {tile(t('more.profile.snap.saved'), money(snapshot.saved), snapshot.saved >= 0 ? colors.positive : colors.negative)}
+                    {snapshot.rate !== null ? tile(t('more.profile.snap.rate'), `${p1(snapshot.rate)}%`, rateColor, t('more.profile.snap.targetShort', { target: savingsTarget })) : null}
+                  </View>
                   {stat(t('more.profile.snap.goals'), String(activeGoals))}
                   {stat(t('more.profile.snap.budgets'), String(budgeted))}
                 </>
@@ -380,6 +389,9 @@ const styles = StyleSheet.create({
   swatches: { marginBottom: Spacing.four },
   swatch: { width: 36, height: 36, borderRadius: Radius.pill, borderWidth: 3, alignSelf: 'center' },
   statRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginBottom: Spacing.two },
+  tile: { flexBasis: '47%', flexGrow: 1, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 10 },
+  tileValue: { fontSize: FontSize.heading, fontWeight: '800', marginTop: 2 },
   statValue: { fontSize: FontSize.body, fontWeight: '700' },
   targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepBtn: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },

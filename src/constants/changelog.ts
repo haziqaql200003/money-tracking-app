@@ -14,9 +14,73 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.4.0';
+export const CURRENT_VERSION = '3.5.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.5.0',
+    date: '2026-10-27',
+    title: 'Tidier from module to module', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Lebih kemas dari modul ke modul',
+    highlights: [
+      { text: 'New account in 3 steps: pick your bank or e-wallet first', ms: 'Akaun baharu dalam 3 langkah: pilih bank atau e-dompet dahulu' }, // i18n-ignore: bilingual data
+      { text: 'Accounts and debts grouped by provider, opened like a dropdown', ms: 'Akaun dan hutang dikumpul ikut pembekal, dibuka seperti dropdown' }, // i18n-ignore: bilingual data
+      { text: 'A Goals page, and a tidier More, Budgets and Settings', ms: 'Halaman Matlamat, serta Lagi, Bajet dan Tetapan yang lebih kemas' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Assets: accounts with the same provider (e.g. two Maybank accounts) fold into one row. Tap it to open them.', ms: 'Aset: akaun dengan pembekal sama (cth. dua akaun Maybank) dikumpul dalam satu baris. Ketuk untuk buka.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'New account: pick a bank, e-wallet, cash or savings, then the details, then the card look. The provider sets the colour and name.', ms: 'Akaun baharu: pilih bank, e-dompet, tunai atau tabung, kemudian butiran, kemudian rupa kad. Pembekal menetapkan warna dan nama.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Debts: provider chips with All. Pick one to see what is owed, the bill and its items in place.', ms: 'Hutang: cip pembekal dengan Semua. Pilih satu untuk lihat jumlah hutang, bil dan itemnya di situ.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'New debt: the provider is a dropdown, and the number of months can be typed when it is not in the list.', ms: 'Hutang baharu: pembekal ialah dropdown, dan bilangan bulan boleh ditaip jika tiada dalam senarai.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Goals have their own page with what to put aside this month.', ms: 'Matlamat ada halaman sendiri dengan jumlah perlu disimpan bulan ini.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Add transaction: categories as icons, the subcategory as a dropdown, extras (items, tax relief) at the end.', ms: 'Tambah transaksi: kategori sebagai ikon, subkategori sebagai dropdown, tambahan (item, pelepasan cukai) di hujung.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Transfer: From and To as cards with balances, quick amounts and the balances after.', ms: 'Pindahan: Dari dan Ke sebagai kad dengan baki, jumlah pantas dan baki selepas pindahan.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Budgets: the ones near or over the limit first. The limit sheet suggests an amount from your last 3 months, or type your own.', ms: 'Bajet: yang hampir atau melebihi had di atas. Helaian had mencadangkan jumlah daripada 3 bulan lepas, atau taip sendiri.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'More, Settings, Profile, Security, Data & Privacy, Categories, Inbox and About were tidied up.', ms: 'Lagi, Tetapan, Profil, Keselamatan, Data & Privasi, Kategori, Peti masuk dan Perihal dikemaskan.' }, // i18n-ignore: bilingual data
+    ],
+  },
+  {
+    version: '3.4.3',
+    date: '2026-10-25',
+    title: 'Clearer Transactions and People', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Transaksi dan Orang lebih kemas',
+    highlights: [
+      { text: 'Transactions: Summary and List views, with account strip and type tabs', ms: 'Transaksi: paparan Ringkasan dan Senarai, jalur akaun dan tab jenis' }, // i18n-ignore: bilingual data
+      { text: 'People: one tidy list with Pay / Receive, plus a quick popup', ms: 'Orang: satu senarai kemas dengan Bayar / Terima, serta popup pantas' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Transactions has a Summary view (usage this month, where the money went, by account) next to the List.', ms: 'Transaksi ada paparan Ringkasan (guna bulan ini, ke mana wang pergi, ikut akaun) di sebelah Senarai.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Debts with people: net balance, tabs and one list with Pay / Receive buttons.', ms: 'Hutang dengan orang: baki bersih, tab dan satu senarai dengan butang Bayar / Terima.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Tap a person on Home or in the list for a quick popup to record a payment, or open the full page.', ms: 'Tekan seseorang di Utama atau dalam senarai untuk popup pantas merekod bayaran, atau buka halaman penuh.' }, // i18n-ignore: bilingual data
+    ],
+  },
+  {
+    version: '3.4.2',
+    date: '2026-10-25',
+    title: 'Debts by provider', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Hutang ikut pembekal',
+    highlights: [
+      { text: 'One card per provider: SPayLater, TikTok PayLater, Atome...', ms: 'Satu kad setiap pembekal: SPayLater, TikTok PayLater, Atome...' }, // i18n-ignore: bilingual data
+      { text: 'Pay everything due this month in one slide', ms: 'Bayar semua yang perlu bulan ini dengan satu seretan' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Debts are grouped by provider. Tap a provider to see everything with it and pay all that is due this month at once, each payment recorded as usual.', ms: 'Hutang dikumpul ikut pembekal. Tekan pembekal untuk lihat semuanya dan bayar semua yang perlu bulan ini sekali gus, setiap bayaran direkod seperti biasa.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Home shows one card per provider instead of one per instalment. Overdue ones turn red.', ms: 'Skrin Utama papar satu kad setiap pembekal, bukan satu setiap ansuran. Yang lewat bertukar merah.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Provider, bank and e-wallet logos (their letter until a logo is added).', ms: 'Logo pembekal, bank dan e-dompet (huruf dahulu sehingga logo ditambah).' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Estimated late charge for overdue payments, from a template you can choose to record. Check the amount with your provider.', ms: 'Anggaran denda lewat untuk bayaran tertunggak, daripada templat yang boleh anda pilih untuk direkod. Semak jumlah dengan pembekal anda.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Updated to Expo SDK 58.', ms: 'Dikemas kini ke Expo SDK 58.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'More now always reopens on its list, and the welcome screen shows correctly when signed out.', ms: 'Lagi kini sentiasa dibuka semula pada senarainya, dan skrin selamat datang dipapar dengan betul bila belum log masuk.' }, // i18n-ignore: bilingual data
+    ],
+  },
+  {
+    version: '3.4.1',
+    date: '2026-10-24',
+    title: 'Receipt scan fixes', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Pembetulan imbas resit',
+    changes: [
+      { kind: 'fixed', text: 'Receipt scan now retries when the AI is busy and explains clearly why a scan failed, with a short code to report.', ms: 'Imbas resit kini cuba semula bila AI sibuk dan menerangkan dengan jelas sebab imbasan gagal, berserta kod ringkas untuk dilaporkan.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.4.0',
     date: '2026-10-19',

@@ -27,4 +27,5 @@ export const msInbox: Record<keyof typeof enInbox, string> = {
   'inbox.saved': 'Disimpan. Pengguna akan nampak kemas kini ini.',
   'inbox.saveFail': 'Tidak dapat menyimpan. Cuba lagi.',
   'inbox.unchanged': 'Belum ada perubahan.',
+  'inbox.emptySub': 'Laporan masalah dan idea baharu daripada pengguna akan muncul di sini. Tarik ke bawah untuk muat semula.',
 };

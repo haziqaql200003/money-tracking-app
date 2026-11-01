@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
+import type { TextInputRef } from '@/utils/rn-refs';
 
 import { useTheme } from '@/hooks/use-theme';
 import { centsFromValue, displayForValue, valueFromTyped } from '@/utils/amount-input';
@@ -33,7 +34,7 @@ const digitsOf = (value: string) => {
 export function AmountInput({ value, onChange, style, placeholder = '0.00', placeholderTextColor, textAlign, onBlur, accessibilityLabel, autoFocus }: Props) {
   const colors = useTheme();
   const [focused, setFocused] = useState(false);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputRef>(null);
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const box: Record<string, unknown> = {};
   const text: Record<string, unknown> = {};

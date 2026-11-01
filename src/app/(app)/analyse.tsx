@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import type { ScrollViewRef } from '@/utils/rn-refs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useIsDesktop } from '@/components/desktop/use-desktop';
@@ -23,7 +24,7 @@ export default function AnalyseScreen() {
   const colors = useTheme();
   const { t } = useT();
   const { ready } = useTransactions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewRef>(null);
   const desktop = useIsDesktop();
 
   const [months, setMonths] = useState<(typeof RANGES)[number]>(6);

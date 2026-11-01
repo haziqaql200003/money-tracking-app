@@ -25,4 +25,8 @@ export const msScan: Record<keyof typeof enScan, string> = {
   'scan.errLimit': 'Anda sudah mencapai had imbasan hari ini. Cuba lagi esok.',
   'scan.errUnreadable': 'Tiada resit dapat dibaca dalam fail itu. Cuba gambar yang lebih jelas.',
   'scan.errNetwork': 'Tidak dapat menghubungi pengimbas. Semak sambungan anda dan cuba lagi.',
+  'scan.errOpen': 'Gambar atau PDF itu tidak dapat dibuka pada telefon anda. Cuba yang lain.',
+  'scan.errSetup': 'Pengimbas belum disediakan sepenuhnya di pelayan. Sila maklumkan pasukan WaKira.',
+  'scan.errBusy': 'Pengimbas sibuk atau kuota percuma hari ini sudah habis. Cuba lagi sebentar lagi.',
+  'scan.errCode': 'Kod: {code}',
 };

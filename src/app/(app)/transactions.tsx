@@ -18,6 +18,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenTitle } from '@/components/ui/screen-title';
 import { MonthSummary } from '@/components/transactions/transactions-summary';
+import { AccountStrip, InOutCard, SummaryView, TypeTabs, type AccountShare, type StripItem } from '@/components/transactions/month-glance';
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { useCategories } from '@/context/CategoriesContext';
 import { toCsv } from '@/utils/csv';
 import type { IconName } from '@/constants/categories';
@@ -37,7 +39,8 @@ import { MIN_COMPARE_BASE } from '@/utils/insights';
 import { Alert } from '@/services/dialog';
 import { shareTextFile } from '@/services/share-file';
 
-type TypeFilter = 'all' | TransactionType;
+type TypeFilter = 'all' | TransactionType | 'transfer';
+type View_ = 'summary' | 'list';
 
 const TYPE_FILTERS: { key: TypeFilter; labelKey: TKey }[] = [
   { key: 'all', labelKey: 'common.all' },
@@ -52,7 +55,7 @@ const byDateDesc = (a: Transaction, b: Transaction) => (a.date < b.date ? 1 : a.
 export default function TransactionsScreen() {
   const colors = useTheme();
   const { t, tp } = useT();
-  const { transactions, transfers, accounts, selectableAccounts, ready } = useTransactions();
+  const { transactions, transfers, accounts, selectableAccounts, accountBalance, ready } = useTransactions();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   const desktop = useIsDesktop();
   const { openAddRecord } = useAddRecord();
@@ -66,6 +69,9 @@ export default function TransactionsScreen() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
   const [adjustmentsFor, setAdjustmentsFor] = useState<string | null>(null);
+  // Phone: the month in numbers, or the list of records. Search opens from the icon on the title row.
+  const [view, setView] = useState<View_>('list');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const currentKey = monthKeyFromOffset(0);
   const monthKey = monthKeyFromOffset(monthOffset);
@@ -135,17 +141,18 @@ export default function TransactionsScreen() {
 
   // The list is further narrowed by type, category and search.
   const q = query.trim().toLowerCase();
+  const linkedEntries = useMemo(() => [...monthSaved, ...monthGoal, ...monthDebt], [monthSaved, monthGoal, monthDebt]);
   const filtered = useMemo(
     () =>
-      [...monthTxns, ...(type === 'all' ? [...monthSaved, ...monthGoal, ...monthDebt] : [])]
+      [...(type === 'transfer' ? [] : monthTxns), ...(type === 'all' || type === 'transfer' ? linkedEntries : [])]
         .filter((t) => {
-          if (type !== 'all' && t.type !== type) return false;
+          if (type !== 'all' && type !== 'transfer' && t.type !== type) return false;
           if (categoryId && t.categoryId !== categoryId) return false;
           if (q && !`${t.title} ${t.subcategory}`.toLowerCase().includes(q)) return false;
           return true;
         })
         .sort(byDateDesc),
-    [monthTxns, monthSaved, monthGoal, monthDebt, type, categoryId, q],
+    [monthTxns, linkedEntries, type, categoryId, q],
   );
 
   const sections = useMemo(() => {
@@ -163,6 +170,32 @@ export default function TransactionsScreen() {
   }, [filtered]);
 
   const filtersActive = type !== 'all' || !!categoryId || q.length > 0;
+
+  // Phone header numbers: counts under the tabs, the round account buttons, and spending per account.
+  const typeCounts = useMemo(
+    () => ({
+      all: monthTxns.length + linkedEntries.length,
+      debit: monthTxns.filter((x) => x.type === 'debit').length,
+      credit: monthTxns.filter((x) => x.type === 'credit').length,
+      transfer: linkedEntries.length,
+    }),
+    [monthTxns, linkedEntries],
+  );
+  const stripItems: StripItem[] = [
+    { id: null, label: t('common.all'), icon: 'apps', balance: selectableAccounts.reduce((sum, a) => sum + accountBalance(a.id), 0) },
+    ...selectableAccounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon, balance: accountBalance(a.id) })),
+  ];
+  const accountShares: AccountShare[] = useMemo(() => {
+    const spent = new Map<string, number>();
+    transactions.forEach((x) => {
+      if (x.type === 'debit' && cycleOf(x.date) === monthKey) spent.set(x.accountId, (spent.get(x.accountId) ?? 0) + x.amount);
+    });
+    const total = Array.from(spent.values()).reduce((sum, v) => sum + v, 0);
+    return selectableAccounts
+      .filter((a) => (spent.get(a.id) ?? 0) > 0)
+      .map((a) => ({ id: a.id, label: accountName(a), value: spent.get(a.id) ?? 0, percent: total > 0 ? ((spent.get(a.id) ?? 0) / total) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+  }, [transactions, selectableAccounts, monthKey]);
 
   function goToMonth(offset: number) {
     setMonthOffset(offset);
@@ -324,17 +357,139 @@ export default function TransactionsScreen() {
   );
 
   // Wide web: the list on the left, the month's summary beside it instead of above it.
+  const hasMonthData = monthTxns.length + linkedEntries.length > 0;
+  const searchBox = (
+    <View style={[styles.search, { backgroundColor: colors.backgroundElement }]}>
+      <Ionicons name="search" size={18} color={colors.textSecondary} />
+      <TextInput
+        style={[styles.searchInput, { color: colors.text }]}
+        placeholder={t('tx.list.searchPlaceholder')}
+        placeholderTextColor={colors.textSecondary}
+        value={query}
+        onChangeText={setQuery}
+        returnKeyType="search"
+        autoCorrect={false}
+        autoFocus={query.length === 0}
+      />
+      <Pressable
+        onPress={() => {
+          setQuery('');
+          setSearchOpen(false);
+        }}
+        hitSlop={8}
+        accessibilityLabel={t('tx.list.clearSearch')}
+      >
+        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+      </Pressable>
+    </View>
+  );
+
+  // Phone: account buttons, income / spending with the share used, then Summary | List.
+  const phoneHeader = (
+    <View>
+      <ScreenTitle
+        title={t('tx.list.title')}
+        right={
+          <View style={styles.titleActions}>
+            <IconButton size={36} icon={hideAmounts ? 'eye-off-outline' : 'eye-outline'} onPress={toggleHideAmounts} label={hideAmounts ? t('home.summary.showAmounts') : t('home.summary.hideAmounts')} />
+            <IconButton size={36} icon="search" onPress={() => setSearchOpen((v) => !v)} label={t('tx.list.searchA11y')} />
+            <IconButton size={36} icon="share-outline" onPress={handleExport} disabled={monthTxns.length === 0} label={t('tx.list.exportA11y')} />
+            <IconButton size={36} icon="add" onPress={openAddRecord} label={t('tx.list.addTransaction')} />
+          </View>
+        }
+      />
+      <MonthSwitcher
+        label={monthLabel(monthKey)}
+        range={cycleRangeLabel(monthKey)}
+        isCurrent={monthOffset === 0}
+        canPrev={canPrev}
+        canNext={canNext}
+        onPrev={() => goToMonth(monthOffset - 1)}
+        onNext={() => goToMonth(monthOffset + 1)}
+        onReset={() => goToMonth(0)}
+      />
+      {selectableAccounts.length > 1 ? <AccountStrip items={stripItems} selectedId={accountId} onSelect={selectAccount} hidden={hideAmounts} /> : null}
+      <InOutCard income={stats.income} spending={stats.spending} hidden={hideAmounts} />
+      {savedTotal > 0 ? (
+        <View style={[styles.savedRow, { backgroundColor: colors.backgroundElement }]}>
+          <Ionicons name="wallet-outline" size={18} color={colors.accent} />
+          <ThemedText type="small" style={styles.savedLabel}>
+            {t('tx.saved.thisMonth')}
+          </ThemedText>
+          <ThemedText type="smallBold" style={{ color: colors.accent }}>
+            {hideAmounts ? MASK : formatMoney(savedTotal)}
+          </ThemedText>
+        </View>
+      ) : null}
+      <View style={styles.viewToggle}>
+        <GlassSegmented
+          options={[
+            { key: 'summary' as View_, label: t('tx.list.viewSummary') },
+            { key: 'list' as View_, label: t('tx.list.viewList') },
+          ]}
+          value={view}
+          onChange={setView}
+        />
+      </View>
+      {searchOpen || query.length > 0 ? searchBox : null}
+      {view === 'list' ? (
+        <>
+          <TypeTabs
+            items={[
+              { key: 'all' as TypeFilter, label: t('common.all'), count: typeCounts.all },
+              { key: 'debit' as TypeFilter, label: t('tx.list.tabOut'), count: typeCounts.debit },
+              { key: 'credit' as TypeFilter, label: t('tx.list.tabIn'), count: typeCounts.credit },
+              { key: 'transfer' as TypeFilter, label: t('common.transfer'), count: typeCounts.transfer },
+            ]}
+            value={type}
+            onChange={setType}
+          />
+          {filtersActive ? (
+            <View style={styles.countRow}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                {tp('tx.list.count', filtered.length)}
+              </ThemedText>
+              <Pressable onPress={clearFilters} hitSlop={8}>
+                <ThemedText type="small" style={{ color: colors.accent, fontWeight: '600' }}>
+                  {t('tx.list.clearFilters')}
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
+        </>
+      ) : null}
+    </View>
+  );
+
   const header = desktop ? (
     <View>
       {titleBlock}
       {searchBlock}
     </View>
   ) : (
-    <View>
-      {titleBlock}
-      {summaryBlock}
-      {searchBlock}
-    </View>
+    phoneHeader
+  );
+
+  const summaryEl = (
+    <SummaryView
+      income={stats.income}
+      spending={stats.spending}
+      deltaPercent={stats.deltaPercent}
+      prevLabel={monthLabel(prevKey, 'short')}
+      slices={stats.slices}
+      accountShares={accountShares}
+      selectedCategory={categoryId}
+      hidden={hideAmounts}
+      onPickCategory={(id) => {
+        setCategoryId(id);
+        setType('debit');
+        setView('list');
+      }}
+      onPickAccount={(id) => {
+        selectAccount(id);
+        setView('list');
+      }}
+    />
   );
 
   const empty = !ready ? (
@@ -367,7 +522,7 @@ export default function TransactionsScreen() {
         <View style={desktop ? styles.desktopRow : styles.flex}>
         <SectionList
           style={desktop ? styles.desktopList : undefined}
-          sections={sections}
+          sections={!desktop && view === 'summary' ? [] : sections}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index, section }) => (
             <SwipeableTransactionRow
@@ -407,7 +562,7 @@ export default function TransactionsScreen() {
             </View>
           )}
           ListHeaderComponent={header}
-          ListEmptyComponent={empty}
+          ListEmptyComponent={!desktop && view === 'summary' && hasMonthData ? summaryEl : empty}
           stickySectionHeadersEnabled
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -435,6 +590,8 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleActions: { flexDirection: 'row', gap: 6 },
+  viewToggle: { marginBottom: Spacing.three },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.three },
   savedLabel: { flex: 1 },
   container: { flex: 1 },

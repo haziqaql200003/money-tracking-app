@@ -8,6 +8,9 @@ export const msHome: Record<keyof typeof enHome, string> = {
   'home.upcoming.title': 'Akan datang',
   'home.upcoming.none': 'Tiada apa yang perlu dibayar dalam dua minggu ini.',
   'home.upcoming.more': '{n} lagi',
+  'home.upcoming.toPay': 'Perlu dibayar dalam dua minggu',
+  'home.upcoming.late': '{count} lewat',
+  'home.upcoming.seeAll': 'Lihat semua',
   'home.index.greeting': 'Hai, ',
   // Balance carousel
   'home.carousel.allAccounts': 'Semua akaun',

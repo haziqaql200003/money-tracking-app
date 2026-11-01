@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import { SheetHeader } from '@/components/ui/sheet-header';
 import { DragSheet } from '@/components/ui/drag-sheet';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Chip } from '@/components/ui/chip';
+import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { FALLBACK_EXPENSE_ID } from '@/constants/categories';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
@@ -19,15 +21,18 @@ import { useT } from '@/i18n';
 import { categoryName } from '@/i18n/data';
 import { formatDate } from '@/i18n/format';
 import { addMonths, buildSchedule, installmentTotalFee, instalmentAmount, round2, suggestedLoanPayment, totalToRepayOf, type Debt, type DebtKind, type FeeMode, type RateType } from '@/utils/debts';
+import { brandKey, findBrand, providerChoices } from '@/constants/brands';
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
 
+/** Quick picks, from the companies WaKira knows (constants/brands.ts), so they group and show their logo. */
 const PROVIDERS: Record<DebtKind, string[]> = {
-  installment: ['SPayLater', 'Atome', 'Grab PayLater', 'TikTok PayLater'], // i18n-ignore: brand names
-  loan: ['SLoan', 'TikTok Financing', 'Bank', 'Car loan'], // i18n-ignore: brand names
-  credit: ['SPayLater', 'Grab PayLater', 'TikTok PayLater', 'Atome'], // i18n-ignore: brand names
+  installment: providerChoices('installment'),
+  loan: [...providerChoices('loan'), 'Bank', 'Car loan'], // i18n-ignore: generic lender names
+  credit: providerChoices('credit'),
 };
-const MONTH_CHOICES = [3, 6, 12, 24, 36, 60];
+const MONTH_CHOICES = [1, 3, 6, 12, 24, 36];
 
 /** `editing`: an instalment plan or loan to correct. Credit lines are edited from their own sheet. */
 type Props = { visible: boolean; onClose: () => void; editing?: Debt | null };
@@ -67,7 +72,7 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
   const { hideAmounts } = usePrivacy();
   const { selectableAccounts, transactions, transfers } = useTransactions();
   const { expenseCategories } = useCategories();
-  const { createInstalment, createLoan, createCredit, reviseInstalment, reviseLoan, updateDebt } = useDebts();
+  const { debts, createInstalment, createLoan, createCredit, reviseInstalment, reviseLoan, updateDebt } = useDebts();
 
   const today = toDateKey(new Date());
   const firstAccount = selectableAccounts[0]?.id ?? '';
@@ -96,8 +101,31 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
   const [limit, setLimit] = useState('');
   const [used, setUsed] = useState('');
   const [dueDay, setDueDay] = useState('');
+  const [provOpen, setProvOpen] = useState(false);
+  const [provTyping, setProvTyping] = useState(!!editing?.provider && !findBrand(editing.provider));
+  const [monthsOther, setMonthsOther] = useState(() => !!init && !MONTH_CHOICES.includes(Number(init.months)));
 
   const firstDue = firstDueEdited ?? addMonths(startDate, 1);
+
+  // The dropdown lists the companies already used (with how many open items), then the known ones for this kind.
+  const keyOf = (name: string) => findBrand(name)?.id ?? brandKey(name);
+  const usedProv = new Map<string, { name: string; count: number }>();
+  for (const d of debts) {
+    const nm = (d.provider ?? '').trim();
+    if (!nm || d.id === editing?.id) continue;
+    const k = keyOf(nm);
+    const cur = usedProv.get(k) ?? { name: findBrand(nm)?.name ?? nm, count: 0 };
+    if (d.status !== 'done') cur.count += 1;
+    usedProv.set(k, cur);
+  }
+  const known = PROVIDERS[kind].filter((p) => !usedProv.has(keyOf(p)));
+  const provKey = provider.trim() ? keyOf(provider.trim()) : '';
+  const provCount = provKey ? usedProv.get(provKey)?.count ?? 0 : 0;
+  const pickProvider = (p: string) => {
+    setProvider(p);
+    setProvTyping(false);
+    setProvOpen(false);
+  };
   const money = (n: number) => (hideAmounts ? 'RM ••••' : formatMoney(n)); // i18n-ignore
   const amountN = toNumber(amount);
   const monthsN = Math.round(toNumber(months));
@@ -168,11 +196,15 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
         </ThemedText>
       ) : (
         <>
-          <View style={styles.chips}>
-            <Chip label={t('debt.kind.installment')} active={kind === 'installment'} onPress={() => setKind('installment')} />
-            <Chip label={t('debt.kind.loan')} active={kind === 'loan'} onPress={() => setKind('loan')} />
-            <Chip label={t('debt.kind.credit')} active={kind === 'credit'} onPress={() => setKind('credit')} />
-          </View>
+          <GlassSegmented
+            options={[
+              { key: 'installment' as DebtKind, label: t('debt.kind.installment') },
+              { key: 'loan' as DebtKind, label: t('debt.kind.loan') },
+              { key: 'credit' as DebtKind, label: t('debt.kind.credit') },
+            ]}
+            value={kind}
+            onChange={setKind}
+          />
           <ThemedText type="small" style={{ color: colors.textSecondary, marginTop: Spacing.two }}>
             {t(`debt.kind.${kind}Help`)}
           </ThemedText>
@@ -192,12 +224,63 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
       <DebtInput value={name} onChangeText={setName} placeholder={t(`debt.form.namePlaceholder.${kind}`)} maxLength={40} />
 
       <FieldLabel text={t('debt.form.provider')} />
-      <DebtInput value={provider} onChangeText={setProvider} placeholder={t('debt.form.providerPlaceholder')} maxLength={30} />
-      <View style={[styles.chips, { marginTop: Spacing.two }]}>
-        {PROVIDERS[kind].map((p) => (
-          <Chip key={p} label={p} active={provider === p} onPress={() => setProvider(p)} />
-        ))}
-      </View>
+      <Pressable
+        onPress={() => setProvOpen((v) => !v)}
+        style={[styles.provSelect, { backgroundColor: colors.backgroundElement, borderColor: provOpen ? colors.accent : colors.divider }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: provOpen }}
+      >
+        {provider.trim() ? <BrandAvatar name={provider.trim()} size={32} /> : <Ionicons name="business-outline" size={22} color={colors.textSecondary} />}
+        <ThemedText style={[styles.flex, { fontWeight: provider.trim() ? '700' : '400', color: provider.trim() ? colors.text : colors.textSecondary }]} numberOfLines={1}>
+          {provider.trim() ? findBrand(provider)?.name ?? provider.trim() : t('debt.form.providerPick')}
+        </ThemedText>
+        {provCount > 0 ? (
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+            {t('debt.form.providerExisting', { count: provCount })}
+          </ThemedText>
+        ) : null}
+        <Ionicons name={provOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.accent} />
+      </Pressable>
+      {provOpen ? (
+        <View style={[styles.provMenu, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
+          {[...Array.from(usedProv.values()).map((u) => ({ name: u.name, count: u.count })), ...known.map((k) => ({ name: k, count: 0 }))].map((p) => {
+            const on = provKey !== '' && keyOf(p.name) === provKey;
+            return (
+              <Pressable
+                key={p.name}
+                onPress={() => pickProvider(p.name)}
+                style={({ pressed }) => [styles.provItem, on && { backgroundColor: colors.accentSoft }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <BrandAvatar name={p.name} size={30} />
+                <ThemedText style={[styles.flex, { fontWeight: '600' }]} numberOfLines={1}>{p.name}</ThemedText>
+                {p.count > 0 ? (
+                  <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.form.providerExisting', { count: p.count })}</ThemedText>
+                ) : null}
+                {on ? <Ionicons name="checkmark" size={18} color={colors.accent} /> : null}
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={() => {
+              setProvider('');
+              setProvTyping(true);
+              setProvOpen(false);
+            }}
+            style={({ pressed }) => [styles.provItem, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+          >
+            <View style={[styles.provPlus, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="add" size={18} color={colors.accent} />
+            </View>
+            <ThemedText style={[styles.flex, { fontWeight: '700', color: colors.accent }]}>{t('debt.form.providerNew')}</ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+      {provTyping ? (
+        <DebtInput value={provider} onChangeText={setProvider} placeholder={t('debt.form.providerPlaceholder')} maxLength={30} style={{ marginTop: Spacing.two }} />
+      ) : null}
 
       {locked ? (
         <>
@@ -233,10 +316,37 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
           <FieldLabel text={t('debt.form.months')} />
           <View style={styles.chips}>
             {MONTH_CHOICES.map((m) => (
-              <Chip key={m} label={String(m)} active={monthsN === m} onPress={() => setMonths(String(m))} />
+              <Chip
+                key={m}
+                label={t('debt.form.monthsN', { n: m })}
+                active={!monthsOther && monthsN === m}
+                onPress={() => {
+                  setMonthsOther(false);
+                  setMonths(String(m));
+                }}
+              />
             ))}
+            <Chip label={t('debt.form.monthsOther')} active={monthsOther} onPress={() => setMonthsOther(true)} />
           </View>
-          <DebtInput value={months} onChangeText={setMonths} keyboardType="number-pad" maxLength={3} style={{ marginTop: Spacing.two }} />
+          {monthsOther ? (
+            <View style={styles.monthsRow}>
+              <DebtInput
+                value={months}
+                onChangeText={(v) => setMonths(v.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                maxLength={3}
+                placeholder="18"
+                style={styles.monthsInput}
+                autoFocus
+              />
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>{t('debt.form.monthsUnit')}</ThemedText>
+            </View>
+          ) : null}
+          {kind === 'installment' ? (
+            <ThemedText type="small" style={{ color: monthsN === 1 ? colors.accent : colors.textSecondary, fontWeight: monthsN === 1 ? '700' : '400', marginTop: Spacing.one }}>
+              {monthsN === 1 ? `${t('debt.kind.bnpl')}. ` : ''}{t('debt.kind.bnplHint')}
+            </ThemedText>
+          ) : null}
 
           {kind === 'installment' ? (
             <>
@@ -279,11 +389,11 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
           ) : (
             <>
               <FieldLabel text={t('debt.form.category')} />
-              <View style={styles.chips}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lineScroll} contentContainerStyle={styles.lineChips}>
                 {expenseCategories.map((c) => (
                   <Chip key={c.id} label={categoryName(c)} active={c.id === categoryId} onPress={() => setCategoryId(c.id)} />
                 ))}
-              </View>
+              </ScrollView>
             </>
           )}
           <FieldLabel text={t('debt.form.payFrom')} />
@@ -312,7 +422,10 @@ function DebtForm({ onDone, editing }: { onDone: () => void; editing: Debt | nul
 
           {schedule.length > 0 ? (
             <View style={[styles.preview, { backgroundColor: colors.accentSoft }]}>
-              <ThemedText type="smallBold">{t('debt.form.preview')}</ThemedText>
+              <View style={styles.previewTop}>
+                <ThemedText type="small" style={[styles.flex, { color: colors.textSecondary }]}>{t('debt.form.perMonth')}</ThemedText>
+                <ThemedText style={styles.previewBig}>{money(instalmentAmount(schedule[0]))}</ThemedText>
+              </View>
               <ThemedText type="small">{t('debt.form.previewMonthly', { amount: money(instalmentAmount(schedule[0])), months: schedule.length })}</ThemedText>
               <ThemedText type="small">
                 {t(kind === 'loan' ? 'debt.form.previewInterest' : 'debt.form.previewFees', { amount: money(totalExtra) })}
@@ -357,6 +470,16 @@ function formValuesOf(
 }
 
 const styles = StyleSheet.create({
+  provSelect: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: Spacing.three, minHeight: 52 },
+  provMenu: { borderWidth: 1, borderRadius: Radius.md, marginTop: Spacing.two, padding: 6 },
+  provItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 9, borderRadius: Radius.sm },
+  provPlus: { width: 30, height: 30, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  monthsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
+  monthsInput: { width: 110 },
+  lineScroll: { marginHorizontal: -Spacing.four },
+  lineChips: { paddingHorizontal: Spacing.four, gap: Spacing.two },
+  previewTop: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 2 },
+  previewBig: { fontSize: FontSize.title, fontWeight: '800' },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
   box: { paddingHorizontal: Spacing.four, paddingTop: Spacing.two, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%' },

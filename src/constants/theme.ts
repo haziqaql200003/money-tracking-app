@@ -7,7 +7,6 @@ import '@/global.css';
 
 import { Platform, type TextStyle } from 'react-native';
 
-type FontVariant = NonNullable<TextStyle['fontVariant']>[number];
 
 /**
  * WaKira "Tenun" palette — quiet woven-cloth neutrals, ink-indigo for action, and a single
@@ -148,4 +147,4 @@ export const Type = {
   overline: { fontSize: FontSize.caption, lineHeight: 16, fontWeight: '600', letterSpacing: 0.6, textTransform: 'uppercase' },
 } as const;
 
-export const tabularNums: { fontVariant: FontVariant[] } = { fontVariant: ['tabular-nums'] };
+export const tabularNums: TextStyle = { fontVariant: ['tabular-nums'] };

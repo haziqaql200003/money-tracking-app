@@ -28,6 +28,8 @@ export type PaidInfo = {
   expenseId?: string;
   /** Instalment purchases paid under 'pay' spending: the expense for the principal part of this payment. */
   purchaseExpenseId?: string;
+  /** A late charge paid with this instalment (bank fee record). */
+  lateFeeExpenseId?: string;
   /** Paid before the debt was added to WaKira: nothing was recorded. */
   historic?: boolean;
 };
@@ -182,6 +184,9 @@ export function markHistoricPaid(schedule: Instalment[], count: number, accountI
 }
 
 /* ---------------- reading a debt ---------------- */
+
+/** A purchase paid in one go next month is BNPL (buy now, pay later); two or more payments is an instalment plan. */
+export const isBnpl = (d: Debt) => d.kind === 'installment' && d.months <= 1;
 
 export const isPaid = (s: Instalment) => !!s.paid;
 export const unpaid = (debt: Debt) => debt.schedule.filter((s) => !s.paid);
