@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
 import { useT } from '@/i18n';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { CardColorPicker } from './CardColorPicker';
 import { FlipCard } from './FlipCard';
 import { PRO_CARD_DESIGNS } from './index';

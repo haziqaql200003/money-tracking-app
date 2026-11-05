@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import type { IconName } from '@/constants/categories';
 import { FontSize, Radius, Spacing, Type } from '@/constants/theme';

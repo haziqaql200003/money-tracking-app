@@ -27,6 +27,8 @@ import { iouDone, iouLeft } from '@/utils/ious';
 const HORIZON_DAYS = 14;
 const MASK = 'RM ••••';
 
+export type UpcomingItem = Item;
+
 type Item = {
   id: string;
   title: string;
@@ -45,26 +47,21 @@ type Item = {
 };
 
 /**
- * "Coming up" on Home: recurring bills, expected income and loan or instalment payments due in the next two weeks,
- * soonest first, as small cards in a row. Hidden when nothing is due.
+ * Everything due in the next `horizonDays` days (overdue included), soonest first: recurring bills and expected income,
+ * debts grouped by company, and money owed to or by people. Shared by the "Coming up" panel and the
+ * "Safe to spend today" figure (3.7.0).
  */
-export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } = {}) {
+export function useUpcomingItems(horizonDays: number = HORIZON_DAYS): Item[] {
   const colors = useTheme();
-  const { t } = useT();
-  const router = useRouter();
   const { recurringRules, accountBalance } = useTransactions();
   const { debts, ious } = useDebts();
-  const [iouId, setIouId] = useState<string | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [providerKey, setProviderKey] = useState<string | null>(null);
   const { getCategory } = useCategories();
-  const { hideAmounts } = usePrivacy();
-
   const today = toDateKey(new Date());
-  const until = addDays(today, HORIZON_DAYS);
+  const until = addDays(today, horizonDays);
+  const HORIZON = horizonDays;
 
-  const items: Item[] = [
-    ...upcomingOccurrences(recurringRules, today, HORIZON_DAYS).map((o) => {
+  return [
+    ...upcomingOccurrences(recurringRules, today, HORIZON).map((o) => {
       const c = getCategory(o.categoryId);
       return {
         id: o.id,
@@ -114,6 +111,22 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         iouId: i.id,
       })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
+}
+
+/**
+ * "Coming up" on Home: recurring bills, expected income and loan or instalment payments due in the next two weeks.
+ * 'row' is the full panel, 'list' the desktop column, 'tile' the small bento tile of Home A5 (3.7.0).
+ */
+export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' | 'tile' } = {}) {
+  const colors = useTheme();
+  const { t } = useT();
+  const router = useRouter();
+  const [iouId, setIouId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [providerKey, setProviderKey] = useState<string | null>(null);
+  const { hideAmounts } = usePrivacy();
+  const items = useUpcomingItems();
+  const until = addDays(toDateKey(new Date()), HORIZON_DAYS);
 
   if (items.length === 0 && variant === 'row') return null;
 
@@ -201,6 +214,66 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' } =
         })}
       </View>
       {sheet}
+      </>
+    );
+  }
+
+  if (variant === 'tile') {
+    const TILE_ROWS = 3;
+    const due = items.filter((i) => i.type === 'debit').reduce((sum, i) => sum + i.amount, 0);
+    const late = items.filter((i) => i.daysUntil < 0).length;
+    return (
+      <>
+        <View style={[styles.tile, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+          <View style={styles.tileHead}>
+            <ThemedText type="smallBold" style={styles.flexShrink} numberOfLines={1}>
+              {t('home.upcoming.title')}
+            </ThemedText>
+            {late > 0 ? (
+              <View style={[styles.lateBadge, { backgroundColor: colors.negative }]}>
+                <ThemedText style={styles.lateBadgeText}>{t('home.upcoming.lateShort')}</ThemedText>
+              </View>
+            ) : null}
+          </View>
+          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+            {t('home.upcoming.toPayShort')}
+          </ThemedText>
+          <ThemedText style={[styles.tileTotal, { color: late > 0 ? colors.negative : colors.text }]} numberOfLines={1}>
+            {hideAmounts ? MASK : formatMoney(Math.round(due * 100) / 100)}
+          </ThemedText>
+          {items.length === 0 ? (
+            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+              {t('home.upcoming.none')}
+            </ThemedText>
+          ) : null}
+          {items.slice(0, TILE_ROWS).map((i) => {
+            const isLate = i.daysUntil < 0;
+            return (
+              <Pressable
+                key={i.id}
+                onPress={() => open(i)}
+                style={({ pressed }) => [styles.tileRow, { backgroundColor: isLate ? colors.negative + '18' : colors.background }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`${i.title}, ${whenText(i)}, ${amountText(i)}`}
+              >
+                <View style={[styles.tileBar, { backgroundColor: isLate ? colors.negative : i.type === 'credit' ? colors.positive : i.daysUntil <= 3 ? colors.warning : colors.divider }]} />
+                <View style={styles.listBody}>
+                  <ThemedText style={styles.tileName} numberOfLines={1}>{i.title}</ThemedText>
+                  <ThemedText style={[styles.tileWhen, { color: dueColor(i) }]} numberOfLines={1}>{dueText(i.daysUntil)}</ThemedText>
+                </View>
+                <ThemedText style={[styles.tileAmount, { color: i.type === 'credit' ? colors.positive : isLate ? colors.negative : colors.text }]} numberOfLines={1}>
+                  {amountText(i)}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+          <Pressable onPress={() => router.push('/more/rancang')} hitSlop={8} style={styles.tileMore} accessibilityRole="button">
+            <ThemedText type="small" style={{ color: colors.accent, fontWeight: '700' }}>
+              {items.length > TILE_ROWS ? `${t('home.upcoming.seeAll')} · ${t('home.upcoming.more', { n: items.length - TILE_ROWS })}` : t('plan.rancang.manage')}
+            </ThemedText>
+          </Pressable>
+        </View>
+        {sheet}
       </>
     );
   }
@@ -293,4 +366,16 @@ const styles = StyleSheet.create({
   listCard: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, padding: 20, gap: 4 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   listBody: { flex: 1, minWidth: 0 },
+  flexShrink: { flexShrink: 1 },
+  tile: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, padding: 14, gap: 6 },
+  tileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  lateBadge: { borderRadius: Radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  lateBadgeText: { color: '#FFFFFF', fontSize: FontSize.micro - 1, fontWeight: '800', letterSpacing: 0.4 },
+  tileTotal: { fontSize: FontSize.title, lineHeight: 28, fontWeight: '800', ...tabularNums },
+  tileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 7, borderRadius: Radius.md },
+  tileBar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
+  tileName: { fontSize: FontSize.caption, fontWeight: '800' },
+  tileWhen: { fontSize: FontSize.micro, fontWeight: '700' },
+  tileAmount: { fontSize: FontSize.caption, fontWeight: '800', ...tabularNums },
+  tileMore: { marginTop: 'auto', paddingTop: 4 },
 });

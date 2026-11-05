@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Platform, Text, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { Text } from '@/components/ui/text';
 import Animated, {
   Easing,
   FadeInUp,
@@ -14,7 +15,8 @@ import Animated, {
 
 /** Small animated building blocks shared by the three story reports. */
 
-export const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
+/** The receipt look used to have a typewriter font; since 3.7.0 the whole app uses Manrope, with even-width digits. */
+export const MONO = 'Manrope_500Medium';
 
 /** Slides up and fades in, `delay` ms after the slide opens. */
 export function Rise({ delay = 0, style, children }: { delay?: number; style?: StyleProp<ViewStyle>; children: ReactNode }) {

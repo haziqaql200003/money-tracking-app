@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { Card } from '@/components/ui/card';
-import { SpendingChart, PERIOD_COLOR, pointLabel } from '@/components/home/spending-chart';
+import { SpendingChart, pointLabel, usePeriodColor } from '@/components/home/spending-chart';
 import { ThemedText } from '@/components/ui/themed-text';
 import { WeekChartPager } from '@/components/home/week-chart-pager';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
@@ -39,14 +39,13 @@ type Props = {
 export function SpendingOverview({ accountId, accountName }: Props) {
   const { t, tp } = useT();
   const colors = useTheme();
-  const isDark = useColorScheme() === 'dark';
   const { getWeekChartData, getMonthChartData, getYearChartData } = useTransactions();
   const { dailyLimit } = useSettings();
 
   const [period, setPeriod] = useState<ChartPeriod>('week');
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const accent = PERIOD_COLOR[period][isDark ? 'dark' : 'light'];
+  const accent = usePeriodColor(period);
 
   const chartData =
     period === 'week'
@@ -162,8 +161,9 @@ export function SpendingOverview({ accountId, accountName }: Props) {
 
 const styles = StyleSheet.create({
   card: { paddingBottom: Spacing.three },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  headerText: { flexShrink: 1 },
+  // Wraps: on a narrow phone or with Large text, the comparison pill moves under the total instead of cutting it.
+  headerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  headerText: { flexShrink: 0, maxWidth: '100%' },
   total: { fontSize: FontSize.largeTitle, lineHeight: 36, fontWeight: '700' },
   deltaPill: { borderRadius: Radius.md, paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center' },
   deltaText: { fontWeight: '700', lineHeight: 18 },

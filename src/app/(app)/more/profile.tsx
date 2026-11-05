@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EvenGrid } from '@/components/ui/even-grid';

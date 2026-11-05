@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import Svg, { Circle } from 'react-native-svg';
 
 import { CountUp, Drift, GrowBar, GrowCol, Pop, Rise, Spin } from '@/components/story/story-kit';

@@ -4,8 +4,9 @@ import type { TKey } from '@/i18n';
 
 export const TYPE_OPTIONS: { type: AccountType; labelKey: TKey; hintKey: TKey }[] = [
   { type: 'bank', labelKey: 'acct.type.bank', hintKey: 'acct.type.bankHint' },
-  { type: 'cash', labelKey: 'acct.type.cash', hintKey: 'acct.type.cashHint' },
   { type: 'savings', labelKey: 'acct.type.savings', hintKey: 'acct.type.savingsHint' },
+  { type: 'ewallet', labelKey: 'acct.type.ewallet', hintKey: 'acct.type.ewalletHint' },
+  { type: 'cash', labelKey: 'acct.type.cash', hintKey: 'acct.type.cashHint' },
   { type: 'other', labelKey: 'acct.type.other', hintKey: 'acct.type.otherHint' },
 ];
 

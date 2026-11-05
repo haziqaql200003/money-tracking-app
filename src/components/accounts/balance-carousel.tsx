@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { AccountCard } from '@/components/accounts/account-card';
 import { AddAccountModal } from '@/components/accounts/add-account-modal';
-import { DEFAULT_COLOR, normalizeDesign, type CardDesign } from '@/constants/card-styles';
+import { DEFAULT_COLOR, normalizeDesign, normalizeFinish, type CardDesign, type TitaniumFinish } from '@/constants/card-styles';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Account, Transaction } from '@/context/TransactionsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -13,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { IconName } from '@/constants/categories';
 import { useT } from '@/i18n';
 import { accountName } from '@/i18n/data';
+import { accountKindLabel } from '@/utils/account-groups';
 import { cycleOf } from '@/utils/cycle';
 import { formatMoney } from '@/utils/currency';
 import { looksLikeSavings } from '@/utils/saved';
@@ -35,7 +37,10 @@ type AccountSlide = {
   spending: number;
   color: string;
   design: CardDesign;
+  finish?: TitaniumFinish;
   last4?: string;
+  /** Bank or e-wallet: its logo goes on the card. */
+  provider?: string;
 };
 type AddSlide = { kind: 'add'; id: 'add' };
 /** All savings and asset accounts as one card: they are not money to spend, so they stay out of the row of accounts. */
@@ -74,6 +79,8 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const router = useRouter();
+  // Scroll position, so the card in the middle is full size and its neighbours sit back a little (3.7.0, A5).
+  const [scrollX] = useState(() => new Animated.Value(0));
 
   const cardWidth = width - Spacing.four * 2 - PEEK;
   const snap = cardWidth + GAP;
@@ -108,13 +115,15 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         id: a.id,
         account: a,
         title: accountName(a),
-        subtitle: [a.provider, a.typeLabel ?? t(`home.carousel.type.${a.type}`)].filter(Boolean).join(' · '),
+        subtitle: [a.provider, accountKindLabel(a)].filter(Boolean).join(' · '),
         icon: a.icon,
         balance: accountBalance(a.id),
         ...monthTotals(transactions, a.id),
         color: a.color ?? DEFAULT_COLOR[a.type] ?? DEFAULT_COLOR.other,
         design: normalizeDesign(a.design),
+        finish: normalizeFinish(a.finish),
         last4: a.last4,
+        provider: a.provider,
       }),
     ),
     ...(savings.length > 0
@@ -156,7 +165,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
 
   return (
     <View style={styles.wrapper}>
-      <FlatList
+      <Animated.FlatList
         horizontal
         data={slides}
         keyExtractor={(item) => item.id}
@@ -166,10 +175,25 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
         decelerationRate="fast"
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+          useNativeDriver: true,
+          // The card in view changes as soon as it is past half way (the web has no momentum-end event).
+          listener: (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+            const i = Math.round(e.nativeEvent.contentOffset.x / snap);
+            if (i !== index) setIndex(i);
+          },
+        })}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / snap))}
-        renderItem={({ item }) => {
+        renderItem={({ item, index: i }) => {
+          const range = [(i - 1) * snap, i * snap, (i + 1) * snap];
+          const lift = {
+            opacity: scrollX.interpolate({ inputRange: range, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' }),
+            transform: [{ scale: scrollX.interpolate({ inputRange: range, outputRange: [0.92, 1, 0.92], extrapolate: 'clamp' }) }],
+          };
           if (item.kind === 'add') {
             return (
+              <Animated.View style={lift}>
               <Pressable
                 onPress={openAdd}
                 style={[
@@ -187,6 +211,7 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
                   {t('home.carousel.addHint')}
                 </Text>
               </Pressable>
+              </Animated.View>
             );
           }
 
@@ -201,7 +226,9 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
               spending={item.spending}
               color={item.color}
               design={item.design}
+              finish={item.finish}
               last4={item.last4}
+              provider={item.kind === 'account' ? item.provider : undefined}
               hidden={hideAmounts}
               onToggleHidden={toggleHideAmounts}
             />
@@ -209,12 +236,14 @@ export function BalanceCarousel({ onSelectAccount }: Props) {
 
           if (item.kind === 'savings') {
             return (
-              <Pressable onPress={() => router.push('/more/assets')} accessibilityRole="button" accessibilityLabel={item.title}>
-                {card}
-              </Pressable>
+              <Animated.View style={lift}>
+                <Pressable onPress={() => router.push('/more/assets')} accessibilityRole="button" accessibilityLabel={item.title}>
+                  {card}
+                </Pressable>
+              </Animated.View>
             );
           }
-          return item.account ? <Pressable onPress={() => openEdit(item.account!)}>{card}</Pressable> : card;
+          return <Animated.View style={lift}>{item.account ? <Pressable onPress={() => openEdit(item.account!)}>{card}</Pressable> : card}</Animated.View>;
         }}
       />
 

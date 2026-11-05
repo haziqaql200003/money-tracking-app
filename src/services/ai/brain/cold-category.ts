@@ -20,7 +20,16 @@ const SHORT: Record<string, string> = {
   ptg: 'petang',
   mnm: 'minum',
 };
-const expand = (title: string) => title.toLowerCase().split(/\s+/).map((w) => SHORT[w] ?? w).join(' ');
+/** "air" alone is a drink ("air suam", "air A&W", "air tebu"); it is the water bill only next to words like bil / syabas / meter. The model knows "teh" well, so a drink is read as one. */
+const WATER_BILL = /\b(bil|bill|syabas|air selangor|pba|sain|laku|meter|utiliti|utility|tunggakan|water)\b/;
+const expand = (title: string) => {
+  const low = title.toLowerCase();
+  const bill = WATER_BILL.test(low);
+  return low
+    .split(/\s+/)
+    .map((w) => (w === 'air' && !bill ? 'teh' : (SHORT[w] ?? w)))
+    .join(' ');
+};
 
 export type ColdGuess = { categoryId: string; subcategory: string; p: number };
 

@@ -188,14 +188,15 @@ export const msAcct: Record<keyof typeof enAcct, string> = {
   'acct.cash': 'Tunai',
 
   // Account types
-  'acct.type.bank': 'Bank',
+  'acct.type.bank': 'Akaun bank',
   'acct.type.cash': 'Tunai',
   'acct.type.other': 'Lain-lain',
-  'acct.type.bankHint': 'Akaun simpanan, semasa atau kad bank.',
+  'acct.type.bankHint': 'Duit harian: gaji masuk, bil dan belanja kad keluar.',
+  'acct.type.ewalletHint': 'Touch \'n Go, GrabPay, ShopeePay, Boost dan e-dompet lain.',
   'acct.type.cashHint': 'Wang tunai dalam dompet atau di rumah.',
-  'acct.type.savings': 'Tabung',
-  'acct.type.savingsHint': 'Akaun tabung atau simpanan, contohnya ASB, Tabung Haji atau akaun untuk matlamat. Wang yang dipindahkan ke sini boleh dikira untuk matlamat anda.',
-  'acct.type.otherHint': 'E-dompet (TNG, Boost), pelaburan atau apa-apa lagi.',
+  'acct.type.savings': 'Simpanan',
+  'acct.type.savingsHint': 'Wang yang diketepikan, di mana-mana bank atau dana: ASB, Tabung Haji, simpanan tetap atau akaun simpanan. Ia tidak dikira sebagai wang boleh belanja, dan wang yang dipindah ke sini boleh dikira untuk matlamat anda.',
+  'acct.type.otherHint': 'Pelaburan, emas atau apa-apa lagi.',
 
   // Card designs and colours
   'acct.design.aurora': 'Aurora',
@@ -236,6 +237,13 @@ export const msAcct: Record<keyof typeof enAcct, string> = {
   'acct.add.design': 'Reka bentuk',
   'acct.add.premium': 'Premium',
   'acct.add.premiumNote': 'Kad premium menggunakan warna tersendiri, jadi pemilih warna disembunyikan.',
+  'acct.add.finish': 'Kemasan',
+  'acct.add.finishNote': 'Kad Titanium ada lima kemasan logam. Kad premium lain guna warna sendiri.',
+  'acct.finish.graphite': 'Graphite', // i18n-ignore: finish name
+  'acct.finish.champagne': 'Champagne', // i18n-ignore: finish name
+  'acct.finish.rose': 'Rose Gold', // i18n-ignore: finish name
+  'acct.finish.silver': 'Perak',
+  'acct.finish.midnight': 'Midnight', // i18n-ignore: finish name
   'acct.add.colour': 'Warna',
   'acct.add.colourA11y': 'Warna {color}',
   'acct.add.customColour': 'Warna tersuai',

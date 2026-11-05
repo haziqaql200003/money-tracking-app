@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useState, type RefObject } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/components/ui/text';
 import type { ViewRef } from '@/utils/rn-refs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

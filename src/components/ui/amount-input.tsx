@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
+import { Pressable, StyleSheet, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
+import { Text, TextInput } from '@/components/ui/text';
 import type { TextInputRef } from '@/utils/rn-refs';
 
 import { useTheme } from '@/hooks/use-theme';

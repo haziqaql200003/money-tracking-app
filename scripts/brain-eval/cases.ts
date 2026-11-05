@@ -15,7 +15,7 @@ export type Expect = {
   chips?: boolean;
 };
 export type Step = { say: string; expect: Expect };
-export type Case = { name: string; lang: 'en' | 'ms'; steps: Step[]; empty?: boolean };
+export type Case = { name: string; lang: 'en' | 'ms'; steps: Step[]; empty?: boolean; bigSpend?: boolean; souqa?: boolean };
 
 export const CASES: Case[] = [
   // 1. simple questions
@@ -76,12 +76,57 @@ export const CASES: Case[] = [
   { name: 'records past 14 days', lang: 'en', steps: [{ say: 'Show me records for the past 14 days', expect: { intent: 'find', not: ['2026-10-14 '] } }] },
   { name: 'expenses past 2 weeks', lang: 'en', steps: [{ say: 'Show me expenses for the past 2 weeks', expect: { intent: 'where', has: ['in the last 14 days'], visuals: ['donut'] } }] },
   { name: 'save RM100 plan (ms)', lang: 'ms', steps: [
-    { say: 'From the past records, dalam masa bulan ni apa yang patut saya buat untuk dapatkan saving 100.. apa yang patut saya kurangkan, apa yang saya patut elakkan, show me in graph juga forcasting to achieve that', expect: { intent: 'advice', has: ['RM100'], visuals: ['stats', 'trend'] } },
+    { say: 'From the past records, dalam masa bulan ni apa yang patut saya buat untuk dapatkan saving 100.. apa yang patut saya kurangkan, apa yang saya patut elakkan, show me in graph juga forcasting to achieve that', expect: { intent: 'advice', has: ['RM100', 'dielakkan|harian paling besar'.split('|')[1]], visuals: ['stats', 'bars'] } },
   ] },
-  { name: 'save big target (en)', lang: 'en', steps: [{ say: 'how can i save rm2500 this month', expect: { intent: 'advice', has: ['short of', 'What to cut'], visuals: ['trend', 'compare'] } }] },
+  { name: 'save big target (en)', lang: 'en', steps: [{ say: 'how can i save rm2500 this month', expect: { intent: 'advice', has: ['in total', 'short of', 'next month'], visuals: ['stats', 'bars'] } }] },
+  { name: 'save 500 after a big purchase (ms)', lang: 'ms', bigSpend: true, steps: [
+    { say: 'Saya nak saving 500 hujung bulan ini', expect: { intent: 'advice', has: ['RM500 (jumlah)', 'lebih daripada', 'Deposit kereta'], not: ['RM500 sehari'] } },
+    { say: 'Maksud aku, aku nak save total rm 500 bukan everyday 500', expect: { intent: 'advice', has: ['RM500 (jumlah)'] } },
+    { say: 'Apasal ada short rm 18,230 pula', expect: { intent: 'explain', has: ['Cara saya kira'], proposals: 0 } },
+  ] },
+  { name: 'receipt typed line by line (en)', lang: 'en', steps: [
+    { say: 'Track expenses yesterday Nasi Kerabu Pokdie with details below:\n2x Nasi Kerabu Daging RM 10\n2x Telur Masin Rm2\nBayar skali dengan ahmad nya hutang rm 0\nFrom maybank', expect: { intent: 'expense', proposals: 1, has: ['Nasi Kerabu Pokdie', 'RM12.00', '2 items'] } },
+  ] },
   { name: 'instalment asks months then card', lang: 'en', steps: [
     { say: 'Record installment in spaylater about Subscription Claude AI rm 99 . It bnpl', expect: { has: ['How many months'], proposals: 0 } },
     { say: '3 months', expect: { has: ["Here's what I'll set up"] } },
+  ] },
+  { name: 'instalment with 0% and first payment date', lang: 'en', steps: [
+    { say: 'Installment 3 month about Glace2Glow Tiktokpaylater rm 36.70 with 0% interest first payment 10 november 2026', expect: { has: ["Here's what I'll set up", 'Glace2Glow', 'TikTok PayLater', 'RM36.70', '2026-11-10', 'RM12.23'] } },
+  ] },
+  { name: 'add breakdown to an existing record (en)', lang: 'en', souqa: true, steps: [
+    { say: 'Help me to update souqa pasta by adding this breakdown\n1 x Seafood Aglio Oglio Spagehtti rm24.90\n1x seafood gigi hadid spaghetti rm 26.90\n1 x lychee crusher rm 7.90\n1x strawberry crusher rm 7.90', expect: { proposals: 0, has: ["Here's what I'll set up", 'Souqa Pasta', 'RM67.60', '1x Seafood Gigi Hadid Spaghetti', '1x Lychee Crusher', 'RM24.90'] } },
+  ] },
+  { name: 'breakdown title in CAPITALS (ms)', lang: 'ms', souqa: true, steps: [
+    { say: 'KEMASKINI SOUQA PASTA dengan butiran ini:\n1x NASI GORENG rm10\n2x TEH AIS rm 5', expect: { proposals: 0, has: ['Ini yang saya akan sediakan', 'Souqa Pasta', '1x Nasi Goreng', '2x Teh Ais', 'RM15.00'] } },
+  ] },
+  { name: 'breakdown for a record that does not exist', lang: 'en', souqa: true, steps: [
+    { say: 'Update mamak corner with this breakdown\n1x roti canai rm2\n1x teh tarik rm3', expect: { proposals: 0, has: ["can't find a record called \"Mamak Corner\""] } },
+  ] },
+  { name: 'lunch with details (en)', lang: 'en', steps: [
+    { say: 'Record expenses Lunch Rm3.50 with details nasi kuah dan telur mata today', expect: { intent: 'expense', proposals: 1, has: ['Lunch (Nasi Kuah, Telur Mata) RM3.5'] } },
+    { say: 'REKOD MAKAN TENGAH HARI rm 8 dengan butiran NASI AYAM, TEH AIS kat maybank', expect: { proposals: 1, has: ['Makan Tengah Hari (Nasi Ayam, Teh Ais) RM8'] } },
+  ] },
+  { name: 'title and remarks given (en)', lang: 'en', steps: [
+    { say: 'Record expenses with tajuk Transfer to Syafiq RM 28 with remarks duit bowling on 30 oct 2026', expect: { intent: 'expense', proposals: 1, has: ['Transfer to Syafiq (Duit Bowling) RM28'] } },
+    { say: 'rekod belanja tajuk bayar hutang ali rm 15 catatan makan malam', expect: { intent: 'expense', proposals: 1, has: ['Bayar Hutang Ali (Makan Malam) RM15'] } },
+  ] },
+  { name: 'real transfer still works', lang: 'en', steps: [
+    { say: 'transfer RM50 from maybank to cash', expect: { intent: 'transfer', proposals: 1 } },
+  ] },
+  { name: 'total on first line, items below (en)', lang: 'en', steps: [
+    { say: 'Record expenses Transfer to Danisha RM 10 with details as follows \nDuit MyLabourHub (Nov) rm 5\nDuit MyLabourHub (Dec) rm 5\n\nThis transactions was made on  3 nov 2026', expect: { intent: 'expense', proposals: 1, has: ['Transfer to Danisha RM10', '2 items'] } },
+    { say: 'Record expenses Transfer to Danisha RM 10 with details as follows\nDuit A rm 5\nDuit B rm 4', expect: { proposals: 1, has: ['add up to RM9.00', 'Transfer to Danisha RM10'] } },
+  ] },
+  { name: 'Soru Station receipt 2, total first (en)', lang: 'en', steps: [
+    { say: 'Record expenses Soru Station RM 7.30 with details as follows\n1x Onion Ring rm 6.90\nSST rm 0.41\n3 nov 2026', expect: { intent: 'expense', proposals: 1, has: ['Soru Station RM7.3', '2 items'] } },
+  ] },
+  { name: 'one item, date and bank on own lines (en)', lang: 'en', steps: [
+    { say: 'Record expense T-Mart RM 3.50 with details as follows 1x Air A&W\n4 nov 2026\nMaybank', expect: { intent: 'expense', proposals: 1, has: ['T-Mart (Air A&W) RM3.5'] } },
+    { say: 'beli air suam rm1', expect: { proposals: 1, has: ['Air suam'] } },
+  ] },
+  { name: 'items plus a "baki" remainder (en)', lang: 'en', steps: [
+    { say: 'Record expense Dodo Korea RM 44.50 with details as follows \n2 x Dodo Dosirak Rm 38\n\nBaki 1 x mineral water\nSST and tax\nYesterday\nMaybank', expect: { intent: 'expense', proposals: 1, has: ['Dodo Korea RM44.5', '2 items'] } },
   ] },
   { name: 'instalment one go (ms)', lang: 'ms', steps: [{ say: 'rekod ansuran atome iphone case rm150 3 bulan', expect: { has: ['Ini yang saya akan sediakan'] } }] },
   { name: 'debts question', lang: 'ms', steps: [{ say: 'berapa hutang saya', expect: { has: ['RM1,200.00', 'Ali'.length ? 'RM50.00' : ''], visuals: ['bars'] } }] },

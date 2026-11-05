@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Text as SvgText } from 'react-native-svg';
+
+import { FONT_FACES, Text } from '@/components/ui/text';
 
 import { CountUp, GrowBar, Pop, Rise } from '@/components/story/story-kit';
 import { dateText, dayName, int, monthName, rm0, type StoryCtx } from '@/components/story/story-common';
@@ -278,7 +280,7 @@ function Outline({ text }: { text: string }) {
   const size = text.length <= 2 ? 300 : text.length <= 4 ? 210 : 150;
   return (
     <Svg width="100%" height="100%">
-      <SvgText x={-12} y={size + 60} fontSize={size} fontWeight="800" fill="none" stroke="rgba(26,20,0,0.22)" strokeWidth={2} letterSpacing={-8}>
+      <SvgText x={-12} y={size + 60} fontSize={size} fontFamily={FONT_FACES[800]} fill="none" stroke="rgba(26,20,0,0.22)" strokeWidth={2} letterSpacing={-8}>
         {text}
       </SvgText>
     </Svg>

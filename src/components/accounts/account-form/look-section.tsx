@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 import type { ScrollViewRef } from '@/utils/rn-refs';
 
 import { CardBackground } from '@/components/accounts/account-card';
 import { ProCardThumb } from '@/components/cards/thumbs';
+import { FINISH_SWATCH } from '@/components/cards/TitaniumSeriesCard';
 import { EvenGrid } from '@/components/ui/even-grid';
 import { ThemedText } from '@/components/ui/themed-text';
 import { ACCOUNT_ICONS } from '@/constants/accounts';
@@ -14,9 +17,12 @@ import {
   CARD_DESIGNS,
   hslToHex,
   isProDesign,
+  isTitaniumSeries,
   isValidHex,
   PRO_DESIGNS,
+  TITANIUM_FINISHES,
   type CardDesign,
+  type TitaniumFinish,
 } from '@/constants/card-styles';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
@@ -28,6 +34,9 @@ import { styles } from './styles';
 type Props = {
   design: CardDesign;
   setDesign: (d: CardDesign) => void;
+  /** Colour finish for the Titanium Metallic series. */
+  finish: TitaniumFinish;
+  setFinish: (f: TitaniumFinish) => void;
   color: string;
   pickColor: (hex: string) => void;
   icon: IconName;
@@ -39,7 +48,7 @@ type Props = {
 };
 
 /** "Look": card design, premium designs, colour (swatches or custom) and icon. */
-export function LookSection({ design, setDesign, color, pickColor, icon, pickIcon, initialShowCustom, scrollToDesign }: Props) {
+export function LookSection({ design, setDesign, finish, setFinish, color, pickColor, icon, pickIcon, initialShowCustom, scrollToDesign }: Props) {
   const { t } = useT();
   const colors = useTheme();
   const proRef = useRef<ScrollViewRef>(null);
@@ -132,7 +141,7 @@ export function LookSection({ design, setDesign, color, pickColor, icon, pickIco
                   { borderColor: active ? colors.accent : colors.divider, borderWidth: active ? 2 : 1 },
                 ]}
               >
-                <ProCardThumb design={d.id} />
+                <ProCardThumb design={d.id} finish={finish} />
                 {active ? (
                   <View style={[styles.proCheck, { backgroundColor: colors.accent }]}>
                     <Ionicons name="checkmark" size={12} color="#fff" />
@@ -150,9 +159,39 @@ export function LookSection({ design, setDesign, color, pickColor, icon, pickIco
         })}
       </ScrollView>
 
+      {isTitaniumSeries(design) ? (
+        <>
+          <ThemedText type="small" style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            {t('acct.add.finish')}
+          </ThemedText>
+          <View style={local.finishRow} accessibilityRole="radiogroup">
+            {TITANIUM_FINISHES.map((f) => {
+              const active = finish === f.id;
+              return (
+                <Pressable
+                  key={f.id}
+                  onPress={() => setFinish(f.id)}
+                  style={local.finishItem}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  accessibilityLabel={t(f.labelKey)}
+                >
+                  <View style={[local.finishRing, { borderColor: active ? colors.accent : 'transparent' }]}>
+                    <LinearGradient colors={FINISH_SWATCH[f.id]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={local.finishSwatch} />
+                  </View>
+                  <ThemedText type="small" numberOfLines={1} style={{ color: active ? colors.text : colors.textSecondary, fontWeight: active ? '600' : '500' }}>
+                    {t(f.labelKey)}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
+
       {isProDesign(design) ? (
         <ThemedText type="small" style={[styles.helper, { color: colors.textSecondary }]}>
-          {t('acct.add.premiumNote')}
+          {t(isTitaniumSeries(design) ? 'acct.add.finishNote' : 'acct.add.premiumNote')}
         </ThemedText>
       ) : (
         <>
@@ -256,3 +295,10 @@ export function LookSection({ design, setDesign, color, pickColor, icon, pickIco
     </>
   );
 }
+
+const local = StyleSheet.create({
+  finishRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  finishItem: { flex: 1, alignItems: 'center', gap: 6, minHeight: 44 },
+  finishRing: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, padding: 3 },
+  finishSwatch: { flex: 1, borderRadius: 20 },
+});

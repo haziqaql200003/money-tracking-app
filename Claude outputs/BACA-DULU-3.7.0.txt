@@ -1,0 +1,53 @@
+WaKira 3.7.0 - Home A5 + kad A5b + satu font + saiz teks + jenis akaun
+Sudah dipasang terus dalam folder projek. Salinan asal (sebelum 3.7.0, termasuk kerja 3.6.0 yang belum di-commit):
+  Claude outputs/backup-before-3.7.0/
+
+PENTING SEBELUM CUBA
+  npx expo start -c        (wajib -c sekali: font baharu dalam assets/fonts)
+
+APA BARU
+1. Home konsep A5  (src/app/(app)/index.tsx)
+   - Kad akaun di atas, kemudian bahagian yang boleh disusun: Boleh dibelanja hari ini, Pautan pantas,
+     bento (Akan datang | Belanja bulan ini + Bajet), carta, Transaksi terkini.
+   - Butang slider di atas / "Susun Utama" di bawah: hidup, mati, ubah tertib (disimpan ikut akaun).
+   - Bahagian naik satu demi satu bila tukar kad.
+2. Kad A5b (semua reka bentuk, percuma dan Pro): condong ikut jari, boleh pusing (butang ⇄) untuk masuk/keluar
+   bulan ini, logo provider, nama pemegang (nama profil), ikon contactless, •••• 4 digit.
+3. Tema ikut kad di Utama: geser ke kad premium = seluruh app ikut temanya (mod gelap; mod cerah hanya aksen).
+   Tetapan > Tema kad > "Ikut kad di Utama" (hidup secara asal). Kad yang dipilih dalam Tetapan jadi sandaran.
+4. Satu font: Manrope (assets/fonts, 5 berat). Semua Text/TextInput kini import dari src/components/ui/text.tsx.
+5. Saiz teks: Tetapan > Penampilan > Saiz teks (Kecil 90% / Sederhana / Besar 115%). Untuk telefon ini, semua skrin.
+   Teks dalam kad akaun sengaja kekal saiz asal (kad saiz tetap).
+6. Jenis akaun: Akaun bank, Simpanan, E-dompet (baharu), Tunai, Lain-lain.
+   - Pilih provider TIDAK lagi menukar jenis yang dipilih sendiri (Simpanan + Maybank = akaun simpanan Maybank).
+   - Akaun e-dompet lama (disimpan 'other') dibaca sebagai E-dompet secara automatik; data hanya ditulis semula bila diedit.
+
+FAIL BAHARU
+  src/components/ui/text.tsx              Text + TextInput bersama (font + saiz)
+  src/context/text-size.ts                tetapan saiz teks
+  src/context/home-card-store.ts          kad yang sedang dilihat di Utama (untuk tema)
+  src/components/home/home-layout.ts      susunan bahagian Utama
+  src/components/home/home-layout-sheet.tsx
+  src/components/home/home-today.tsx      Boleh dibelanja hari ini, petak Belanja, petak Bajet, bento
+  src/components/home/quick-links.tsx     Pautan pantas (maks 5)
+  assets/fonts/Manrope_*.ttf (5 fail)
+
+FAIL DIUBAH (utama)
+  src/app/_layout.tsx, src/app/(app)/index.tsx, src/app/(app)/more/settings.tsx
+  src/components/accounts/account-card.tsx, balance-carousel.tsx, account-form/account-form.tsx, account-form/constants.ts
+  src/components/cards/shared.tsx, src/components/home/home-upcoming.tsx, spending-overview.tsx
+  src/context/AppThemeContext.tsx, SettingsContext.tsx, TransactionsContext.tsx
+  src/constants/theme.ts, accounts.ts, card-styles.ts, changelog.ts ; src/utils/fit-font.ts, account-groups.ts
+  src/global.css, i18n en/ms (acct, home, more), package.json + app.json (3.7.0)
+  + 65 fail yang hanya ditukar baris import Text/TextInput (kod lain tidak disentuh)
+
+JUJUR TENTANG UJIAN
+- Diuji: tsc bersih, eslint 0 masalah, audit bahasa OK, export web berjaya, tangkapan skrin web lebar telefon
+  (cerah, gelap, tema Aurora ikut kad, teks Besar, kad dipusing, borang akaun baharu).
+- BELUM diuji: telefon sebenar (iPhone / Android). Perlu semak terutamanya font Manrope di Android,
+  condong kad dengan jari, dan rasa animasi.
+- "Boleh dibelanja hari ini" = (baki akaun boleh guna + belanja hari ini - bil sebelum gaji) / hari ke gaji.
+  Gaji yang akan masuk tidak dikira (sengaja berhati-hati). Akaun simpanan tidak dikira.
+
+BOLEH DIBUANG (fail sementara Claude)
+  Claude outputs/_snap.tgz, _assets.tgz, _sync.tgz, _sync2.tgz

@@ -16,6 +16,7 @@ const ICON: Record<ActionProposal['kind'], keyof typeof Ionicons.glyphMap> = {
   budget: 'pie-chart-outline',
   goal: 'flag-outline',
   recurring: 'repeat-outline',
+  breakdown: 'list-outline',
 };
 
 /**

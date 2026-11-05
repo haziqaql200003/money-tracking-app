@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { AmountInput } from '@/components/ui/amount-input';
 import { BrandAvatar } from '@/components/ui/brand-avatar';

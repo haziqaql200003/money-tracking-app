@@ -48,11 +48,47 @@ export function pickAmount(hits: AmountHit[], text: string): AmountHit | null {
 
 /* ---------------- dates ---------------- */
 
+const MONTH_NAMES: [RegExp, number][] = [
+  [/^(jan|januari|january)$/, 1], [/^(feb|februari|february)$/, 2], [/^(mac|mar|march)$/, 3], [/^(apr|april)$/, 4],
+  [/^(mei|may)$/, 5], [/^(jun|june)$/, 6], [/^(jul|julai|july)$/, 7], [/^(ogos|ogs|aug|august)$/, 8],
+  [/^(sep|sept|september)$/, 9], [/^(okt|oct|oktober|october)$/, 10], [/^(nov|november)$/, 11], [/^(dis|dec|disember|december)$/, 12],
+];
+const pad = (n: number) => String(n).padStart(2, '0');
+const validDay = (y: number, m: number, d: number) => m >= 1 && m <= 12 && d >= 1 && d <= new Date(y, m, 0).getDate();
+
+/** "10 november 2026", "10hb nov", "10/11/2026", "10/11" -> YYYY-MM-DD. A date without a year is the next one that is not in the past. */
+export function dateIn(text: string, todayKey: string): { key: string; match: string } | undefined {
+  const [ty, tm, td] = todayKey.split('-').map(Number);
+  const fix = (day: number, month: number, year?: number) => {
+    if (year !== undefined) return year < 100 ? 2000 + year : year;
+    return month < tm || (month === tm && day < td) ? ty + 1 : ty;
+  };
+  const re = /\b(\d{1,2})\s*(?:hb|haribulan|st|nd|rd|th)?\s+(?:of\s+)?([a-z]{3,9})\.?(?:\s*,?\s*(\d{4}))?\b/gi;
+  for (const w of text.matchAll(re)) {
+    const mo = MONTH_NAMES.find(([r]) => r.test(w[2].toLowerCase()))?.[1];
+    if (!mo) continue;
+    const day = Number(w[1]);
+    const y = fix(day, mo, w[3] ? Number(w[3]) : undefined);
+    if (validDay(y, mo, day)) return { key: `${y}-${pad(mo)}-${pad(day)}`, match: w[0] };
+  }
+  let m: RegExpMatchArray | null;
+  m = text.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+  if (m) {
+    const day = Number(m[1]);
+    const mo = Number(m[2]);
+    const y = fix(day, mo, m[3] ? Number(m[3]) : undefined);
+    if (validDay(y, mo, day)) return { key: `${y}-${pad(mo)}-${pad(day)}`, match: m[0] };
+  }
+  return undefined;
+}
 export function findDate(text: string, today: string): string | undefined {
+
   const low = text.toLowerCase();
   if (/\b(semalam|yesterday|smlm)\b/.test(low)) return addDays(today, -1);
   if (/\b(kelmarin|2 days ago|dua hari lepas)\b/.test(low)) return addDays(today, -2);
   if (/\b(hari ni|hari ini|today|tadi|baru je|just now)\b/.test(low)) return today;
+  const named = dateIn(low, today);
+  if (named) return named.key;
   const m = low.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
   if (m) {
     const day = Number(m[1]);
@@ -231,9 +267,9 @@ export function transferDirection(text: string, hits: AccountHit[]): { from?: st
 
 const FILLER = new Set(
   (
-    'beli bayar byr bayaran tadi baru semalam kelmarin smlm hari ni ini today yesterday guna gunakan pakai dgn dengan kat dekat di at on for untuk the a an my aku saya i paid pay spent spend ' +
+    'beli bayar byr bayaran tadi baru semalam kelmarin smlm ni ini today yesterday guna gunakan pakai dgn dengan kat dekat di at on for untuk the a an my aku saya i paid pay spent spend ' +
     'bought buy got dapat terima dah sudah masuk dalam dari ke to from using via cash tunai ringgit rm myr sen je saja sahaja lah la ye ya nak mahu want to record rekod catat tolong please wakira ' +
-    'sebanyak sebanyaknya total jumlah lagi tu nya pula pun dan and'
+    'sebanyak sebanyaknya total jumlah lagi tu nya pula pun dan and expense expenses perbelanjaan'
   ).split(' '),
 );
 
@@ -249,6 +285,7 @@ export function cleanTitle(segment: string, remove: Span[]): string {
   }
   out += segment.slice(i);
   const words = out
+    .replace(/\bhari\s+(?:ni|ini)\b/gi, ' ')
     .replace(/[^\p{L}\p{N}\s'&-]/gu, ' ')
     .split(/\s+/)
     .filter((w) => w && !FILLER.has(w.toLowerCase()) && !/^\d+([/-]\d+)*$/.test(w));

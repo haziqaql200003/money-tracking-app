@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
 import { AmountInput } from '@/components/ui/amount-input';

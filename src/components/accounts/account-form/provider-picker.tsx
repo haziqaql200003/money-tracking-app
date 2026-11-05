@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { ThemedText } from '@/components/ui/themed-text';

@@ -1,26 +1,66 @@
 import type { TKey } from '@/i18n';
 
-export type ProCardDesign = 'pro-songket' | 'pro-glass' | 'pro-aurora' | 'pro-titanium' | 'pro-diraja' | 'pro-batik';
+/** Premium designs that can be picked (3.6.0): the Spectrum series, Aurora, Titanium Black and the chipless Titanium Metallic series. */
+export type SpectrumDesign = 'pro-spectrum-classic' | 'pro-spectrum-pulse' | 'pro-spectrum-cyber' | 'pro-spectrum-neon';
+export type TitaniumSeriesDesign = 'pro-ti-contour' | 'pro-ti-flux' | 'pro-ti-reserve' | 'pro-ti-deco';
+export type ProCardDesign = SpectrumDesign | 'pro-aurora' | 'pro-titanium' | TitaniumSeriesDesign;
 export type CardDesign = 'aurora' | 'gradient' | 'stripes' | 'solid' | ProCardDesign;
+
+/** Colour finishes for the Titanium Metallic series (the only premium cards that can be recoloured). */
+export type TitaniumFinish = 'graphite' | 'champagne' | 'rose' | 'silver' | 'midnight';
 
 /** Premium designs bring their own colours and animation, so the colour picker does not apply to them. */
 export const PRO_DESIGNS: { id: ProCardDesign; label: string }[] = [
-  { id: 'pro-songket', label: 'Songket' }, // i18n-ignore: design name
-  { id: 'pro-glass', label: 'Glass' }, // i18n-ignore: design name
+  { id: 'pro-spectrum-classic', label: 'Spectrum Classic' }, // i18n-ignore: design name
+  { id: 'pro-spectrum-pulse', label: 'Spectrum Pulse' }, // i18n-ignore: design name
+  { id: 'pro-spectrum-cyber', label: 'Spectrum Cyber' }, // i18n-ignore: design name
+  { id: 'pro-spectrum-neon', label: 'Spectrum Neon' }, // i18n-ignore: design name
   { id: 'pro-aurora', label: 'Aurora' }, // i18n-ignore: design name
-  { id: 'pro-titanium', label: 'Titanium' }, // i18n-ignore: design name
-  { id: 'pro-diraja', label: 'Diraja' }, // i18n-ignore: design name
-  { id: 'pro-batik', label: 'Batik' }, // i18n-ignore: design name
+  { id: 'pro-titanium', label: 'Titanium Black' }, // i18n-ignore: design name
+  { id: 'pro-ti-contour', label: 'Titanium Contour' }, // i18n-ignore: design name
+  { id: 'pro-ti-flux', label: 'Titanium Flux' }, // i18n-ignore: design name
+  { id: 'pro-ti-reserve', label: 'Titanium Reserve' }, // i18n-ignore: design name
+  { id: 'pro-ti-deco', label: 'Titanium Deco' }, // i18n-ignore: design name
 ];
+
+/**
+ * Designs taken out of the picker in 3.6.0. Their code is kept, but an account that still uses one is shown
+ * (and saved on its next edit) as Titanium Contour in Graphite.
+ */
+const RETIRED_DESIGNS = ['pro-songket', 'pro-glass', 'pro-diraja', 'pro-batik'];
+export const RETIRED_FALLBACK: ProCardDesign = 'pro-ti-contour';
+
+export const TITANIUM_FINISHES: { id: TitaniumFinish; labelKey: TKey }[] = [
+  { id: 'graphite', labelKey: 'acct.finish.graphite' },
+  { id: 'champagne', labelKey: 'acct.finish.champagne' },
+  { id: 'rose', labelKey: 'acct.finish.rose' },
+  { id: 'silver', labelKey: 'acct.finish.silver' },
+  { id: 'midnight', labelKey: 'acct.finish.midnight' },
+];
+export const DEFAULT_FINISH: TitaniumFinish = 'graphite';
 
 export function isProDesign(design: CardDesign): design is ProCardDesign {
   return design.startsWith('pro-');
 }
 
+export function isSpectrumDesign(design: CardDesign): design is SpectrumDesign {
+  return design.startsWith('pro-spectrum-');
+}
+
+/** The chipless Titanium Metallic series: these take a colour finish. */
+export function isTitaniumSeries(design: CardDesign): design is TitaniumSeriesDesign {
+  return design.startsWith('pro-ti-');
+}
+
 /** Saved data from older versions or edits may hold anything; fall back to the default look. */
 export function normalizeDesign(value: unknown): CardDesign {
+  if (RETIRED_DESIGNS.includes(value as string)) return RETIRED_FALLBACK;
   const all = [...CARD_DESIGNS.map((d) => d.id), ...PRO_DESIGNS.map((d) => d.id)];
   return all.includes(value as CardDesign) ? (value as CardDesign) : DEFAULT_DESIGN;
+}
+
+export function normalizeFinish(value: unknown): TitaniumFinish {
+  return TITANIUM_FINISHES.some((f) => f.id === value) ? (value as TitaniumFinish) : DEFAULT_FINISH;
 }
 
 export const CARD_DESIGNS: { id: Exclude<CardDesign, ProCardDesign>; labelKey: TKey }[] = [
@@ -50,6 +90,7 @@ export const DEFAULT_COLOR: Record<string, string> = {
   bank: '#2563EB',
   cash: '#059669',
   savings: '#7C3AED',
+  ewallet: '#0EA5E9',
   other: '#EA580C',
 };
 
@@ -77,6 +118,30 @@ export function shade(hex: string, amount: number) {
   const p = Math.abs(amount);
   const mix = (c: number) => (target - c) * p + c;
   return rgbToHex(mix(r), mix(g), mix(b));
+}
+
+/** Blend two hex colours: t = 0 gives `a`, t = 1 gives `b`. */
+export function mixHex(a: string, b: string, t: number) {
+  const x = hexToRgb(a);
+  const y = hexToRgb(b);
+  return rgbToHex(x.r + (y.r - x.r) * t, x.g + (y.g - x.g) * t, x.b + (y.b - x.b) * t);
+}
+
+/** WCAG relative luminance (0 = black, 1 = white). */
+export function luminance(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const ch = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+}
+
+/** WCAG contrast ratio between two hex colours (1 to 21). */
+export function contrast(a: string, b: string) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
 export function isLightColor(hex: string) {

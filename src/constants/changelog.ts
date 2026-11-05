@@ -14,9 +14,50 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.5.0';
+export const CURRENT_VERSION = '3.7.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.7.0',
+    date: '2026-11-02',
+    title: 'A new Home', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Skrin Utama baharu',
+    highlights: [
+      { text: 'Home shows what you can safe-spend today, your quick links and what is coming up at a glance', ms: 'Utama tunjuk berapa boleh dibelanja hari ini, pautan pantas anda dan apa yang akan datang sekali pandang' }, // i18n-ignore: bilingual data
+      { text: 'Account cards look and move like real cards, with your bank\'s logo', ms: 'Kad akaun rupa dan bergerak seperti kad sebenar, dengan logo bank anda' }, // i18n-ignore: bilingual data
+      { text: 'One font everywhere, and a text size you choose', ms: 'Satu font di semua tempat, dan saiz teks pilihan anda' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Safe to spend today: your balance minus the bills due before payday, shared over the days left. Tap it for the cash-flow calendar.', ms: 'Boleh dibelanja hari ini: baki anda tolak bil sebelum gaji, dibahagi ikut hari yang tinggal. Ketik untuk kalendar aliran tunai.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Quick links on Home: pick up to five shortcuts. Tap Edit, then the red minus to remove or the dashed tile to add.', ms: 'Pautan pantas di Utama: pilih sehingga lima pintasan. Ketik Ubah, kemudian tolak merah untuk buang atau petak bergaris untuk tambah.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Arrange Home: turn sections on or off and change their order. Saved on your account.', ms: 'Susun Utama: hidup atau matikan bahagian dan ubah tertibnya. Disimpan pada akaun anda.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Coming up, this month\'s spending and your budget sit side by side in small tiles.', ms: 'Akan datang, belanja bulan ini dan bajet anda kini dalam petak kecil bersebelahan.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Swipe to a premium card on Home and the app takes its theme (Settings > Card theme > Follow the card on Home).', ms: 'Geser ke kad premium di Utama dan app ikut temanya (Tetapan > Tema kad > Ikut kad di Utama).' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Text size: Small, Medium or Large in Settings > Appearance. It changes every screen.', ms: 'Saiz teks: Kecil, Sederhana atau Besar dalam Tetapan > Penampilan. Ia mengubah setiap skrin.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Every card now tilts under your finger and turns over to show the month\'s money in and out. The front shows the bank or e-wallet logo and your name.', ms: 'Setiap kad kini condong di bawah jari dan boleh dipusing untuk melihat wang masuk dan keluar bulan ini. Bahagian depan menunjukkan logo bank atau e-dompet dan nama anda.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'One typeface (Manrope) on iPhone, Android and the web.', ms: 'Satu jenis huruf (Manrope) di iPhone, Android dan web.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Account types: Savings and E-wallet are their own types, and a provider no longer changes a type you picked, so a Maybank account can be a savings account.', ms: 'Jenis akaun: Simpanan dan E-dompet kini jenis tersendiri, dan memilih provider tidak lagi menukar jenis yang anda pilih, jadi akaun Maybank boleh jadi akaun simpanan.' }, // i18n-ignore: bilingual data
+    ],
+  },
+  {
+    version: '3.6.0',
+    date: '2026-11-02',
+    title: 'Your card, your theme', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Kad anda, tema anda',
+    highlights: [
+      { text: 'Pick a premium card in Settings and the whole app takes its colours', ms: 'Pilih kad premium dalam Tetapan dan seluruh app ikut warnanya' }, // i18n-ignore: bilingual data
+      { text: 'New Spectrum series: Classic, Pulse, Cyber and Neon', ms: 'Siri Spectrum baharu: Classic, Pulse, Cyber dan Neon' }, // i18n-ignore: bilingual data
+      { text: 'New Titanium Metallic series in five finishes', ms: 'Siri Titanium Metallic baharu dalam lima kemasan' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Card theme (Settings > Card theme): pick one of your premium cards and the accent, background, charts and tab bar follow it in dark mode. In light mode only the accent changes.', ms: 'Tema kad (Tetapan > Tema kad): pilih salah satu kad premium anda dan warna aksen, latar, carta serta bar tab ikut kad itu dalam mod gelap. Dalam mod cerah, hanya warna aksen berubah.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Ten themes: RGB Classic, Pulse, Cyber, Neon, Aurora Borealis, and Titanium in Graphite, Champagne, Rose Gold, Silver and Midnight.', ms: 'Sepuluh tema: RGB Classic, Pulse, Cyber, Neon, Aurora Borealis, serta Titanium dalam Graphite, Champagne, Rose Gold, Perak dan Midnight.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Spectrum series: four neon music cards with a spinning RGB rim (bouncing bars, crossing waves, LED blocks and threads of light).', ms: 'Siri Spectrum: empat kad muzik neon dengan bingkai RGB berputar (bar melantun, gelombang bersilang, blok LED dan benang cahaya).' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Titanium Metallic series without a chip: Contour, Flux, Reserve and Deco, each in five metal finishes.', ms: 'Siri Titanium Metallic tanpa cip: Contour, Flux, Reserve dan Deco, setiap satu dalam lima kemasan logam.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Green for income and red for spending stay the same in every theme.', ms: 'Hijau untuk wang masuk dan merah untuk wang keluar kekal sama dalam setiap tema.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Songket, Glass, Diraja and Batik cards are resting for now. Accounts that used them now show Titanium Contour in Graphite.', ms: 'Kad Songket, Glass, Diraja dan Batik direhatkan buat masa ini. Akaun yang menggunakannya kini memaparkan Titanium Contour dalam Graphite.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.5.0',
     date: '2026-10-27',

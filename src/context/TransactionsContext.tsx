@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { AppState } from 'react-native';
 
-import type { CardDesign } from '@/constants/card-styles';
+import type { CardDesign, TitaniumFinish } from '@/constants/card-styles';
 import type { IconName } from '@/constants/categories';
+import { findBrand } from '@/constants/brands';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { cycleOf } from '@/utils/cycle';
@@ -14,7 +15,12 @@ import { confirmedTransaction, confirmedTransfer, isTransfer, materializeRecurri
 
 export type TransactionType = 'debit' | 'credit';
 
-export type AccountType = 'bank' | 'cash' | 'savings' | 'other';
+/**
+ * What the account is for. 'ewallet' is new in 3.7.0: older versions stored e-wallets as 'other', and those are read
+ * as 'ewallet' when their provider is a known e-wallet (see withAccountType). A provider (Maybank, ASB, TNG) is separate
+ * from the type, so a Maybank account can be a savings account.
+ */
+export type AccountType = 'bank' | 'savings' | 'ewallet' | 'cash' | 'other';
 
 export type Account = {
   id: string;
@@ -27,6 +33,8 @@ export type Account = {
   // Card look + optional details (all optional so older accounts keep working)
   color?: string; // hex, e.g. '#2563EB'
   design?: CardDesign;
+  /** Colour finish for the Titanium Metallic series (ignored by every other design). */
+  finish?: TitaniumFinish;
   provider?: string; // e.g. 'Maybank', 'TNG eWallet'
   last4?: string; // last 4 digits only, never a full number
   /** Set on the account WaKira makes for a debt (see Hutang). Money owed shows up as a negative balance here. */
@@ -268,13 +276,21 @@ function startOfWeek(d: Date): Date {
   return date;
 }
 
+/** Older e-wallet accounts were saved as type 'other'; a known e-wallet provider makes them 'ewallet'. */
+function withAccountType(a: Account): Account {
+  if (a.type === 'other' && !a.typeLabel && findBrand(a.provider)?.kind === 'ewallet') return { ...a, type: 'ewallet' };
+  return a;
+}
+
 export function TransactionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { paydayRuleKey } = useSettings();
   const [storedTransactions, setTransactions, transactionsReady] = usePersistedState<Transaction[]>('transactions', initialTransactions, user?.id ?? null);
   // A new array whenever the payday changes, so everything derived from the records (monthly totals, budgets,
   // charts) is worked out again for the new financial month. The records themselves are untouched.
-  const [accounts, setAccounts, accountsReady] = usePersistedState<Account[]>('accounts', initialAccounts, user?.id ?? null);
+  const [storedAccounts, setAccounts, accountsReady] = usePersistedState<Account[]>('accounts', initialAccounts, user?.id ?? null);
+  // E-wallets saved by older versions as 'other' read as 'ewallet' (3.7.0). Saved data is only rewritten when the account is edited.
+  const accounts = useMemo(() => storedAccounts.map(withAccountType), [storedAccounts]);
   // Balance adjustments count as income (+) or spending (-) on their date, so they are part of this list like any record.
   // A new array whenever the payday changes, so totals, budgets and charts are worked out again for the new financial month.
   const transactions = useMemo(() => {

@@ -5,7 +5,7 @@
  * chart components (src/components/ai/ai-visual.tsx). Every number in it comes from engine.ts.
  */
 import type { InstalmentInput, IouInput } from '@/context/DebtsContext';
-import type { RecurringRule } from '@/context/TransactionsContext';
+import type { RecurringRule, TransactionItem } from '@/context/TransactionsContext';
 
 import type { Proposal } from '../engine';
 import type { Intent } from './intent';
@@ -31,7 +31,7 @@ export type Visual =
 export type Pending =
   | { kind: 'tx'; type: 'expense' | 'income'; title: string; amount?: number; accountId?: string; date?: string }
   | { kind: 'transfer'; amount?: number; from?: string; to?: string; date?: string }
-  | { kind: 'instalment'; draft: { name: string; provider: string; amount?: number; perMonth: boolean; months?: number; payFrom?: string } };
+  | { kind: 'instalment'; draft: { name: string; provider: string; amount?: number; perMonth: boolean; months?: number; payFrom?: string; firstDue?: string; interest?: boolean } };
 
 /** Something to set up in another part of WaKira (Hutang, budgets, goals, recurring). Saved only when the pengguna taps Save. */
 type ActionBase = { ref: string; title: string; summary: { label: string; value: string }[]; notes: string[] };
@@ -42,10 +42,12 @@ export type ActionProposal = ActionBase &
     | { kind: 'budget'; categoryId: string; limit: number; previous: number }
     | { kind: 'goal'; input: { name: string; target: number; deadline?: string; monthly?: number; icon: string; color: string } }
     | { kind: 'recurring'; rule: Omit<RecurringRule, 'id'> }
+    /** Line items for a record that already exists ("update Souqa Pasta with this breakdown"). */
+    | { kind: 'breakdown'; txId: string; items: TransactionItem[]; amount: number; previousItems?: TransactionItem[]; previousAmount: number }
   );
 
 /** What the last answer was about, so "kenapa?", "terangkan mudah" or "bulan lepas pula?" make sense. */
-export type Topic = { intent: Intent; period?: PeriodName; range?: Range; categoryId?: string; months?: number };
+export type Topic = { intent: Intent; period?: PeriodName; range?: Range; categoryId?: string; months?: number; /** A saving target in RM ("save RM500 this month"). */ target?: number };
 
 /** The brain's short-term memory for one chat. Kept by the chat screen and saved with the chat. */
 export type Memory = {

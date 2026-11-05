@@ -14,7 +14,7 @@ import { addDays } from '@/utils/cycle';
 import type { AiData } from '../engine';
 import { coldCategory } from './cold-category';
 import { rm, type Translate } from './reply';
-import { findAccounts, findAmounts, findCategoryHint, pickAmount } from './slots';
+import { dateIn, findAccounts, findAmounts, findCategoryHint, pickAmount } from './slots';
 import type { ActionProposal } from './types';
 
 let n = 0;
@@ -76,6 +76,7 @@ const PROVIDERS: [RegExp, string][] = [
   [/\b(grab ?pay ?later|paylater by grab|grab ?later)\b/i, 'Grab PayLater'],
   [/\b(boost ?payflex|payflex)\b/i, 'Boost PayFlex'],
   [/\b(kad kredit|credit card)\b/i, 'Credit card'],
+  [/\b(tiktok ?shop ?pay ?later|tik ?tok ?pay ?later|tiktok ?later)\b/i, 'TikTok PayLater'],
   [/\b(pay ?later|bnpl)\b/i, 'PayLater'],
 ];
 export const detectInstalment = (text: string) => /\b(ansuran|installments?|instalments?|bnpl|pay ?later|spaylater|atome|payflex|easy ?payment|epp)\b/i.test(text);
@@ -86,18 +87,28 @@ export function monthsIn(text: string): number | undefined {
   return v >= 1 && v <= 60 ? v : undefined;
 }
 
-export type InstalmentDraft = { name: string; provider: string; amount?: number; perMonth: boolean; months?: number; payFrom?: string; date?: string };
+export type InstalmentDraft = { name: string; provider: string; amount?: number; perMonth: boolean; months?: number; payFrom?: string; date?: string; firstDue?: string; interest?: boolean };
 
 export function instalmentDraft(text: string, d: AiData): InstalmentDraft {
   const provider = PROVIDERS.find(([re]) => re.test(text))?.[1] ?? '';
-  const hit = pickAmount(findAmounts(text), text);
+  // "first payment 10 november 2026" / "bayaran pertama 10 nov": take the date, then drop the whole phrase so it never ends up in the name.
+  const clause = text.match(/\b(first (?:payment|due|instal?lment)(?: (?:is|on|date))?|bayaran pertama|mula bayar|start(?:s|ing)?(?: on)?|due(?: on)?|bermula)\b[^,.;\n]*/i);
+  const found = dateIn(clause ? clause[0] : '', d.todayKey);
+  const rate = text.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  let body = text;
+  if (clause) body = body.replace(clause[0], ' ');
+  // "with 0% interest" / "faedah 0%" / "tanpa faedah" are about the plan, not the item name.
+  body = body.replace(/\b(?:with|dengan|at|tanpa|no)?\s*\d+(?:[.,]\d+)?\s*%\s*(?:interest|faedah|kadar)?/gi, ' ').replace(/\b(?:interest|faedah|bunga)\b/gi, ' ');
+  const hit = pickAmount(findAmounts(body), body);
   return {
-    name: nameFrom(text, PROVIDERS.map(([re]) => new RegExp(re.source, 'gi'))),
+    name: nameFrom(body, PROVIDERS.map(([re]) => new RegExp(re.source, 'gi'))),
     provider,
     amount: hit?.value,
     perMonth: /\b(sebulan|per month|a month|monthly|\/bulan|\/month|setiap bulan|each month)\b/i.test(text),
-    months: monthsIn(text),
+    months: monthsIn(body),
     payFrom: payAccount(text, d),
+    ...(found ? { firstDue: found.key } : {}),
+    ...(rate && Number(rate[1].replace(',', '.')) > 0 ? { interest: true } : {}),
   };
 }
 
@@ -114,7 +125,7 @@ export function instalmentAction(t: Translate, d: AiData, draft: InstalmentDraft
     months: draft.months,
     totalFee: 0,
     startDate: today,
-    firstDue: nextMonth(today),
+    firstDue: draft.firstDue ?? nextMonth(today),
     payFromAccountId: draft.payFrom,
     paidCount: 0,
     ...categoryFor(name, d),
@@ -132,7 +143,7 @@ export function instalmentAction(t: Translate, d: AiData, draft: InstalmentDraft
       { label: t('ai.b.act.firstDue'), value: input.firstDue },
       { label: t('ai.b.act.payFrom'), value: accName(d, draft.payFrom) },
     ],
-    notes: [t('ai.b.act.noFee'), ...(draft.perMonth ? [] : [t('ai.b.act.assumedTotal', { amount: rm(principal) })])],
+    notes: [draft.interest ? t('ai.b.act.interestNote') : t('ai.b.act.noFee'), ...(draft.perMonth ? [] : [t('ai.b.act.assumedTotal', { amount: rm(principal) })])],
   };
 }
 
@@ -301,10 +312,111 @@ export function recurringAction(t: Translate, d: AiData, text: string): ActionPr
   };
 }
 
+/* ---------------- breakdown for an existing record ---------------- */
+
+const UPDATE_CUE = /\b(update|edit|kemaskini|ubah|tukar|tambah(?:kan)?|add|adding|masukkan|letak|isi)\b/i;
+const BREAKDOWN_CUE = /\b(breakdown|break down|butiran|pecahan|details?|items?|line items?)\b/i;
+/** Words around the record's name in "Help me to update souqa pasta by adding this breakdown". */
+const HEAD_NOISE =
+  /\b(help|me|to|please|pls|tolong|can|could|you|update|edit|kemaskini|ubah|tukar|add|adding|tambah|tambahkan|menambah|masukkan|letak|isi|by|with|dengan|this|ini|the|my|saya|breakdown|break|down|butiran|pecahan|details?|items?|line|below|bawah|berikut|following|record|rekod|transaction|transaksi|expense|belanja|perbelanjaan|for|untuk|on|pada|kat|di|in|dalam|ada)\b/gi;
+
+const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+function lev(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return row[b.length];
+}
+/** Same word, or one typo apart in a word of 5+ letters ("souqa" / "souqah"). */
+const sameWord = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 5 && lev(a, b) <= 1);
+
+/** "seafood gigi hadid spaghetti" / "SEAFOOD GIGI HADID" -> "Seafood Gigi Hadid". Text with its own mixed case is left alone. */
+export function tidyCase(s: string): string {
+  const clean = s.replace(/\s+/g, ' ').trim();
+  if (clean !== clean.toLowerCase() && clean !== clean.toUpperCase()) return clean;
+  return clean.toLowerCase().replace(/(^|[\s(/&-])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase());
+}
+
+export type BreakdownResult = { action: ActionProposal } | { ask: true } | { notFound: string };
+
+/**
+ * "update souqa pasta by adding this breakdown" + one priced line per item -> a card that puts the items on the record
+ * that is already saved. The name is matched ignoring capital / small letters, spacing and small typos.
+ */
+export function breakdownAction(t: Translate, d: AiData, text: string): BreakdownResult | null {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const head = lines[0];
+  if (pickAmount(findAmounts(head), head) || !UPDATE_CUE.test(head) || !BREAKDOWN_CUE.test(head)) return null;
+  const rows = lines
+    .slice(1)
+    .map((l) => ({ l, hit: pickAmount(findAmounts(l), l) }))
+    .filter((r) => r.hit && r.hit.value > 0);
+  if (rows.length < 2) return null;
+
+  const items = rows.map((r, i) => {
+    const raw = `${r.l.slice(0, r.hit!.start)} ${r.l.slice(r.hit!.end)}`.replace(/^[\s•*-]+/, '').trim();
+    const q = raw.match(/^(\d+)\s*[x×]\s*/i);
+    const body = tidyCase((q ? raw.slice(q[0].length) : raw).replace(/[\s:–-]+$/, ''));
+    return { id: `ai${Date.now().toString(36)}${i}`, label: `${q ? `${q[1]}x ` : ''}${body}`.slice(0, 60), amount: round2(r.hit!.value) };
+  });
+  const total = round2(items.reduce((s, x) => s + x.amount, 0));
+
+  const query = norm(head.replace(HEAD_NOISE, ' '));
+  if (!query) return { ask: true };
+  const qWords = query.split(' ');
+  const scored = d.transactions
+    .map((x) => {
+      const tw = norm(x.title).split(' ');
+      if (!qWords.every((w) => tw.some((v) => sameWord(w, v)))) return null;
+      return { x, score: norm(x.title) === query ? 3 : tw.length === qWords.length ? 2 : 1 };
+    })
+    .filter((s): s is { x: (typeof d.transactions)[number]; score: number } => !!s);
+  if (scored.length === 0) return { notFound: tidyCase(query) };
+  scored.sort((a, b) => b.score - a.score || Math.abs(a.x.amount - total) - Math.abs(b.x.amount - total) || b.x.date.localeCompare(a.x.date));
+  const best = scored[0].x;
+  const same = Math.abs(best.amount - total) <= 0.05;
+  const amount = same ? best.amount : total;
+
+  const notes: string[] = [];
+  if (!same) notes.push(t('ai.b.brk.differs', { old: rm(best.amount), total: rm(total) }));
+  if (best.items?.length) notes.push(t('ai.b.brk.replaces', { n: best.items.length }));
+  if (scored.filter((s) => s.score === scored[0].score).length > 1) notes.push(t('ai.b.brk.several', { date: best.date }));
+  return {
+    action: {
+      kind: 'breakdown',
+      ref: ref(),
+      title: t('ai.b.brk.title'),
+      txId: best.id,
+      items,
+      amount,
+      previousItems: best.items,
+      previousAmount: best.amount,
+      summary: [
+        { label: t('ai.b.brk.record'), value: best.title },
+        { label: t('ai.b.brk.date'), value: best.date },
+        { label: t('ai.b.brk.amount'), value: same ? rm(total) : `${rm(best.amount)} → ${rm(total)}` },
+        ...items.map((x, i) => ({ label: `${i + 1}. ${x.label}`, value: rm(x.amount) })),
+      ],
+      notes,
+    },
+  };
+}
+
 /** Basic sanity check before a card is shown or saved. */
 export function validAction(a: ActionProposal): boolean {
   const pos = (x: unknown) => typeof x === 'number' && Number.isFinite(x) && x > 0 && x < 10_000_000;
   switch (a.kind) {
+    case 'breakdown':
+      return !!a.txId && pos(a.amount) && a.items.length >= 2 && a.items.every((x) => !!x.label && pos(x.amount));
     case 'instalment':
       return pos(a.input.principal) && a.input.months >= 1 && a.input.months <= 60 && !!a.input.payFromAccountId;
     case 'iou':

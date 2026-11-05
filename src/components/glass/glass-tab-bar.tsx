@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useRef, useState, type RefObject } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import type { ViewRef } from '@/utils/rn-refs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

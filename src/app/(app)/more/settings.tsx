@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmountInput } from '@/components/ui/amount-input';
@@ -13,9 +14,14 @@ import { ThemedView } from '@/components/ui/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { setTextSize, useTextSize, type TextSize } from '@/context/text-size';
 import { useSettings, type ThemePreference } from '@/context/SettingsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/context/AuthContext';
+import { useTransactions } from '@/context/TransactionsContext';
+import { themeAccent, themeForCard, themeName, themeSeries } from '@/constants/app-themes';
+import { normalizeDesign, normalizeFinish } from '@/constants/card-styles';
+import { accountName } from '@/i18n/data';
 import { setCoachSeen } from '@/services/intro';
 import { weekdayLong } from '@/i18n/format';
 import { setLanguage, useT, type Lang, type TKey } from '@/i18n';
@@ -30,6 +36,11 @@ const LANGUAGES: { key: Lang; label: string }[] = [
   { key: 'ms', label: 'Bahasa Melayu' }, // i18n-ignore
   { key: 'en', label: 'English' }, // i18n-ignore
 ];
+const TEXT_SIZE_OPTIONS: { key: TextSize; labelKey: TKey }[] = [
+  { key: 'small', labelKey: 'more.settings.textSize.small' },
+  { key: 'medium', labelKey: 'more.settings.textSize.medium' },
+  { key: 'large', labelKey: 'more.settings.textSize.large' },
+];
 const WARN_OPTIONS = [70, 80, 90];
 
 export default function SettingsScreen() {
@@ -37,7 +48,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t, lang } = useT();
   const gyroEnabled = useGyroEnabled();
-  const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit } = useSettings();
+  const textSize = useTextSize();
+  const { themePreference, setThemePreference, warnPercent, setWarnPercent, dailyLimit, setDailyLimit, themeCard, setThemeCard, themeFollowHome, setThemeFollowHome } = useSettings();
+  const { selectableAccounts } = useTransactions();
+  const dark = useColorScheme() === 'dark';
+  // Accounts with a premium card: each one can lend its theme to the whole app.
+  const themeCards = selectableAccounts
+    .map((a) => ({ account: a, theme: themeForCard(normalizeDesign(a.design), normalizeFinish(a.finish)) }))
+    .filter((x) => x.theme !== null);
+  const activeCard = themeCards.some((x) => x.account.id === themeCard) ? themeCard : null;
   const { user, updateProfile } = useAuth();
   const { hideAmounts, toggleHideAmounts } = usePrivacy();
   // The tutorial questions are done once; "repeat" replays the Home walkthrough instead.
@@ -70,7 +89,7 @@ export default function SettingsScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ScreenHeader title={t('more.settings.title')} />
 
-          <Section title={t('more.settings.appearance')}>
+          <Section title={t('more.settings.appearance')} footer={t('more.settings.textSizeFooter')}>
             <View style={styles.pad}>
               <GlassSegmented
                 options={THEMES.map((o) => ({ key: o.key, label: t(o.labelKey) }))}
@@ -79,6 +98,55 @@ export default function SettingsScreen() {
                 trackColor={colors.background}
               />
             </View>
+            <View style={[styles.pad, styles.padTop0]}>
+              <ThemedText type="small" style={[styles.subLabel, { color: colors.textSecondary }]}>
+                {t('more.settings.textSize')}
+              </ThemedText>
+              <GlassSegmented
+                options={TEXT_SIZE_OPTIONS.map((o) => ({ key: o.key, label: t(o.labelKey) }))}
+                value={textSize}
+                onChange={setTextSize}
+                trackColor={colors.background}
+              />
+              <ThemedText style={[styles.sizePreview, { color: colors.text }]}>{t('more.settings.textSizePreview')}</ThemedText>
+            </View>
+          </Section>
+
+          <Section
+            title={t('more.settings.cardTheme')}
+            footer={activeCard && !dark ? t('more.settings.cardThemeLight') : t('more.settings.cardThemeFooter')}
+          >
+            <Row
+              first
+              icon="color-palette-outline"
+              label={t('more.settings.cardThemeDefault')}
+              subtitle={t('more.settings.cardThemeDefaultSub')}
+              onPress={() => setThemeCard(null)}
+              right={activeCard ? <View style={styles.check} /> : <Ionicons name="checkmark" size={20} color={colors.accent} />}
+            />
+            {themeCards.map(({ account, theme }) =>
+              theme ? (
+                <Row
+                  key={account.id}
+                  icon="card-outline"
+                  tint={themeAccent(theme)}
+                  label={accountName(account)}
+                  subtitle={`${themeSeries(theme)} · ${themeName(theme)}`}
+                  onPress={() => setThemeCard(account.id)}
+                  right={activeCard === account.id ? <Ionicons name="checkmark" size={20} color={colors.accent} /> : <View style={styles.check} />}
+                />
+              ) : null,
+            )}
+            {themeCards.length === 0 ? (
+              <Row icon="sparkles-outline" label={t('more.settings.cardThemeEmpty')} onPress={() => router.push('/more/assets')} />
+            ) : (
+              <Row
+                icon="albums-outline"
+                label={t('more.settings.themeFollowHome')}
+                subtitle={t('more.settings.themeFollowHomeSub')}
+                right={<Switch value={themeFollowHome} onValueChange={setThemeFollowHome} trackColor={{ true: colors.accent }} />}
+              />
+            )}
           </Section>
 
           <Section title={t('more.settings.language')} footer={t('more.settings.languageFooter')}>
@@ -178,6 +246,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
 
   pad: { padding: Spacing.three },
+  padTop0: { paddingTop: 0 },
+  subLabel: { marginBottom: Spacing.two },
+  sizePreview: { marginTop: Spacing.two },
+  check: { width: 20 },
   dailyLimitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   dailyLimitInputWrap: {
     flexDirection: 'row',

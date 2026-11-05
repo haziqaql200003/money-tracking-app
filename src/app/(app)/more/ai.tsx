@@ -100,7 +100,7 @@ export default function AiScreen() {
   const desktop = useIsDesktop();
   const todayKey = toDateKey(new Date());
   const data = useAiData(todayKey);
-  const { addTransaction, addTransfer, deleteTransaction, deleteTransfer, addRecurring, deleteRecurring } = useTransactions();
+  const { addTransaction, updateTransaction, addTransfer, deleteTransaction, deleteTransfer, addRecurring, deleteRecurring } = useTransactions();
   const { createInstalment, addIou } = useDebts();
   const { updateCategory } = useCategories();
   const { addGoal, deleteGoal } = usePlan();
@@ -329,7 +329,7 @@ export default function AiScreen() {
   /** Saves a set-up into its module. Each one is checked again first (an account may have been deleted since). */
   function saveAction(msg: string, index: number, a: ActionProposal) {
     const accountOk = (id: string) => data.accounts.some((x) => x.id === id);
-    if (!validAction(a) || (a.kind === 'instalment' && !accountOk(a.input.payFromAccountId)) || (a.kind === 'recurring' && !accountOk(a.rule.accountId))) {
+    if (!validAction(a) || (a.kind === 'instalment' && !accountOk(a.input.payFromAccountId)) || (a.kind === 'recurring' && !accountOk(a.rule.accountId)) || (a.kind === 'breakdown' && !data.transactions.some((x) => x.id === a.txId))) {
       Alert.alert(t('ai.err.title'), t('ai.card.gone'));
       return;
     }
@@ -350,15 +350,19 @@ export default function AiScreen() {
       case 'recurring':
         savedId = addRecurring(a.rule);
         break;
+      case 'breakdown':
+        updateTransaction(a.txId, { items: a.items, amount: a.amount });
+        break;
     }
     setAction(msg, index, { status: 'saved', savedId });
     setAppNotes((n) => [...n, `pengguna saved: ${a.title}`]);
   }
 
-  const canUndoAction = (c: ActionState) => c.a.kind === 'budget' || ((c.a.kind === 'goal' || c.a.kind === 'recurring') && !!c.savedId);
+  const canUndoAction = (c: ActionState) => c.a.kind === 'budget' || c.a.kind === 'breakdown' || ((c.a.kind === 'goal' || c.a.kind === 'recurring') && !!c.savedId);
 
   function undoAction(msg: string, index: number, c: ActionState) {
     if (c.a.kind === 'budget') updateCategory(c.a.categoryId, { monthlyLimit: c.a.previous });
+    else if (c.a.kind === 'breakdown') updateTransaction(c.a.txId, { items: c.a.previousItems, amount: c.a.previousAmount });
     else if (c.a.kind === 'goal' && c.savedId) deleteGoal(c.savedId);
     else if (c.a.kind === 'recurring' && c.savedId) deleteRecurring(c.savedId);
     setAction(msg, index, { status: 'pending', savedId: undefined });

@@ -1,40 +1,27 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
-import type { ProCardDesign } from '@/constants/card-styles';
+import { isSpectrumDesign, isTitaniumSeries, type ProCardDesign, type TitaniumFinish } from '@/constants/card-styles';
+
+import { SpectrumThumbArt, type SpectrumVariant } from './SpectrumCard';
+import { FINISHES, TitaniumPattern, type TitaniumKind } from './TitaniumSeriesCard';
 
 /**
  * Small, static previews for the design picker. The real cards animate, which is too heavy to
  * run several more times inside a bottom sheet, so these only hint at the look.
+ * (3.6.0: Songket, Glass, Diraja and Batik are no longer offered, so they have no preview here.)
  */
-export function ProCardThumb({ design }: { design: ProCardDesign }) {
-  if (design === 'pro-songket') {
-    return (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0B0B0F' }]}>
-        <LinearGradient
-          colors={['rgba(243,220,149,0.0)', 'rgba(243,220,149,0.35)', 'rgba(243,220,149,0.0)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.line, { top: '30%', backgroundColor: '#D4AF37' }]} />
-        <View style={[styles.line, { top: '50%', backgroundColor: '#D4AF37' }]} />
-        <View style={[styles.line, { top: '70%', backgroundColor: '#D4AF37' }]} />
-      </View>
-    );
+export function ProCardThumb({ design, finish = 'graphite' }: { design: ProCardDesign; finish?: TitaniumFinish }) {
+  if (isSpectrumDesign(design)) {
+    return <SpectrumThumbArt variant={design.replace('pro-spectrum-', '') as SpectrumVariant} />;
   }
 
-  if (design === 'pro-glass') {
+  if (isTitaniumSeries(design)) {
+    const f = FINISHES[finish];
     return (
-      <LinearGradient colors={['#7B5CFF', '#3B2A7A', '#C2549A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
-        <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.3, 0.32, 0.5, 0.52]}
-          start={{ x: 0, y: 0.15 }}
-          end={{ x: 1, y: 0.85 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.glassRim} />
+      <LinearGradient colors={f.base} locations={[0, 0.45, 1]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill}>
+        <TitaniumPattern kind={design.replace('pro-ti-', '') as TitaniumKind} finish={finish} />
+        <View style={[styles.bevel, { borderTopColor: f.edge[0], borderLeftColor: f.edge[0], borderBottomColor: f.edge[1], borderRightColor: f.edge[1] }]} />
       </LinearGradient>
     );
   }
@@ -50,31 +37,7 @@ export function ProCardThumb({ design }: { design: ProCardDesign }) {
     );
   }
 
-  if (design === 'pro-diraja') {
-    return (
-      <LinearGradient colors={['#7A1426', '#5A0D1B', '#3A0812']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
-        {[22, 50, 78].map((t) =>
-          [14, 34, 54].map((l) => <View key={`${t}-${l}`} style={[styles.dot, { top: `${t}%`, left: `${l}%` }]} />)
-        )}
-        <View style={styles.kepala} />
-        <View style={[styles.goldLine, { top: '8%' }]} />
-        <View style={[styles.goldLine, { bottom: '8%' }]} />
-      </LinearGradient>
-    );
-  }
-
-  if (design === 'pro-batik') {
-    return (
-      <LinearGradient colors={['#0B4F55', '#0A3348', '#140F3A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
-        <View style={[styles.leaf, { right: '30%', top: '24%', transform: [{ rotate: '-25deg' }] }]} />
-        {[0, 72, 144, 216, 288].map((r) => (
-          <View key={r} style={[styles.petal, { transform: [{ rotate: `${r}deg` }, { translateY: -9 }] }]} />
-        ))}
-        <View style={styles.eye} />
-      </LinearGradient>
-    );
-  }
-
+  // Aurora
   return (
     <LinearGradient colors={['#030816', '#0B2A3A', '#0C3540']} style={StyleSheet.absoluteFill}>
       <LinearGradient
@@ -90,8 +53,6 @@ export function ProCardThumb({ design }: { design: ProCardDesign }) {
 }
 
 const styles = StyleSheet.create({
-  line: { position: 'absolute', left: '12%', right: '12%', height: 1.5, opacity: 0.7 },
-  blob: { position: 'absolute', width: '70%', aspectRatio: 1, borderRadius: 999 },
   mountain: {
     position: 'absolute',
     left: '-10%',
@@ -103,38 +64,7 @@ const styles = StyleSheet.create({
   },
   lake: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '26%', backgroundColor: '#06202A' },
   window: { position: 'absolute', right: '20%', bottom: '28%', width: 4, height: 3, backgroundColor: '#FFD27A' },
-  glassRim: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderTopColor: 'rgba(255,255,255,0.7)',
-  },
   grain: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)' },
   chip: { position: 'absolute', right: '12%', top: '30%', width: '22%', aspectRatio: 38 / 28, borderRadius: 3 },
-  dot: { position: 'absolute', width: 4, height: 4, borderRadius: 2, backgroundColor: '#D9B25F', opacity: 0.8 },
-  kepala: {
-    position: 'absolute',
-    right: 0,
-    top: '22%',
-    bottom: '22%',
-    width: '26%',
-    backgroundColor: 'rgba(217,178,95,0.35)',
-    borderLeftWidth: 1.5,
-    borderColor: '#D9B25F',
-  },
-  goldLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#D9B25F' },
-  petal: {
-    position: 'absolute',
-    right: '14%',
-    top: '32%',
-    width: 12,
-    height: 18,
-    borderRadius: 6,
-    backgroundColor: '#E0336A',
-    borderWidth: 0.8,
-    borderColor: '#F7E9CC',
-  },
-  eye: { position: 'absolute', right: '14%', top: '32%', width: 12, height: 12, marginTop: 3, borderRadius: 6, backgroundColor: '#5B0D1A' },
-  leaf: { position: 'absolute', width: 22, height: 9, borderRadius: 9, backgroundColor: '#3E9A5A', borderWidth: 0.8, borderColor: '#F7E9CC' },
+  bevel: { ...StyleSheet.absoluteFill, borderRadius: 12, borderWidth: 1, opacity: 0.8 },
 });

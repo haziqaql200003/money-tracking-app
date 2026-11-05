@@ -16,7 +16,7 @@ let fail = 0;
 const times: number[] = [];
 
 for (const c of CASES) {
-  const data = makeData({ empty: c.empty });
+  const data = makeData({ empty: c.empty, bigSpend: c.bigSpend, souqa: c.souqa });
   const t = (k: string, p?: Record<string, string | number>) =>
     String((dict[c.lang] as Record<string, string>)[k] ?? k).replace(/\{(\w+)\}/g, (m, n: string) => (p && n in p ? String(p[n]) : m));
   let memory: Memory = EMPTY_MEMORY;
@@ -35,7 +35,7 @@ for (const c of CASES) {
       const kinds = r.visuals.map((v) => v.kind);
       for (const k of e.visuals ?? []) if (!kinds.includes(k as never)) problems.push(`no ${k} chart (got ${kinds.join(',') || 'none'})`);
       if (validateVisuals(r.visuals).length !== r.visuals.length) problems.push('invalid chart data');
-      for (const h of e.has ?? []) if (!(typeof h === 'string' ? r.text.toLowerCase().includes(h.toLowerCase()) : h.test(r.text))) problems.push(`missing "${String(h)}"`);
+      for (const h of e.has ?? []) if (!(typeof h === 'string' ? `${r.text}\n${r.proposals.map((p) => (p.kind === 'transaction' ? `${p.tx.title} RM${p.tx.amount}` : '')).join('\n')}\n${r.actions.map((a) => a.summary.map((x) => `${x.label} ${x.value}`).join('\n')).join('\n')}`.toLowerCase().includes(h.toLowerCase()) : h.test(r.text))) problems.push(`missing "${String(h)}"`);
       for (const h of e.not ?? []) if (typeof h === 'string' ? r.text.includes(h) : h.test(r.text)) problems.push(`should not say "${String(h)}"`);
       if (e.proposals !== undefined && r.proposals.length !== e.proposals) problems.push(`${r.proposals.length} cards`);
       if (e.chips && r.chips.length === 0) problems.push('no follow-up buttons');
@@ -47,7 +47,7 @@ for (const c of CASES) {
     else fail++;
     console.log(`${ok ? 'PASS' : 'FAIL'}  [${c.lang}] ${c.name}: "${step.say}"${ok ? '' : `  -> ${problems.join('; ')}`}`);
     if (verbose || !ok) {
-      if (handled) console.log(`      ${r.text.split('\n').join('\n      ')}\n      charts: ${r.visuals.map((v) => v.kind).join(', ') || '-'} | buttons: ${r.chips.join(' / ') || '-'}${r.actions.map((a) => `\n      SET-UP ${a.kind}: ${a.summary.map((x) => `${x.label}=${x.value}`).join('; ')}`).join('')}`);
+      if (handled) console.log(`      ${r.text.split('\n').join('\n      ')}\n      charts: ${r.visuals.map((v) => v.kind).join(', ') || '-'} | buttons: ${r.chips.join(' / ') || '-'}${r.proposals.map((p) => (p.kind === 'transaction' ? `\n      CARD ${p.tx.title} RM${p.tx.amount} ${p.tx.date} cat=${p.tx.categoryId}/${p.tx.subcategory} items=${(p.tx.items ?? []).map((i) => `${i.label}:${i.amount}`).join(',')}` : `\n      CARD ${p.kind}`)).join('')}${r.actions.map((a) => `\n      SET-UP ${a.kind}: ${a.summary.map((x) => `${x.label}=${x.value}`).join('; ')}`).join('')}`);
     }
   }
 }

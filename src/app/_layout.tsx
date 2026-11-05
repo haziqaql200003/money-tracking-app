@@ -1,3 +1,4 @@
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
@@ -8,7 +9,9 @@ import { AnimatedSplashOverlay } from '@/components/ui/animated-icon';
 import { AppLockScreen } from '@/components/security/app-lock-screen';
 import { CrashScreen } from '@/components/shell/crash-screen';
 import { DialogHost } from '@/components/shell/dialog-host';
+import { FONT_FILES } from '@/components/ui/text';
 import { AddRecordProvider } from '@/context/AddRecordContext';
+import { AppThemeProvider } from '@/context/AppThemeContext';
 import { AppLockProvider } from '@/context/AppLockContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CategoriesProvider } from '@/context/CategoriesContext';
@@ -78,6 +81,9 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Manrope (3.7.0) for every screen. The splash stays up until it is ready; if it cannot load, the system font is used.
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  if (!fontsLoaded && !fontError) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -93,12 +99,15 @@ export default function RootLayout() {
                     <PlanProvider>
                      <ToolsProvider>
                       <AddRecordProvider>
+                       {/* Premium card theme (3.6.0): every screen below reads its colours through useTheme(). */}
+                       <AppThemeProvider>
                         <AnimatedSplashOverlay />
                         <UndoProvider>
                           <RootNavigator />
                           <AppLockScreen />
                           <DialogHost />
                         </UndoProvider>
+                       </AppThemeProvider>
                       </AddRecordProvider>
                      </ToolsProvider>
                     </PlanProvider>

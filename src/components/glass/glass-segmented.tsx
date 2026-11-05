@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { SlidingGlassTrack } from '@/components/glass/sliding-glass-track';
 import { Type } from '@/constants/theme';

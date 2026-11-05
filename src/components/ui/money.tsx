@@ -1,4 +1,5 @@
-import { Text, type StyleProp, type TextStyle } from 'react-native';
+import { type StyleProp, type TextStyle } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { tabularNums, Type } from '@/constants/theme';
 import { usePrivacy } from '@/context/PrivacyContext';

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, View, type TextInputProps } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { AmountInput } from '@/components/ui/amount-input';
 import { ThemedText } from '@/components/ui/themed-text';

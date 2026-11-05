@@ -3,7 +3,7 @@
  * Worked out from the text length instead of the native adjustsFontSizeToFit, which on iOS can collapse to a tiny size
  * when the text sits in a flexible card layout (the balance on the Home cards).
  */
-const DIGIT_WIDTH = 0.6; // average glyph width as a fraction of the font size (bold, tabular digits)
+const DIGIT_WIDTH = 0.64; // average glyph width as a fraction of the font size (Manrope bold, tabular digits; 3.7.0)
 
 export function fitFontSize(text: string, availableWidth: number, base: number, minScale = 0.6): number {
   if (!availableWidth || availableWidth <= 0 || text.length === 0) return base;

@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/ui/category-icon';
 import { ThemedText } from '@/components/ui/themed-text';
-import { Colors, Spacing, tabularNums } from '@/constants/theme';
+import { Spacing, tabularNums } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useCategories } from '@/context/CategoriesContext';
 import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
@@ -22,8 +23,7 @@ type Props = {
 
 export function TransactionRow({ item, showAccount = true, hidden = false, onPress, last }: Props) {
   const { t, tp } = useT();
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = useTheme();
   const { getCategory } = useCategories();
   const category = getCategory(item.categoryId);
   const { accounts, transfers } = useTransactions();

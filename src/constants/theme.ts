@@ -5,7 +5,7 @@
 
 import '@/global.css';
 
-import { Platform, type TextStyle } from 'react-native';
+import type { TextStyle } from 'react-native';
 
 
 /**
@@ -68,30 +68,17 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+/**
+ * One typeface everywhere (3.7.0): Manrope, bundled in assets/fonts and loaded in app/_layout.tsx.
+ * Screens do not set fontFamily themselves: src/components/ui/text.tsx picks the face from fontWeight.
+ * These names stay for older code that still asks for a family by role.
+ */
+export const Fonts = {
+  sans: 'Manrope_400Regular',
+  serif: 'Manrope_400Regular',
+  rounded: 'Manrope_400Regular',
+  mono: 'Manrope_500Medium',
+} as const;
 
 export const Spacing = {
   half: 2,

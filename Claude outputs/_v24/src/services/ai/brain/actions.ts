@@ -1,0 +1,321 @@
+/**
+ * Things the brain can SET UP in other parts of WaKira, always as a card the pengguna confirms:
+ *   instalment  "record installment in SPayLater, Claude AI RM99, 3 bulan"   -> Hutang (instalment plan)
+ *   iou         "Ali hutang saya RM50" / "I owe Siti 30"                    -> Hutang (between people)
+ *   budget      "set bajet makan RM500"                                      -> category budget
+ *   goal        "nak simpan RM5000 untuk kahwin by Disember 2027"            -> savings goal
+ *   recurring   "bayar Netflix RM17 setiap bulan"                            -> recurring bill
+ * Each one is spotted by clear words (rules), so nothing is guessed from a vague sentence.
+ */
+import { GOAL_PRESETS } from '@/constants/goals';
+import type { RecurringRule } from '@/context/TransactionsContext';
+import { addDays } from '@/utils/cycle';
+
+import type { AiData } from '../engine';
+import { coldCategory } from './cold-category';
+import { rm, type Translate } from './reply';
+import { findAccounts, findAmounts, findCategoryHint, pickAmount } from './slots';
+import type { ActionProposal } from './types';
+
+let n = 0;
+const ref = () => `a${Date.now().toString(36)}${(n++).toString(36)}`;
+const round2 = (x: number) => Math.round(x * 100) / 100;
+
+/** Same day next month (day capped at 28 so it exists in every month). */
+export function nextMonth(dateKey: string, k = 1): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const total = y * 12 + (m - 1) + k;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}-${String(Math.min(d, 28)).padStart(2, '0')}`;
+}
+
+/** The account the pengguna named, else the one they use most (never a savings account). */
+function payAccount(text: string, d: AiData): string | undefined {
+  const named = findAccounts(text, d)[0]?.id;
+  if (named) return named;
+  const counts = new Map<string, number>();
+  for (const x of d.transactions.slice(-60)) counts.set(x.accountId, (counts.get(x.accountId) ?? 0) + 1);
+  const usable = d.accounts.filter((a) => !a.savings);
+  return [...usable].sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))[0]?.id;
+}
+
+function categoryFor(title: string, d: AiData) {
+  const g = title ? coldCategory(title, 'expense') : null;
+  const c = g && g.p >= 0.35 ? d.categories.find((x) => x.id === g.categoryId && x.kind === 'expense') : undefined;
+  return c ? { categoryId: c.id, subcategory: c.subcategories.includes(g!.subcategory) ? g!.subcategory : (c.subcategories[0] ?? '') } : {};
+}
+
+const accName = (d: AiData, id?: string) => {
+  const a = id ? d.accounts.find((x) => x.id === id) : undefined;
+  return a ? d.accountLabel(a) : '-';
+};
+
+/** Words that are not part of a name ("record installment in SPayLater about ..."). */
+const NOISE = new Set(
+  (
+    'record rekod catat add tambah new baru installment installments instalment instalments ansuran bnpl paylater spaylater atome grab boost payflex shopee split ' +
+    'in dalam guna using via with dengan about tentang untuk for it its it\'s is ini itu a an the my saya aku bayar pay paid beli bought buy plan bulan months month x kali ' +
+    'rm myr ringgit sebulan monthly per setiap tiap every and dan . , - over selama sepanjang'
+  ).split(' '),
+);
+function nameFrom(text: string, extra: RegExp[] = []): string {
+  let s = text;
+  for (const r of extra) s = s.replace(r, ' ');
+  const words = s
+    .replace(/[^\p{L}\p{N}\s&'-]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w && !NOISE.has(w.toLowerCase()) && !/^\d+([.,]\d+)?k?$/i.test(w) && !/^(rm|myr)\d/i.test(w) && !/^\d+(x|bln|bulan|months?)$/i.test(w));
+  const name = words.join(' ').trim().slice(0, 50);
+  return name ? name[0].toUpperCase() + name.slice(1) : '';
+}
+
+/* ---------------- instalment / BNPL ---------------- */
+
+const PROVIDERS: [RegExp, string][] = [
+  [/\b(spaylater|shopee ?pay ?later|s ?pay ?later)\b/i, 'SPayLater'],
+  [/\batome\b/i, 'Atome'],
+  [/\b(grab ?pay ?later|paylater by grab|grab ?later)\b/i, 'Grab PayLater'],
+  [/\b(boost ?payflex|payflex)\b/i, 'Boost PayFlex'],
+  [/\b(kad kredit|credit card)\b/i, 'Credit card'],
+  [/\b(pay ?later|bnpl)\b/i, 'PayLater'],
+];
+export const detectInstalment = (text: string) => /\b(ansuran|installments?|instalments?|bnpl|pay ?later|spaylater|atome|payflex|easy ?payment|epp)\b/i.test(text);
+
+export function monthsIn(text: string): number | undefined {
+  const m = text.match(/\b(\d{1,2})\s*(bulan|bln|months?|mths?|ansuran|installments?|instalments?|kali|x)\b/i) ?? text.match(/\bx\s*(\d{1,2})\b/i);
+  const v = m ? Number(m[1]) : NaN;
+  return v >= 1 && v <= 60 ? v : undefined;
+}
+
+export type InstalmentDraft = { name: string; provider: string; amount?: number; perMonth: boolean; months?: number; payFrom?: string; date?: string };
+
+export function instalmentDraft(text: string, d: AiData): InstalmentDraft {
+  const provider = PROVIDERS.find(([re]) => re.test(text))?.[1] ?? '';
+  const hit = pickAmount(findAmounts(text), text);
+  return {
+    name: nameFrom(text, PROVIDERS.map(([re]) => new RegExp(re.source, 'gi'))),
+    provider,
+    amount: hit?.value,
+    perMonth: /\b(sebulan|per month|a month|monthly|\/bulan|\/month|setiap bulan|each month)\b/i.test(text),
+    months: monthsIn(text),
+    payFrom: payAccount(text, d),
+  };
+}
+
+export function instalmentAction(t: Translate, d: AiData, draft: InstalmentDraft): ActionProposal | null {
+  if (!draft.amount || !draft.months || !draft.payFrom) return null;
+  const principal = round2(draft.perMonth ? draft.amount * draft.months : draft.amount);
+  const monthly = round2(principal / draft.months);
+  const today = d.todayKey;
+  const name = draft.name || draft.provider || t('ai.b.act.instalmentName');
+  const input = {
+    name,
+    provider: draft.provider || t('ai.b.act.providerUnknown'),
+    principal,
+    months: draft.months,
+    totalFee: 0,
+    startDate: today,
+    firstDue: nextMonth(today),
+    payFromAccountId: draft.payFrom,
+    paidCount: 0,
+    ...categoryFor(name, d),
+  };
+  return {
+    kind: 'instalment',
+    ref: ref(),
+    title: t('ai.b.act.instalment'),
+    input,
+    summary: [
+      { label: t('ai.b.act.what'), value: name },
+      { label: t('ai.b.act.provider'), value: input.provider },
+      { label: t('ai.b.act.total'), value: rm(principal) },
+      { label: t('ai.b.act.plan'), value: t('ai.b.act.planValue', { months: draft.months, monthly: rm(monthly) }) },
+      { label: t('ai.b.act.firstDue'), value: input.firstDue },
+      { label: t('ai.b.act.payFrom'), value: accName(d, draft.payFrom) },
+    ],
+    notes: [t('ai.b.act.noFee'), ...(draft.perMonth ? [] : [t('ai.b.act.assumedTotal', { amount: rm(principal) })])],
+  };
+}
+
+/* ---------------- IOU (between people) ---------------- */
+
+const NOT_PERSON = new Set('saya aku me i you awak kau duit money rm the a my dia bank maybank cimb tng cash tunai kawan'.split(' '));
+
+export function iouAction(t: Translate, d: AiData, text: string): ActionProposal | null {
+  if (detectInstalment(text)) return null;
+  const low = text.toLowerCase();
+  const amount = pickAmount(findAmounts(text), text)?.value;
+  if (!amount) return null;
+  let person: string | undefined;
+  let direction: 'owe' | 'owed' | undefined;
+  let m: RegExpMatchArray | null;
+  if ((m = low.match(/\b([a-z][a-z'-]{1,20})\s+(?:hutang|owes|berhutang(?: dengan)?|pinjam(?: duit)?(?: dari| daripada)?)\s+(?:saya|aku|me)\b/))) [person, direction] = [m[1], 'owed'];
+  else if ((m = low.match(/\b(?:pinjamkan|lent|lend|bagi pinjam|beri pinjam)\s+(?:duit\s+)?(?:kepada|kat|to|dekat)?\s*([a-z][a-z'-]{1,20})/))) [person, direction] = [m[1], 'owed'];
+  else if ((m = low.match(/\b(?:saya|aku|i)\s+(?:hutang|owe|berhutang(?: dengan| kepada| kat)?)\s+([a-z][a-z'-]{1,20})/))) [person, direction] = [m[1], 'owe'];
+  else if ((m = low.match(/\b(?:pinjam|borrowed?)(?:\s+duit)?\s+(?:dari|daripada|from|kat|dengan)\s+([a-z][a-z'-]{1,20})/))) [person, direction] = [m[1], 'owe'];
+  else if ((m = low.match(/\bhutang\s+(?!saya|aku)([a-z][a-z'-]{1,20})\b/))) [person, direction] = [m[1], 'owe'];
+  if (!person || !direction || NOT_PERSON.has(person)) return null;
+  const name = person[0].toUpperCase() + person.slice(1);
+  return {
+    kind: 'iou',
+    ref: ref(),
+    title: t(direction === 'owe' ? 'ai.b.act.iouOwe' : 'ai.b.act.iouOwed'),
+    input: { person: name, direction, amount: round2(amount), repeat: 'none' },
+    summary: [
+      { label: t('ai.b.act.person'), value: name },
+      { label: t('ai.b.act.amount'), value: rm(amount) },
+      { label: t('ai.b.act.direction'), value: t(direction === 'owe' ? 'ai.b.act.youOwe' : 'ai.b.act.theyOwe', { name }) },
+    ],
+    notes: [t('ai.b.act.iouNote')],
+  };
+}
+
+/* ---------------- budget ---------------- */
+
+export const detectBudgetSet = (text: string) =>
+  /\b(set|tetapkan|letak|letakkan|buat|tukar|change|naikkan|turunkan|ubah|make)\b.{0,30}\b(bajet|budget|had|limit)\b/i.test(text) || /\b(bajet|budget)\b.{0,25}\b(jadi|to|kepada|=)\s*(rm|myr)?\s*\d/i.test(text);
+
+export function budgetAction(t: Translate, d: AiData, text: string): ActionProposal | { ask: string } | null {
+  const amount = pickAmount(findAmounts(text), text)?.value;
+  if (!amount) return null;
+  const hint = findCategoryHint(text);
+  const named = d.categories.find((c) => c.kind === 'expense' && text.toLowerCase().includes(d.categoryLabel(c).toLowerCase()));
+  const cat = named ?? (hint ? d.categories.find((c) => c.id === hint && c.kind === 'expense') : undefined);
+  if (!cat) return { ask: t('ai.b.act.budgetWhich', { amount: rm(amount) }) };
+  return {
+    kind: 'budget',
+    ref: ref(),
+    title: t('ai.b.act.budget'),
+    categoryId: cat.id,
+    limit: round2(amount),
+    previous: cat.monthlyLimit,
+    summary: [
+      { label: t('ai.b.act.category'), value: d.categoryLabel(cat) },
+      { label: t('ai.b.act.newLimit'), value: t('ai.b.act.perMonth', { amount: rm(amount) }) },
+      { label: t('ai.b.act.oldLimit'), value: cat.monthlyLimit > 0 ? rm(cat.monthlyLimit) : t('ai.b.act.none') },
+    ],
+    notes: [],
+  };
+}
+
+/* ---------------- savings goal ---------------- */
+
+const MONTH_NUM: [RegExp, number][] = [
+  [/\b(jan|january|januari)\b/i, 1], [/\b(feb|february|februari)\b/i, 2], [/\b(mac|march|mar)\b/i, 3], [/\b(apr|april)\b/i, 4], [/\b(mei|may)\b/i, 5], [/\b(jun|june)\b/i, 6],
+  [/\b(jul|july|julai)\b/i, 7], [/\b(ogos|aug|august)\b/i, 8], [/\b(sep|sept|september)\b/i, 9], [/\b(okt|oct|october|oktober)\b/i, 10], [/\b(nov|november)\b/i, 11], [/\b(dis|dec|december|disember)\b/i, 12],
+];
+function deadlineIn(text: string, today: string): string | undefined {
+  const mon = MONTH_NUM.find(([re]) => re.test(text))?.[1];
+  const yr = text.match(/\b(20\d{2})\b/);
+  if (!mon && !yr) {
+    const inN = text.match(/\b(?:dalam|in|within)\s+(\d{1,2})\s*(bulan|months?)\b/i);
+    return inN ? nextMonth(today, Number(inN[1])) : undefined;
+  }
+  let y = yr ? Number(yr[1]) : Number(today.slice(0, 4));
+  const m = mon ?? 12;
+  if (!yr && `${y}-${String(m).padStart(2, '0')}` <= today.slice(0, 7)) y += 1;
+  const last = new Date(y, m, 0).getDate();
+  return `${y}-${String(m).padStart(2, '0')}-${last}`;
+}
+
+export const detectGoal = (text: string) =>
+  /\b(goal|matlamat|sasaran|target)\b/i.test(text) || /\b(simpan|save|saving|kumpul|tabung)\b.{0,25}\b(untuk|for)\b/i.test(text);
+
+export function goalAction(t: Translate, d: AiData, text: string): ActionProposal | null {
+  const amount = pickAmount(findAmounts(text.replace(/\b20\d{2}\b/g, ' ')), text)?.value;
+  if (!amount || amount < 10) return null;
+  const forPart = text.match(/\b(?:untuk|for)\s+(.+?)(?:\s+(?:by|sebelum|before|dalam|in|pada|on|menjelang)\b|$)/i)?.[1] ?? '';
+  const name = nameFrom(forPart || text, [/\b(goal|matlamat|sasaran|target|nak|want|i|simpan|save|saving|kumpul|tabung|untuk|for|by|sebelum)\b/gi, ...MONTH_NUM.map(([re]) => new RegExp(re.source, 'gi')), /\b20\d{2}\b/g]);
+  const deadline = deadlineIn(text, d.todayKey);
+  const monthsLeft = deadline ? Math.max(1, (Number(deadline.slice(0, 4)) - Number(d.todayKey.slice(0, 4))) * 12 + Number(deadline.slice(5, 7)) - Number(d.todayKey.slice(5, 7))) : undefined;
+  const monthly = monthsLeft ? round2(amount / monthsLeft) : undefined;
+  const look = GOAL_PRESETS[0];
+  const goalName = name || t('ai.b.act.goalName');
+  return {
+    kind: 'goal',
+    ref: ref(),
+    title: t('ai.b.act.goal'),
+    input: { name: goalName, target: round2(amount), deadline, monthly, icon: look.icon as string, color: look.color },
+    summary: [
+      { label: t('ai.b.act.goalFor'), value: goalName },
+      { label: t('ai.b.act.target'), value: rm(amount) },
+      ...(deadline ? [{ label: t('ai.b.act.deadline'), value: deadline }] : []),
+      ...(monthly ? [{ label: t('ai.b.act.monthlyNeeded'), value: t('ai.b.act.perMonth', { amount: rm(monthly) }) }] : []),
+    ],
+    notes: [t('ai.b.act.goalNote')],
+  };
+}
+
+/* ---------------- recurring bill ---------------- */
+
+export const detectRecurring = (text: string) =>
+  /\b(setiap bulan|tiap bulan|tiap-tiap bulan|every month|monthly|bulanan|setiap minggu|every week|weekly|setiap tahun|every year|yearly|tahunan)\b/i.test(text) &&
+  !/\b(berapa|how much|how|what|apa|kenapa|why|tunjuk|show|purata|average)\b/i.test(text);
+
+export function recurringAction(t: Translate, d: AiData, text: string): ActionProposal | null {
+  const hit = pickAmount(findAmounts(text), text);
+  const accountId = payAccount(text, d);
+  if (!hit || !accountId) return null;
+  const frequency: RecurringRule['frequency'] = /\b(minggu|week|weekly)\b/i.test(text) ? 'weekly' : /\b(tahun|year|yearly|tahunan)\b/i.test(text) ? 'yearly' : 'monthly';
+  const income = /\b(gaji|salary|income|pendapatan|elaun|allowance|terima|receive)\b/i.test(text);
+  const title = nameFrom(text, [/\b(setiap|tiap|tiap-tiap|every|monthly|bulanan|weekly|yearly|tahunan|minggu|week|tahun|year|langganan|subscription)\b/gi]) || t('ai.b.act.billName');
+  const dayMatch = text.match(/\b(?:hb|haribulan|on the|pada)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:hb|haribulan|th|st|nd|rd)\b/i);
+  const day = dayMatch ? Number(dayMatch[1] ?? dayMatch[2]) : undefined;
+  // First time: the next date with that day (or one period from today), so a bill paid today is not counted twice.
+  let start = frequency === 'weekly' ? addDays(d.todayKey, 7) : frequency === 'yearly' ? nextMonth(d.todayKey, 12) : nextMonth(d.todayKey);
+  if (day && day >= 1 && day <= 28 && frequency === 'monthly') {
+    const thisMonth = `${d.todayKey.slice(0, 8)}${String(day).padStart(2, '0')}`;
+    start = thisMonth > d.todayKey ? thisMonth : nextMonth(thisMonth);
+  }
+  const cat = income
+    ? d.categories.find((c) => c.kind === 'income')
+    : d.categories.find((c) => c.id === (categoryFor(title, d).categoryId ?? 'bills'));
+  if (!cat) return null;
+  const sub = income ? (cat.subcategories[0] ?? '') : (categoryFor(title, d).subcategory ?? cat.subcategories[0] ?? '');
+  const rule: Omit<RecurringRule, 'id'> = {
+    title,
+    amount: round2(hit.value),
+    amountMode: 'fixed',
+    type: income ? 'credit' : 'debit',
+    categoryId: cat.id,
+    subcategory: sub,
+    accountId,
+    frequency,
+    startDate: start,
+    nextDate: start,
+    active: true,
+  };
+  return {
+    kind: 'recurring',
+    ref: ref(),
+    title: t(income ? 'ai.b.act.recurringIncome' : 'ai.b.act.recurring'),
+    rule,
+    summary: [
+      { label: t('ai.b.act.what'), value: title },
+      { label: t('ai.b.act.amount'), value: rm(hit.value) },
+      { label: t('ai.b.act.every'), value: t(frequency === 'weekly' ? 'ai.b.act.weekly' : frequency === 'yearly' ? 'ai.b.act.yearly' : 'ai.b.act.monthly') },
+      { label: t('ai.b.act.starts'), value: start },
+      { label: t('ai.b.act.category'), value: d.categoryLabel(cat) },
+      { label: t('ai.b.act.account'), value: accName(d, accountId) },
+    ],
+    notes: [t('ai.b.act.recurringNote')],
+  };
+}
+
+/** Basic sanity check before a card is shown or saved. */
+export function validAction(a: ActionProposal): boolean {
+  const pos = (x: unknown) => typeof x === 'number' && Number.isFinite(x) && x > 0 && x < 10_000_000;
+  switch (a.kind) {
+    case 'instalment':
+      return pos(a.input.principal) && a.input.months >= 1 && a.input.months <= 60 && !!a.input.payFromAccountId;
+    case 'iou':
+      return pos(a.input.amount) && a.input.person.length > 0;
+    case 'budget':
+      return pos(a.limit) && !!a.categoryId;
+    case 'goal':
+      return pos(a.input.target) && a.input.name.length > 0;
+    case 'recurring':
+      return pos(a.rule.amount) && !!a.rule.accountId && !!a.rule.categoryId;
+    default:
+      return false;
+  }
+}

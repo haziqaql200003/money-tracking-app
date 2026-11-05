@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';

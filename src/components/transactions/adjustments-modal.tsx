@@ -1,7 +1,8 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View, useColorScheme } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { AmountInput } from '@/components/ui/amount-input';
 import { ThemedText } from '@/components/ui/themed-text';

@@ -50,11 +50,17 @@ type SettingsContextValue = {
   /** True when months are plain calendar months (payday the 1st, no end-of-month, no working-day rule, no history). */
   calendarMonths: boolean;
   paydayRuleKey: string;
+  /** Account whose premium card sets the app theme (Settings > Card theme). null = the normal Tenun look. */
+  themeCard: string | null;
+  setThemeCard: (accountId: string | null) => void;
+  /** Home A5 (3.7.0): a premium card swiped into view on Home lends its theme to the app. On by default. */
+  themeFollowHome: boolean;
+  setThemeFollowHome: (on: boolean) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
 
-type UserSettings = { warnPercent: number; dailyLimit: number; savingsTarget?: number; payday?: number; paydayEom?: boolean; paydayAdjust?: boolean; paydayFrom?: string; paydayPast?: PaydayRuleEntry[]; country?: Region['country']; state?: MyStateCode | null };
+type UserSettings = { warnPercent: number; dailyLimit: number; savingsTarget?: number; payday?: number; paydayEom?: boolean; paydayAdjust?: boolean; paydayFrom?: string; paydayPast?: PaydayRuleEntry[]; country?: Region['country']; state?: MyStateCode | null; themeCard?: string | null; themeFollowHome?: boolean };
 const DEFAULT_USER_SETTINGS: UserSettings = { warnPercent: 80, dailyLimit: 0, savingsTarget: DEFAULT_SAVINGS_TARGET, payday: 1 };
 
 // The theme belongs to this phone, not to an account, so the sign-in screens already look right.
@@ -129,6 +135,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [setUserSettings],
   );
   const setState = useCallback((state: MyStateCode | null) => setUserSettings((s) => ({ ...s, state })), [setUserSettings]);
+  const setThemeCard = useCallback((themeCard: string | null) => setUserSettings((s) => ({ ...s, themeCard })), [setUserSettings]);
+  const setThemeFollowHome = useCallback((themeFollowHome: boolean) => setUserSettings((s) => ({ ...s, themeFollowHome })), [setUserSettings]);
 
   const country = userSettings.country ?? 'MY';
   const state = country === 'MY' ? userSettings.state ?? null : null;
@@ -168,8 +176,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setState,
       calendarMonths: payday <= 1 && !paydayEom && !paydayAdjust && paydayHistory.length === 0,
       paydayRuleKey,
+      themeCard: userSettings.themeCard ?? null,
+      setThemeCard,
+      themeFollowHome: userSettings.themeFollowHome ?? true,
+      setThemeFollowHome,
     }),
-    [themePreference, setThemePreference, userSettings, setWarnPercent, setDailyLimit, setSavingsTarget, payday, setPaydayValue, paydayEom, setPaydayEom, paydayAdjust, setPaydayAdjust, setCalendarMonths, paydayHistory, paydayFrom, changePayday, undoPaydayChange, country, setCountry, state, setState, paydayRuleKey],
+    [themePreference, setThemePreference, userSettings, setWarnPercent, setDailyLimit, setSavingsTarget, payday, setPaydayValue, paydayEom, setPaydayEom, paydayAdjust, setPaydayAdjust, setCalendarMonths, paydayHistory, paydayFrom, changePayday, undoPaydayChange, country, setCountry, state, setState, paydayRuleKey, setThemeCard, setThemeFollowHome],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

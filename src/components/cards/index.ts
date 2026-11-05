@@ -7,6 +7,9 @@ import { TitaniumCard } from './TitaniumCard';
 import { DEFAULT_ACCENT } from './palette';
 
 export { AuroraCard, BatikCard, DirajaCard, GlassCard, SongketCard, TitaniumCard };
+// 3.6.0 series. Songket, Glass, Diraja and Batik stay in the code but are no longer offered (see card-styles.ts).
+export { SpectrumCard, type SpectrumVariant } from './SpectrumCard';
+export { TitaniumSeriesCard, type TitaniumKind } from './TitaniumSeriesCard';
 export { CardColorPicker } from './CardColorPicker';
 export { ACCENT_PRESETS, DEFAULT_ACCENT } from './palette';
 export type { WakiraCardProps } from './shared';

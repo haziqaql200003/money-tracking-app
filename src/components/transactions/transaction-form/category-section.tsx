@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { EvenGrid } from '@/components/ui/even-grid';
 import { ThemedText } from '@/components/ui/themed-text';

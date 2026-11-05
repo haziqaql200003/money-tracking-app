@@ -220,104 +220,113 @@ export const detectSaveTarget = (text: string) =>
   /\b(patut|should|macam mana|camne|mcm mana|how|apa|what|nak|want|target|capai|achieve|dapatkan|reach|plan|boleh ke|can i)\b/i.test(text) &&
   !/\b(dari|daripada|from)\b.{0,20}\b(ke|to)\b/i.test(text);
 
-export function saveTargetSay(t: Translate, d: AiData, target: number): Say {
+export function saveTargetSay(t: Translate, d: AiData, target: number, opts: { why?: boolean; simple?: boolean } = {}): Say {
   const info = cycleInfo(d.todayKey);
-  const daysLeft = Math.max(1, info.length - info.dayIndex);
-  const tx = real(d).filter((x) => x.date >= info.from && x.date <= d.todayKey);
-  const spentSoFar = tx.filter((x) => x.type === 'debit').reduce((s, x) => s + x.amount, 0);
+  const daysLeft = Math.max(0, info.length - info.dayIndex);
+  const all = real(d);
+  const tx = all.filter((x) => x.date >= info.from && x.date <= d.todayKey);
+  const debits = tx.filter((x) => x.type === 'debit');
+  const spentSoFar = debits.reduce((s, x) => s + x.amount, 0);
   const incomeSoFar = tx.filter((x) => x.type === 'credit').reduce((s, x) => s + x.amount, 0);
-  const past = months(d, 3);
-  const usualIncome = avgOf(past.income);
-  const expectedIncome = Math.max(incomeSoFar, usualIncome);
-  const fc = runTool('forecast', { months: 1 }, d).response as R;
-  const pacePerDay = spentSoFar / Math.max(1, info.dayIndex);
-  const projected = Number(fc.thisMonth?.projectedTotalSpending) || spentSoFar + pacePerDay * daysLeft;
-  const expectedLeft = expectedIncome - projected;
-  const allowed = expectedIncome - target; // what can still be spent in total this month
-  const gap = target - expectedLeft;
+  const usualIncome = avgOf(months(d, 3).income);
+  // Salary not in yet this month: count the usual amount. Already in: count what came in.
+  const expectedIncome = incomeSoFar >= usualIncome * 0.8 ? incomeSoFar : Math.max(incomeSoFar, usualIncome);
 
-  // Where to cut: flexible categories this month, in proportion to how fast they are being spent.
-  const br = runTool('spending_breakdown', { period: 'this_month', group_by: 'category', limit: 25 }, d).response as R;
-  const flex = ((br.rows as R[]) ?? []).filter((r) => FLEX.has(r.id) && r.total > 0);
-  const flexPace = flex.reduce((s, r) => s + r.total / info.dayIndex, 0);
-  const flexLeftAll = flexPace * daysLeft;
-  // Too big for the days left: suggest a realistic 30% cut on everyday spending instead of impossible numbers.
-  const hard = gap > flexLeftAll * 0.6;
-  const cuts = gap > 0 && flexPace > 0
-    ? flex.slice(0, 3).map((r) => {
-        const pace = r.total / info.dayIndex;
-        const perDay = hard ? pace * 0.3 : (gap * (pace / flexPace)) / daysLeft;
-        return { name: r.name, perDay, total: perDay * daysLeft, pace };
-      })
-    : [];
-  const shops = runTool('spending_breakdown', { period: 'this_month', group_by: 'merchant', limit: 25 }, d).response as R;
-  const avoid = ((shops.rows as R[]) ?? [])
-    .filter((r) => {
-      const hit = tx.find((x) => x.type === 'debit' && x.title.trim().toLowerCase() === String(r.name).toLowerCase());
-      return hit && FLEX.has(hit.categoryId) && !hit.recurringId;
-    })
-    .slice(0, 3);
-  const flexLeft = flexPace * daysLeft;
-  const lines: string[] = [];
+  // The rest of the month: a NORMAL day of everyday spending (big one-off buys left out) plus bills still to come.
+  // Using this month's own pace would blow up after one big purchase early in the month.
+  const since = addDays(d.todayKey, -90);
+  const everyday = all.filter((x) => x.type === 'debit' && !x.recurringId && x.date >= since && x.date < info.from);
+  const sorted = everyday.map((x) => x.amount).sort((x, y) => x - y);
+  const cap = Math.max(300, sorted[Math.floor(sorted.length * 0.95)] ?? 300);
+  const firstDay = everyday.reduce((m, x) => (x.date < m ? x.date : m), info.from);
+  const spanDays = Math.max(1, Math.min(90, Math.round((new Date(`${info.from}T00:00:00`).getTime() - new Date(`${firstDay}T00:00:00`).getTime()) / 86_400_000)));
+  const normalDay = everyday.length >= 10 ? everyday.filter((x) => x.amount <= cap).reduce((s, x) => s + x.amount, 0) / spanDays : spentSoFar / Math.max(1, info.dayIndex);
+  const fc = runTool('forecast', { months: 1 }, d).response as R;
+  const bills = Number(fc.thisMonth?.billsStillToCome) || 0;
+  const restOfMonth = normalDay * daysLeft + bills;
+  const projected = spentSoFar + restOfMonth;
+  const expectedLeft = expectedIncome - projected;
+  const gap = target - expectedLeft;
+  const canSpend = expectedIncome - target - spentSoFar - bills; // everyday money left for the rest of the month
+  const big = [...debits].sort((x, y) => y.amount - x.amount).slice(0, 3);
+  const bigList = big.map((x) => `${x.title || catName(d, x.categoryId)} ${rmRough(x.amount)} (${x.date})`).join(', ');
+
+  const flex = (((runTool('spending_breakdown', { period: 'this_month', group_by: 'category', limit: 25 }, d).response as R).rows as R[]) ?? []).filter((r) => FLEX.has(r.id) && r.total > 0);
+  const flexTotal = flex.reduce((s, r) => s + r.total, 0);
+  const flexDaily = normalDay; // everyday spending is what can be trimmed
+  const lines: string[] = [t('ai.b.goal.target', { target: rmRough(target) })];
 
   if (expectedIncome <= 0) {
     lines.push(t('ai.b.goal.noIncome', { target: rmRough(target) }));
-  } else if (gap <= 0) {
+  } else if (expectedLeft >= target) {
     lines.push(t('ai.b.goal.onTrack', { target: rmRough(target), left: rmRough(expectedLeft) }));
     lines.push(t('ai.b.goal.lockIn', { target: rmRough(target) }));
+    if (canSpend > 0 && daysLeft > 0) lines.push(t('ai.b.goal.allowed', { target: rmRough(target), allowed: rmRough(canSpend), days: daysLeft, perDay: rmRough(canSpend / daysLeft) }));
+  } else if (expectedLeft < 0 && spentSoFar > expectedIncome * 0.9) {
+    // Already spent (almost) everything coming in: explain why before talking about cuts.
+    lines.push(t('ai.b.goal.overspent', { spent: rmRough(spentSoFar), income: rmRough(expectedIncome), short: rmRough(-expectedLeft) }));
+    if (big.length) lines.push(t('ai.b.goal.bigItems', { list: bigList }));
+    if (big[0] && big[0].amount > spentSoFar * 0.5) lines.push(t('ai.b.goal.oneOff', { item: big[0].title || catName(d, big[0].categoryId), amount: rmRough(big[0].amount) }));
+    lines.push(t('ai.b.goal.nextMonth', { target: rmRough(target), limit: rmRough(Math.max(0, usualIncome - target)) }));
   } else {
     lines.push(t('ai.b.goal.gap', { target: rmRough(target), left: rmRough(Math.max(0, expectedLeft)), gap: rmRough(gap), days: daysLeft }));
-    if (hard) lines.push(t('ai.b.goal.hard', { realistic: rmRough(Math.max(0, expectedLeft + flexLeft * 0.3)) }));
-    if (cuts.length) {
-      lines.push(t('ai.b.goal.cutHead'));
-      for (const c of cuts) lines.push(t('ai.b.goal.cut', { cat: c.name, perDay: rmRough(c.perDay), pace: rmRough(c.pace), total: rmRough(c.total) }));
+    const reachable = daysLeft > 0 && gap <= flexDaily * daysLeft * 0.5;
+    if (reachable) {
+      lines.push(t('ai.b.goal.cutHead', { gap: rmRough(gap), days: daysLeft }));
+      for (const r of flex.slice(0, 3)) {
+        const part = flexTotal > 0 ? (gap * r.total) / flexTotal : 0;
+        if (part >= 5) lines.push(t('ai.b.goal.cut', { cat: r.name, total: rmRough(part), perDay: rmRough(part / daysLeft) }));
+      }
+      if (canSpend > 0) lines.push(t('ai.b.goal.allowed', { target: rmRough(target), allowed: rmRough(canSpend), days: daysLeft, perDay: rmRough(canSpend / daysLeft) }));
+    } else {
+      lines.push(t('ai.b.goal.hard', { realistic: rmRough(Math.max(0, expectedLeft + flexDaily * daysLeft * 0.3)) }));
+      lines.push(t('ai.b.goal.nextMonth', { target: rmRough(target), limit: rmRough(Math.max(0, usualIncome - target)) }));
     }
   }
-  if (avoid.length) lines.push(t(gap > 0 ? 'ai.b.goal.avoid' : 'ai.b.goal.watch', { list: avoid.map((a) => `${a.name} (${rmRough(a.total)})`).join(', ') }));
-  if (expectedIncome > 0) lines.push(allowed - spentSoFar > 0 ? t('ai.b.goal.allowed', { allowed: rmRough(allowed - spentSoFar), perDay: rmRough((allowed - spentSoFar) / daysLeft) }) : t('ai.b.goal.noRoom'));
+  // What to avoid: the biggest everyday shops this month (not bills, not one-off big items).
+  const shops = ((runTool('spending_breakdown', { period: 'this_month', group_by: 'merchant', limit: 25 }, d).response as R).rows as R[]) ?? [];
+  const avoid = shops
+    .filter((r) => debits.some((x) => x.title.trim().toLowerCase() === String(r.name).toLowerCase() && FLEX.has(x.categoryId) && !x.recurringId && x.amount <= cap))
+    .slice(0, 3);
+  if (avoid.length && expectedIncome > 0) lines.push(t(gap > 0 ? 'ai.b.goal.avoid' : 'ai.b.goal.watch', { list: avoid.map((a) => `${a.name} (${rmRough(a.total)})`).join(', ') }));
 
-  // Forecast chart: spending so far, where it ends at today's pace, and the path that reaches the target.
-  const step = info.length > 24 ? Math.ceil(info.length / 20) : 1;
-  const dayKeys: string[] = [];
-  for (let i = 0; i < info.length; i += step) dayKeys.push(addDays(info.from, i));
-  if (dayKeys[dayKeys.length - 1] !== info.to) dayKeys.push(info.to);
-  const byDay = new Map<string, number>();
-  for (const x of tx) if (x.type === 'debit') byDay.set(x.date, (byDay.get(x.date) ?? 0) + x.amount);
-  const cumUntil = (key: string) => [...byDay.entries()].filter(([k]) => k <= key).reduce((s, [, v]) => s + v, 0);
-  const todayIdx = dayKeys.findIndex((k) => k >= d.todayKey);
-  const ti = todayIdx < 0 ? dayKeys.length - 1 : todayIdx;
-  const actual = dayKeys.map((k, i) => (i <= ti ? Math.round(cumUntil(k)) : null));
-  const line = (endValue: number) =>
-    dayKeys.map((k, i) => {
-      if (i < ti) return null;
-      const frac = (i - ti) / Math.max(1, dayKeys.length - 1 - ti);
-      return Math.round(spentSoFar + (endValue - spentSoFar) * frac);
-    });
+  // "kenapa / apasal": show exactly how the number was worked out.
+  if (opts.why && expectedIncome > 0) {
+    lines.length = 0; // a "why" gets only the working, not the whole plan again
+    lines.push(t('ai.b.goal.how', { income: rmRough(expectedIncome), spent: rmRough(spentSoFar), rest: rmRough(normalDay * daysLeft), days: daysLeft, perDay: rmRough(normalDay), bills: rmRough(bills), left: rmRough(expectedLeft) }));
+    if (big.length) lines.push(t('ai.b.goal.bigItems', { list: bigList }));
+    if (big[0] && big[0].amount > spentSoFar * 0.5) lines.push(t('ai.b.goal.oneOff', { item: big[0].title || catName(d, big[0].categoryId), amount: rmRough(big[0].amount) }));
+  }
+  const text = opts.simple
+    ? expectedLeft >= target
+      ? t('ai.b.goal.simpleOk', { target: rmRough(target) })
+      : t('ai.b.goal.simpleShort', { target: rmRough(target), left: rmRough(Math.max(0, expectedLeft)) })
+    : lines.join('\n');
+
+  // Chart: money in vs money out this month (actual + expected), and the target.
   const visuals: Visual[] = [
     {
       kind: 'stats',
       items: [
         { label: t('ai.b.s.target'), value: rmRough(target) },
         { label: t('ai.b.s.expectedLeft'), value: rmRough(expectedLeft), tone: expectedLeft >= target ? 'good' : 'bad' },
-        { label: t('ai.b.s.gap'), value: gap > 0 ? rmRough(gap) : '0', tone: gap > 0 ? 'bad' : 'good' },
+        { label: t('ai.b.s.gap'), value: gap > 0 ? rmRough(gap) : rmRough(0), tone: gap > 0 ? 'bad' : 'good' },
       ],
     },
   ];
-  if (expectedIncome > 0 && dayKeys.length >= 3) {
+  if (expectedIncome > 0) {
     visuals.push({
-      kind: 'trend',
-      title: t('ai.b.v.goalPath', { target: rmRough(target) }),
-      labels: dayKeys.map((k) => String(Number(k.slice(8, 10)))),
-      splitAt: ti,
-      series: [
-        { name: t('ai.b.v.spentSoFar'), tone: 'expense', values: actual },
-        { name: t('ai.b.v.atThisPace'), tone: 'expense', dashed: true, values: line(projected) },
-        { name: t('ai.b.v.toReachTarget'), tone: 'income', dashed: true, values: line(Math.max(spentSoFar, allowed)) },
+      kind: 'bars',
+      title: t('ai.b.v.monthMoney'),
+      rows: [
+        { label: t('ai.b.v.moneyIn'), value: Math.round(expectedIncome), color: '#1E9E74' },
+        { label: t('ai.b.v.spentSoFar'), value: Math.round(spentSoFar) },
+        { label: t('ai.b.v.restExpected'), value: Math.round(restOfMonth), color: '#8E9AD0' },
+        { label: t('ai.b.v.leftOver'), value: Math.round(expectedLeft), color: expectedLeft >= target ? '#1E9E74' : '#C13B2D' },
       ],
     });
   }
-  if (cuts.length >= 1) visuals.push({ kind: 'compare', title: t('ai.b.v.perDay'), aLabel: t('ai.b.v.newPace'), bLabel: t('ai.b.v.nowPace'), rows: cuts.map((c) => ({ label: c.name, a: Math.max(0, Math.round(c.pace - c.perDay)), b: Math.round(c.pace) })) });
-  return { text: lines.join('\n'), visuals, chips: [t('ai.b.chip.simple'), t('ai.b.chip.budget')] };
+  return { text, visuals, chips: [t('ai.b.chip.why'), t('ai.b.chip.simple'), t('ai.b.chip.budget')] };
 }
 
 /* ---------------- Hutang: "berapa hutang saya?", "ansuran bulan ni berapa?" ---------------- */

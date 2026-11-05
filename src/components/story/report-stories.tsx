@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { annualSlides } from '@/components/story/annual-wrapped';
 import { monthName, rm0, rm2, weekNo, dateText, type StoryCtx } from '@/components/story/story-common';

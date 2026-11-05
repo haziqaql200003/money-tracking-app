@@ -12,7 +12,7 @@
  * chat can ask the server AI (when signed in) or say it did not understand.
  */
 import { runTool, type AiData } from '../engine';
-import { budgetAction, detectBudgetSet, detectGoal, detectInstalment, detectRecurring, goalAction, instalmentAction, instalmentDraft, iouAction, monthsIn, recurringAction, validAction } from './actions';
+import { breakdownAction, budgetAction, tidyCase, detectBudgetSet, detectGoal, detectInstalment, detectRecurring, goalAction, instalmentAction, instalmentDraft, iouAction, monthsIn, recurringAction, validAction } from './actions';
 import { adviceSay } from './advice';
 import { affordSay, cashflowSay, debtsSay, detectAfford, detectCashflow, detectDebtQuestion, detectSaveTarget, detectScenario, detectTrend, monthsAsked, namedMonths, percentAsked, saveTargetSay, scenarioSay, trendSay, twoMonthsSay } from './analysis';
 import { coldCategory } from './cold-category';
@@ -20,6 +20,7 @@ import { classifyIntent, type Intent } from './intent';
 import { balanceSay, budgetSay, compareSay, findSay, forecastSay, habitsSay, rm, transfersSay, whenArgs, whereSay, type Say, type Translate, type When } from './reply';
 import {
   cleanTitle,
+  dateIn,
   findAccounts,
   findAmounts,
   findCategoryHint,
@@ -48,13 +49,17 @@ export const MIN_CONFIDENCE = 0.55;
 
 /** Words that clearly mean "move money". "topup" and "isi" only count when an account is named (topup prepaid is a purchase). */
 const TRANSFER_CUE = /\b(pindah|pindahkan|transfer|withdraw|deposit|tarik (?:duit|wang|tunai|cash|rm|\d))/i;
+/** "record expenses ...", "rekod belanja ...", "tajuk X": clearly a purchase, whatever words are in the name. */
+const EXPLICIT_EXPENSE = /\b(?:record|rekod|catat|add|tambah|log)\s+(?:an?\s+)?(?:expenses?|perbelanjaan|belanja)\b|\b(?:tajuk|title)\s+\S/i;
 const TOPUP_CUE = /\b(topup|top up|top-up|isi)\b/i;
 const ASKING = /\b(berapa|tunjuk|tunjukkan|senarai|show|list|history|sejarah|how|what|bila|when|semua|all)\b/i;
 /** "bulan lepas pula?", "what about last month", "makan pulak?" */
 const FOLLOW = /\b(pula|pulak|what about|how about|and for|macam mana dengan|camne dengan|bagaimana dengan|kalau)\b/i;
 /** "only the past 14 days", "sorry, not weeks but days", "actually last month" */
 const REFINE = /^\s*(only|just|hanya|cuma|not|bukan|sorry|maaf|i'?m sorry|im sorry|actually|sebenarnya|tapi|but|no|instead)\b/i;
-const WHY = /\b(kenapa|why|sebab|caused|punca)\b/i;
+const WHY = /\b(kenapa|mengapa|apasal|asal|why|how come|macam mana boleh|camne boleh|mcm mana boleh|sebab|caused|punca)\b/i;
+/** A question about the last answer: "apasal ada short RM18,230?", "why is it so high?" */
+const WHY_START = /^\s*(kenapa|mengapa|apasal|asal|why|how come|macam mana boleh|camne boleh|mcm mana boleh|apa sebab)\b/i;
 /** Questions about the pengguna's money that the brain answers again for a new period or category. */
 const REPEATABLE: Intent[] = ['where', 'compare', 'habits', 'budget', 'transfers_list', 'advice'];
 
@@ -95,6 +100,19 @@ function decide(raw: string, data: AiData, t: Translate, memory: Memory): BrainR
   if (memory.pending) {
     const done = continuePending(text, memory.pending, data, t);
     if (done) return done;
+  }
+
+  // A receipt typed line by line: one expense with its items.
+  if (text.includes('\n')) {
+    // "Update souqa pasta by adding this breakdown": items for a record that already exists, never a new expense.
+    const brk = breakdownAction(t, data, text);
+    if (brk) {
+      if ('ask' in brk) return say(t('ai.b.brk.ask'), { intent: 'expense', p: 1 });
+      if ('notFound' in brk) return say(t('ai.b.brk.notFound', { name: brk.notFound }), { intent: 'expense', p: 1 });
+      return say(t('ai.b.act.check'), { intent: 'expense', p: 1, actions: [brk.action] });
+    }
+    const receipt = receiptRecord(text, data, t);
+    if (receipt) return receipt;
   }
 
   // 2. A short follow-up about the last answer: "bulan lepas pula?", "makan pulak?", "only the past 14 days".
@@ -153,12 +171,16 @@ function decide(raw: string, data: AiData, t: Translate, memory: Memory): BrainR
     intent = 'find';
     p = Math.max(p, 0.8);
   }
-  if (moveCue && amounts.length > 0 && !ASKING.test(text) && intent !== 'transfer') {
+  // "Record expenses with tajuk Transfer to Syafiq": the pengguna said it is an expense; "transfer" is only part of the name.
+  if (EXPLICIT_EXPENSE.test(text) && amounts.length > 0 && !ASKING.test(text.replace(EXPLICIT_EXPENSE, ' '))) {
+    intent = 'expense';
+    p = 1;
+  } else if (moveCue && amounts.length > 0 && !ASKING.test(text) && intent !== 'transfer') {
     intent = 'transfer';
     p = Math.max(p, 0.7);
   }
   // "kenapa?" alone right after an answer is about that answer.
-  if (last && words <= 3 && WHY.test(text)) {
+  if (last && (words <= 3 || WHY_START.test(text)) && WHY.test(text) && !TRANSFER_CUE.test(text)) {
     intent = 'explain';
     p = Math.max(p, 0.9);
   }
@@ -197,28 +219,217 @@ function decide(raw: string, data: AiData, t: Translate, memory: Memory): BrainR
 
 /* ---------------- recording ---------------- */
 
-function category(title: string, kind: 'expense' | 'income', data: AiData) {
+function category(title: string, kind: 'expense' | 'income', data: AiData, min = 0.35) {
   const g = title ? coldCategory(title, kind) : null;
-  if (!g || g.p < 0.35) return {};
+  if (!g || g.p < min) return {};
   const c = data.categories.find((x) => x.id === g.categoryId && x.kind === kind);
   return c ? { category_id: c.id, subcategory: g.subcategory } : {};
+}
+
+/** Words in a receipt's first line that are not the shop name ("Track expenses yesterday X with details below:"). */
+const HEADER_NOISE =
+  /\b(track|tracking|record|rekod|catat|add|tambah|log|expenses?|perbelanjaan|belanja|yesterday|semalam|today|hari ini|tadi|with|dengan|the|details?|butiran|below|bawah|berikut|seperti|as follows|like this|macam ni|kat|at|di|for|untuk|item|items|receipt|resit)\b/gi;
+const DEBT_LINE = /\b(hutang|debt|owe|owes|pinjam|belanja dia|for him|for her|untuk dia)\b/i;
+
+/** "Record expenses Transfer to Danisha RM 10 with details as follows". */
+const LEAD = /^\s*(?:please\s+|tolong\s+)?(?:(?:record|rekod|catat|add|tambah|log)\s+(?:an?\s+)?(?:expenses?|perbelanjaan|belanja)\s*)?(?:(?:with|dengan)\s+)?(?:(?:tajuk|title)\s+)?/i;
+const HAS_RM = /\b(?:rm|myr)\s*\d|\d\s*(?:rm|myr|ringgit)\b/i;
+/** "Transfer to Danisha": money handed to a person is not a bank fee. */
+const PERSON_TRANSFER = /^\s*(?:transfer|tf|bank ?in)\s+(?:to|kat|kepada|ke)\s+\p{L}/iu;
+
+/** "Baki 1 x mineral water", "SST and tax": the words that describe the rest of a total. A date or an account line is not part of it. */
+const REST_CUE = /^\s*(?:baki(?:nya)?|selebihnya|sisanya|the rest|rest|remaining|remainder|balance|lain-lain)\b[\s:–-]*/i;
+function restLabel(line: string, data: AiData): string {
+  let l = line;
+  const d = dateIn(l, data.todayKey);
+  if (d) l = l.replace(d.match, ' ');
+  l = l.replace(/\b(?:today|yesterday|semalam|tadi|kelmarin|hari ini)\b/gi, ' ');
+  for (const a of [...findAccounts(l, data)].sort((x, y) => y.start - x.start)) l = `${l.slice(0, a.start)} ${l.slice(a.end)}`;
+  l = l.replace(/\s+/g, ' ').trim();
+  if (!l) return '';
+  const q = l.match(/^(\d+)\s*[x×]\s*/i);
+  const body = q ? l.slice(q[0].length) : l;
+  return `${q ? `${q[1]}x ` : ''}${tidyCase(body)}`;
+}
+
+/**
+ * The total is on the first line and the items are listed below it:
+ *   Record expenses Transfer to Danisha RM 10 with details as follows
+ *   Duit MyLabourHub (Nov) rm 5
+ *   Duit MyLabourHub (Dec) rm 5
+ *   This was made on 3 nov 2026
+ * becomes ONE expense (RM10) with 2 line items. Only when the items really add up to the total.
+ */
+function totalFirstRecord(text: string, lines: string[], data: AiData, t: Translate): BrainAnswer | null {
+  const head = lines[0];
+  const hh = pickAmount(findAmounts(head), head);
+  if (!hh || hh.value <= 0) return null;
+  const rows = lines
+    .slice(1)
+    .filter((l) => HAS_RM.test(l))
+    .map((l) => ({ l, hit: pickAmount(findAmounts(l), l) }))
+    .filter((r) => r.hit && r.hit.value > 0 && !DEBT_LINE.test(r.l));
+  // "Baki 1 x mineral water / SST and tax": the rest of the total, described but not priced.
+  const restAt = lines.slice(1).findIndex((l) => REST_CUE.test(l) && !HAS_RM.test(l));
+  let restItem: { label: string; amount: number } | null = null;
+  if (restAt >= 0 && rows.length >= 1) {
+    const left = Math.round((hh.value - rows.reduce((sum, r) => sum + r.hit!.value, 0)) * 100) / 100;
+    const label = lines
+      .slice(1 + restAt)
+      .filter((l) => !HAS_RM.test(l))
+      .map((l) => restLabel(l.replace(REST_CUE, ''), data))
+      .filter(Boolean)
+      .join(', ')
+      .slice(0, 60);
+    if (left > 0.005 && label) restItem = { label, amount: left };
+  }
+  if (rows.length + (restItem ? 1 : 0) < 2) return null;
+  const lineItems: { label: string; amount: number }[] = rows.map((r) => {
+    const raw = `${r.l.slice(0, r.hit!.start)} ${r.l.slice(r.hit!.end)}`.replace(/^[\s•*-]+/, '').replace(/\s+/g, ' ').trim();
+    const q = raw.match(/^(\d+)\s*[x×]\s*/i);
+    return { label: `${q ? `${q[1]}x ` : ''}${tidyCase(q ? raw.slice(q[0].length) : raw)}`.slice(0, 60), amount: r.hit!.value };
+  });
+  if (restItem) lineItems.push(restItem);
+  const total = Math.round(lineItems.reduce((sum, x) => sum + x.amount, 0) * 100) / 100;
+  const adds = Math.abs(total - hh.value) <= 0.05;
+  const title = tidyCase(
+    `${head.slice(0, hh.start)} ${head.slice(hh.end)}`
+      .replace(/\b(?:with|dengan)?\s*(?:details?|butiran|as follows|seperti berikut|berikut)\b.*$/i, ' ')
+      .replace(LEAD, '')
+      .replace(/[\s:–,-]+$/, ''),
+  ).slice(0, 60);
+  if (!title) return null;
+  const items = adds ? lineItems : [];
+  const accounts = findAccounts(text, data);
+  const res = runTool(
+    'propose_transactions',
+    { items: [{ title, amount: hh.value, type: 'expense', account_id: accounts[0]?.id, date: findDate(text, data.todayKey), line_items: items, ...categoryWithDetails(title, '', title, 'expense', data) }] },
+    data,
+  );
+  if (!res.proposals?.length) return null;
+  const first = adds ? t('ai.b.rcpt.single', { title, n: items.length, total: rm(hh.value) }) : t('ai.b.rcpt.mismatch', { sum: rm(total), total: rm(hh.value) });
+  return say(first, { intent: 'expense', p: 1, proposals: res.proposals });
+}
+
+/**
+ * A receipt typed over several lines: a first line naming the shop, then one line per item with its price.
+ *   Track expenses yesterday Nasi Kerabu Pokdie with details below:
+ *   2x Nasi Kerabu Daging RM 10
+ *   2x Telur Masin RM2
+ *   From maybank
+ * becomes ONE expense (the total) with its line items, not one record per line.
+ */
+function receiptRecord(text: string, data: AiData, t: Translate): BrainAnswer | null {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 3 || data.accounts.length === 0) return null;
+  if (pickAmount(findAmounts(lines[0]), lines[0])) return totalFirstRecord(text, lines, data, t);
+  const rows = lines.map((l) => ({ l, hit: pickAmount(findAmounts(l), l) }));
+  const head = rows[0];
+  if (head.hit) return null;
+  const items = rows.slice(1).filter((r) => r.hit && r.hit.value > 0 && !DEBT_LINE.test(r.l));
+  if (items.length < 2 && !(items.length === 1 && /[:：]\s*$/.test(head.l))) return null;
+  const title = cleanTitle(head.l.replace(HEADER_NOISE, ' ').replace(/[:：]/g, ' '), []) || cleanTitle(items[0].l, [items[0].hit!]);
+  const lineItems = items.map((r) => {
+    const label = `${r.l.slice(0, r.hit!.start)} ${r.l.slice(r.hit!.end)}`.replace(/^[\s•*-]+/, '').replace(/\s+/g, ' ').trim();
+    return { label: label || title, amount: r.hit!.value };
+  });
+  const total = Math.round(lineItems.reduce((sum, x) => sum + x.amount, 0) * 100) / 100;
+  const accounts = findAccounts(text, data);
+  const res = runTool(
+    'propose_transactions',
+    { items: [{ title, amount: total, type: 'expense', account_id: accounts[0]?.id, date: findDate(text, data.todayKey), line_items: lineItems, ...category(title, 'expense', data) }] },
+    data,
+  );
+  if (!res.proposals?.length) return null;
+  // A line about someone else's share ("bayar sekali hutang Ahmad RM20"): an IOU card when it has an amount.
+  const notes: string[] = [];
+  const actions: BrainAnswer['actions'] = [];
+  for (const r of rows.slice(1).filter((x) => DEBT_LINE.test(x.l))) {
+    if (!r.hit || r.hit.value <= 0) {
+      notes.push(t('ai.b.rcpt.debtSkipped', { line: r.l }));
+      continue;
+    }
+    const person = r.l.match(/\b(?:dengan|untuk|for|kat|dekat|with)\s+([A-Za-z][\w'-]{1,20})/)?.[1];
+    const iou = iouAction(t, data, r.l) ?? (person ? iouAction(t, data, `${person} hutang saya rm${r.hit.value}`) : null);
+    if (iou && validAction(iou)) actions.push(iou);
+    else notes.push(t('ai.b.rcpt.debtSkipped', { line: r.l }));
+  }
+  const text2 = [t('ai.b.rcpt.single', { title, n: lineItems.length, total: rm(total) }), ...notes].join('\n');
+  return say(text2, { intent: 'expense', p: 1, proposals: res.proposals, actions });
+}
+
+/** "... with details nasi kuah dan telur mata", "dengan butiran ...", "including ...". */
+const DETAILS_CUE = /[\s,;:-]*\b(?:(?:with|dengan)\s+)?(?:details?|butiran|including|termasuk|iaitu|remarks?|catatan|nota|notes?)\b\s*[:-]?\s*(.+)$/is;
+/** "tajuk Transfer to Syafiq RM 28": a title the pengguna gave. It is kept as written (only the capital letters are tidied). */
+const TITLE_CUE = /\b(?:tajuk|title)\s+(.+?)(?=\s+(?:rm|myr)\s*\d|\s+\d|\s+(?:with|dengan)\s+(?:details?|butiran|remarks?|catatan|nota|notes?)\b|\s+(?:on|pada|tarikh|today|hari ini|semalam|yesterday)\b|$)/i;
+
+/**
+ * The category of one record. When the pengguna gave remarks ("duit bowling", "nasi kuah dan telur mata"), what the money was FOR
+ * decides the category (a title like "Transfer to Syafiq" says nothing). A meal word in the title ("Lunch") still picks that sub-category.
+ */
+function categoryWithDetails(base: string, details: string, title: string, kind: 'expense' | 'income', data: AiData) {
+  const fromDetails = details ? category(details, kind, data, 0.5) : {};
+  if (!('category_id' in fromDetails)) return PERSON_TRANSFER.test(title) && kind === 'expense' ? { category_id: 'other', subcategory: 'Other' } : category(title, kind, data);
+  const cat = data.categories.find((c) => c.id === fromDetails.category_id);
+  const word = cat?.subcategories.find((s) => base && new RegExp(`\\b${s.replace(/[^\w ]/g, '')}\\b`, 'i').test(base));
+  return word ? { ...fromDetails, subcategory: word } : fromDetails;
+}
+
+/**
+ * The words after "with details": "nasi kuah dan telur mata", "1x Air A&W", "duit bowling on 30 oct 2026".
+ * Lines that only hold a date or an account ("4 nov 2026", "Maybank") are not details. Returns null when a line has a price
+ * (then the pengguna listed separate items, which other rules handle).
+ */
+function parseDetails(raw: string, data: AiData): string | null {
+  const out: string[] = [];
+  for (const line0 of raw.replace(/\b(?:as follows|seperti berikut|berikut|below|bawah)\b/gi, ' ').split(/\n+/)) {
+    let line = line0;
+    const d = dateIn(line, data.todayKey);
+    if (d) line = line.replace(d.match, ' ');
+    line = line.replace(/\s+(?:on|pada|pd|dari|from|kat|guna|using|via|today|hari ini|semalam|yesterday|tadi)\b.*$/i, ' ');
+    if (findAmounts(line).length > 0) return null;
+    for (const seg of line.split(/,|;|\s&\s|\+|\b(?:dan|and)\b/i)) {
+      const clean = cleanTitle(seg, findAccounts(seg, data)).replace(/^1\s*x\s+/i, '');
+      if (!clean) continue;
+      const trimmed = seg.trim();
+      out.push(trimmed === trimmed.toLowerCase() || trimmed === trimmed.toUpperCase() ? tidyCase(clean.toLowerCase()) : clean);
+    }
+  }
+  return out.join(', ');
 }
 
 function recordItems(text: string, intent: 'expense' | 'income', p: number, data: AiData, t: Translate): BrainAnswer {
   if (data.accounts.length === 0) return say(t('ai.b.noAccount'), { intent, p });
   const date = findDate(text, data.todayKey);
   const allAccounts = [...new Set(findAccounts(text, data).map((a) => a.id))];
-  const parts = splitItems(text).map((seg) => ({ seg, amounts: findAmounts(seg) }));
+  // "Lunch RM3.50 with details nasi kuah dan telur mata": one price, then what it was. The details go in the title, not into extra records.
+  let main = text;
+  let details = '';
+  const dm = text.match(DETAILS_CUE);
+  if (dm && dm.index !== undefined && findAmounts(text.slice(0, dm.index)).length === 1) {
+    const found = parseDetails(dm[1], data);
+    if (found !== null) {
+      main = text.slice(0, dm.index);
+      details = found;
+    }
+  }
+  if (main.includes('\n')) {
+    const priced = main.split(/\n+/).filter((l) => HAS_RM.test(l));
+    if (priced.length >= 1) main = priced.join('\n');
+  }
+  const parts = splitItems(main).map((seg) => ({ seg, amounts: findAmounts(seg) }));
   const priced = parts.filter((x) => x.amounts.length > 0);
   // "beli ayam dan sayur 32" is ONE item with two words, not two items.
-  const pieces = priced.length <= 1 ? [{ seg: text, amounts: findAmounts(text) }] : priced;
+  const pieces = priced.length <= 1 ? [{ seg: main, amounts: findAmounts(main) }] : priced;
 
   const items: Record<string, unknown>[] = [];
   for (const piece of pieces) {
     const hit = pickAmount(piece.amounts, piece.seg);
     if (!hit) continue;
     const own = findAccounts(piece.seg, data);
-    const title = cleanTitle(piece.seg, [hit, ...own]);
+    const given = pieces.length === 1 ? main.match(TITLE_CUE)?.[1]?.trim() : undefined;
+    const base = given ? tidyCase(given) : tidyCase(cleanTitle(piece.seg, [hit, ...own]));
+    const title = details && pieces.length === 1 ? (base ? `${base} (${details})` : details) : base;
     if (!title && pieces.length === 1) {
       const acc = own[0]?.id ?? (allAccounts.length === 1 ? allAccounts[0] : undefined);
       return say(t('ai.b.askTitle', { amount: rm(hit.value) }), { intent, p, pending: { kind: 'tx', type: intent, title: '', amount: hit.value, accountId: acc, date } });
@@ -229,7 +440,7 @@ function recordItems(text: string, intent: 'expense' | 'income', p: number, data
       type: intent,
       account_id: own[0]?.id ?? (allAccounts.length === 1 ? allAccounts[0] : undefined),
       date,
-      ...category(title, intent, data),
+      ...categoryWithDetails(base, details && pieces.length === 1 ? details : '', title, intent, data),
     });
   }
 
@@ -389,7 +600,7 @@ function deepQuestion(text: string, data: AiData, t: Translate): BrainAnswer | n
     if (a) return a;
   }
   if (detectDebtQuestion(text) && !hasAmount) return out(debtsSay(t, data), 'balance', { intent: 'balance' });
-  if (hasAmount && !asking) {
+  if (hasAmount && !asking && !EXPLICIT_EXPENSE.test(text)) {
     const iou = act(iouAction(t, data, text), 'expense');
     if (iou) return iou;
     if (detectBudgetSet(text)) {
@@ -401,7 +612,7 @@ function deepQuestion(text: string, data: AiData, t: Translate): BrainAnswer | n
   }
   if (detectSaveTarget(text) && hasAmount && !detectGoal(text.replace(/\btarget\b/gi, ''))) {
     const target = pickAmount(findAmounts(text), text)?.value;
-    if (target) return out(saveTargetSay(t, data, target), 'advice', { intent: 'advice' });
+    if (target) return out(saveTargetSay(t, data, target), 'advice', { intent: 'advice', target });
   }
   if (hasAmount && !asking && detectGoal(text)) {
     const a = act(goalAction(t, data, text), 'advice');
@@ -492,6 +703,7 @@ function runTopic(
       return done(transfersSay(t, runTool('list_transfers', whenArgs(when), data).response, when), topic);
     }
     case 'advice':
+      if (topic.target) return done(saveTargetSay(t, data, topic.target, { why: mode.why, simple: mode.simple }), topic);
       return done(adviceSay(t, data, { simple: mode.simple || mode.why, categoryId: cat?.id }), topic);
     default:
       return say(t('ai.b.unknown'), { intent, p });

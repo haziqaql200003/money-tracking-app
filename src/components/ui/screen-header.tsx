@@ -1,6 +1,7 @@
 import { usePathname, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { useIsDesktop } from '@/components/desktop/use-desktop';
 import { IconButton } from '@/components/ui/icon-button';

@@ -9,6 +9,7 @@ import { t } from '@/i18n';
  */
 export function accountKindLabel(a: { type: AccountType; typeLabel?: string | null; provider?: string | null }): string {
   if (a.typeLabel) return a.typeLabel;
+  // Older versions saved e-wallets as 'other'.
   if (a.type === 'other' && findBrand(a.provider)?.kind === 'ewallet') return t('acct.type.ewallet');
   return accountTypeLabel(a.type);
 }

@@ -1,0 +1,22 @@
+import { enAcct } from './acct';
+import { enAuth } from './auth';
+import { enCommon } from './common';
+import { enDebt } from './debt';
+import { enFc } from './fc';
+import { enHome } from './home';
+import { enImp } from './imp';
+import { enMore } from './more';
+import { enPlan } from './plan';
+import { enOb } from './ob';
+import { enRpt } from './rpt';
+import { enAlloc } from './alloc';
+import { enCal } from './cal';
+import { enFb } from './fb';
+import { enMrep } from './mrep';
+import { enTax } from './tax';
+import { enTx } from './tx';
+import { enScan } from './scan';
+import { enInbox } from './inbox';
+import { enAi } from './ai';
+
+export const en = { ...enCommon, ...enAuth, ...enHome, ...enTx, ...enAcct, ...enPlan, ...enMore, ...enImp, ...enDebt, ...enFc, ...enRpt, ...enOb, ...enTax, ...enCal, ...enAlloc, ...enMrep, ...enFb, ...enScan, ...enInbox, ...enAi };

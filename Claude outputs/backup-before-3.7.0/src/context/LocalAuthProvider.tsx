@@ -1,0 +1,227 @@
+/**
+ * LOCAL sign-in (used when Supabase is not configured).
+ * - Accounts are kept in this phone's AsyncStorage. Passwords are hashed (SHA-256 + salt).
+ * - NOT a real login: nothing leaves the phone, so there is no recovery and no sync.
+ */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+
+import { CARD_COLORS } from '@/constants/card-styles';
+import { setLanguage, t } from '@/i18n';
+import { loadJSON, removeUserData, saveJSON } from '@/services/storage';
+
+import {
+  AuthContext,
+  normEmail,
+  normUsername,
+  passwordOk,
+  notCloud,
+  validateSignUp,
+  validateUsername,
+  type AuthContextValue,
+  type AuthUser,
+  type Language,
+  type ProfilePatch,
+  type StoredUser,
+} from './auth-shared';
+
+export const USERS_KEY = 'auth:users';
+export const SESSION_KEY = 'auth:session';
+export const LANGUAGE_KEY = 'app:language';
+
+export const hashPassword = (salt: string, password: string) =>
+  Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
+
+export function LocalAuthProvider({ children }: { children: ReactNode }) {
+  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // The last language used on this phone, so the sign-in screens already speak it.
+    loadJSON<Language>(LANGUAGE_KEY).then((saved) => {
+      if (saved === 'ms' || saved === 'en') setLanguage(saved);
+    });
+    Promise.all([AsyncStorage.getItem(USERS_KEY), AsyncStorage.getItem(SESSION_KEY)])
+      .then(([u, s]) => {
+        if (u) setUsers(JSON.parse(u));
+        if (s) setSessionId(s);
+      })
+      .catch(() => {})
+      .finally(() => setIsReady(true));
+  }, []);
+
+  const persistUsers = useCallback((next: StoredUser[]) => {
+    setUsers(next);
+    AsyncStorage.setItem(USERS_KEY, JSON.stringify(next)).catch(() => {});
+  }, []);
+
+  const startSession = useCallback((id: string) => {
+    setSessionId(id);
+    AsyncStorage.setItem(SESSION_KEY, id).catch(() => {});
+  }, []);
+
+  const signUp = useCallback<AuthContextValue['signUp']>(
+    async (input) => {
+      const invalid = validateSignUp(input);
+      if (invalid) return { ok: false, error: invalid };
+      const e = normEmail(input.email);
+      if (users.some((u) => u.email === e)) return { ok: false, error: t('auth.error.emailTaken') };
+      const wanted = input.username?.trim() ? normUsername(input.username) : '';
+      if (wanted && users.some((u) => u.username === wanted)) return { ok: false, error: t('auth.error.usernameTaken') };
+
+      const salt = Crypto.randomUUID();
+      const stored: StoredUser = {
+        id: Crypto.randomUUID(),
+        email: e,
+        salt,
+        passwordHash: await hashPassword(salt, input.password),
+        displayName: input.displayName.trim(),
+        ...(input.fullName?.trim() ? { fullName: input.fullName.trim() } : {}),
+        ...(wanted ? { username: wanted } : {}),
+        avatarColor: CARD_COLORS[0],
+        language: input.language,
+        hasOnboarded: false,
+        consentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      persistUsers([...users, stored]);
+      startSession(stored.id);
+      return { ok: true };
+    },
+    [users, persistUsers, startSession],
+  );
+
+  const signIn = useCallback<AuthContextValue['signIn']>(
+    async (identifier, password) => {
+      const key = identifier.includes('@') ? normEmail(identifier) : normUsername(identifier);
+      const found = users.find((u) => (identifier.includes('@') ? u.email === key : u.username === key));
+      const bad = { ok: false, error: t('auth.error.badCredentials') } as const;
+      if (!found) return bad;
+      if ((await hashPassword(found.salt, password)) !== found.passwordHash) return bad;
+      startSession(found.id);
+      return { ok: true };
+    },
+    [users, startSession],
+  );
+
+  const usernameAvailable = useCallback<AuthContextValue['usernameAvailable']>(
+    async (raw) => {
+      const u = normUsername(raw);
+      return !validateUsername(u) && !users.some((x) => x.username === u && x.id !== sessionId);
+    },
+    [users, sessionId],
+  );
+
+  const setUsername = useCallback<AuthContextValue['setUsername']>(
+    async (raw) => {
+      if (!sessionId) return { ok: false, error: t('auth.error.generic') };
+      const u = normUsername(raw);
+      if (u) {
+        const bad = validateUsername(u);
+        if (bad) return { ok: false, error: bad };
+        if (users.some((x) => x.username === u && x.id !== sessionId)) return { ok: false, error: t('auth.error.usernameTaken') };
+      }
+      persistUsers(users.map((x) => (x.id === sessionId ? { ...x, username: u || undefined } : x)));
+      return { ok: true };
+    },
+    [sessionId, users, persistUsers],
+  );
+
+  const signOut = useCallback(() => {
+    setSessionId(null);
+    AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+  }, []);
+
+  const updateProfile = useCallback(
+    (patch: ProfilePatch) => {
+      if (!sessionId) return;
+      persistUsers(users.map((u) => (u.id === sessionId ? { ...u, ...patch } : u)));
+    },
+    [sessionId, users, persistUsers],
+  );
+
+  const deleteAccount = useCallback<AuthContextValue['deleteAccount']>(async () => {
+    if (!sessionId) return { ok: true };
+    const id = sessionId;
+    signOut();
+    persistUsers(users.filter((u) => u.id !== id));
+    await removeUserData(id);
+    return { ok: true };
+  }, [sessionId, users, signOut, persistUsers]);
+
+  const changePassword = useCallback<AuthContextValue['changePassword']>(
+    async (current, next) => {
+      const me = users.find((u) => u.id === sessionId);
+      if (!me) return { ok: false, error: t('auth.error.generic') };
+      if (!passwordOk(next)) return { ok: false, error: t('auth.error.passwordWeak') };
+      if ((await hashPassword(me.salt, current)) !== me.passwordHash) return { ok: false, error: t('more.security.pw.wrongCurrent') };
+      if (current === next) return { ok: false, error: t('auth.error.samePassword') };
+      const salt = Crypto.randomUUID();
+      const passwordHash = await hashPassword(salt, next);
+      persistUsers(users.map((u) => (u.id === me.id ? { ...u, salt, passwordHash } : u)));
+      return { ok: true };
+    },
+    [users, sessionId, persistUsers],
+  );
+
+  const verifyPassword = useCallback<AuthContextValue['verifyPassword']>(
+    async (password) => {
+      const me = users.find((u) => u.id === sessionId);
+      return !!me && (await hashPassword(me.salt, password)) === me.passwordHash;
+    },
+    [users, sessionId],
+  );
+
+  const user = useMemo<AuthUser | null>(() => {
+    const s = users.find((u) => u.id === sessionId);
+    if (!s) return null;
+    const { passwordHash: _h, salt: _s, ...safe } = s;
+    return safe;
+  }, [users, sessionId]);
+
+  // The signed-in user's language wins, and is remembered for the sign-in screens.
+  const userLanguage = user?.language;
+  useEffect(() => {
+    if (!userLanguage) return;
+    setLanguage(userLanguage);
+    saveJSON(LANGUAGE_KEY, userLanguage);
+  }, [userLanguage]);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      isReady,
+      cloud: false,
+      signUp,
+      signIn,
+      setUsername,
+      usernameAvailable,
+      signOut,
+      updateProfile,
+      deleteAccount,
+      changePassword,
+      verifyPassword,
+      signOutOthers: async () => notCloud,
+      signInWithProvider: async () => notCloud,
+      linkProvider: async () => notCloud,
+      unlinkProvider: async () => notCloud,
+      getLogins: async () => [],
+      hasPassword: async () => true,
+      acceptConsent: async () => ({ ok: true }),
+      verifyCode: async () => notCloud,
+      resendCode: async () => notCloud,
+      requestPasswordReset: async () => notCloud,
+      resetPassword: async () => notCloud,
+      syncNow: async () => true,
+      legacyAccounts: [],
+      migrationPending: false,
+      importLegacy: async () => notCloud,
+      skipImport: () => {},
+    }),
+    [user, isReady, signUp, signIn, setUsername, usernameAvailable, signOut, updateProfile, deleteAccount, changePassword, verifyPassword],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

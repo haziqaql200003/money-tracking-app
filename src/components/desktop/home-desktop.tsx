@@ -1,5 +1,6 @@
 import { useRouter, type Href } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 import { HomeUpcoming } from '@/components/home/home-upcoming';
 import { PendingBanner } from '@/components/transactions/pending-banner';

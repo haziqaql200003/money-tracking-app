@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useT } from '@/i18n';
 import { ACCENT_PRESETS, hexToHsl, hslToHex } from './palette';

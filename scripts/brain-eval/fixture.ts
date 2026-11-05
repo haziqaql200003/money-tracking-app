@@ -22,7 +22,7 @@ function key(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-export function makeData(opts: { empty?: boolean } = {}): AiData {
+export function makeData(opts: { empty?: boolean; bigSpend?: boolean; souqa?: boolean } = {}): AiData {
   const tx: Transaction[] = [];
   const transfers: Transfer[] = [];
   if (!opts.empty) {
@@ -48,6 +48,8 @@ export function makeData(opts: { empty?: boolean } = {}): AiData {
       if (day === 8) add(k, 'Netflix', 17, 'subscriptions', 'Netflix', 'a1');
       if (day === 9) add(k, 'Spotify', 15.9, 'subscriptions', 'Spotify', 'a1');
       if (day === 12) add(k, 'Shopee', recent ? 180 : 70, 'shopping', 'Online Shopping', 'a1');
+      if (opts.bigSpend && i === 3) add(k, 'Deposit kereta', 20000, 'transport', 'Car Maintenance', 'a1');
+      if (opts.souqa && i === 2) add(k, 'Souqa Pasta', 67.6, 'food', 'Restaurant / Dining', 'a1');
       if (day === 26) transfers.push({ id: `x${i}`, fromAccountId: 'a1', toAccountId: 'a4', amount: 300, date: k } as Transfer);
     }
   }

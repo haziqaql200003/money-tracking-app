@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmountInput } from '@/components/ui/amount-input';

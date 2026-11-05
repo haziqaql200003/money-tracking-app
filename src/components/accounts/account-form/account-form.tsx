@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { TextInput } from '@/components/ui/text';
 
 import { AccountCard } from '@/components/accounts/account-card';
 import { BrandAvatar } from '@/components/ui/brand-avatar';
@@ -10,7 +11,7 @@ import { SheetHeader } from '@/components/ui/sheet-header';
 import { DEFAULT_ACCOUNT_ICON } from '@/constants/accounts';
 import { findBrand } from '@/constants/brands';
 import type { IconName } from '@/constants/categories';
-import { CARD_COLORS, DEFAULT_COLOR, DEFAULT_DESIGN, normalizeDesign, type CardDesign } from '@/constants/card-styles';
+import { CARD_COLORS, DEFAULT_COLOR, DEFAULT_DESIGN, isTitaniumSeries, normalizeDesign, normalizeFinish, type CardDesign, type TitaniumFinish } from '@/constants/card-styles';
 import { Spacing } from '@/constants/theme';
 import type { Account, AccountType } from '@/context/TransactionsContext';
 import { ADJUSTMENT_WINDOW_MS, useTransactions } from '@/context/TransactionsContext';
@@ -30,6 +31,13 @@ import { LookSection } from './look-section';
 import { ProviderPicker, type ProviderChoice } from './provider-picker';
 import { styles } from './styles';
 import { TypePicker } from './type-picker';
+
+/** The type a provider suggests: banks are bank accounts, e-wallets are e-wallets, anything else is "other". */
+function typeForBrand(kind: string): AccountType {
+  if (kind === 'bank') return 'bank';
+  if (kind === 'ewallet') return 'ewallet';
+  return 'other';
+}
 
 type Props = {
   onClose: () => void;
@@ -57,7 +65,7 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
   const isEditing = !!editingAccount;
   const editColor = editingAccount ? editingAccount.color ?? DEFAULT_COLOR[editingAccount.type] ?? DEFAULT_COLOR.other : null;
   const startBrand = !editingAccount && initialProvider ? findBrand(initialProvider) : undefined;
-  const startType: AccountType = startBrand ? (startBrand.kind === 'bank' ? 'bank' : 'other') : initialProvider ? 'other' : 'bank';
+  const startType: AccountType = startBrand ? typeForBrand(startBrand.kind) : initialProvider ? 'other' : 'bank';
 
   const [step, setStep] = useState<Step>(isEditing ? 'edit' : initialProvider ? 1 : 0);
   const [name, setName] = useState(editingAccount ? accountName(editingAccount) : '');
@@ -65,6 +73,8 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
   const [customTypes, setCustomTypes] = usePersistedState<CustomType[]>('account-custom-types', [], user?.id ?? null);
   const [type, setType] = useState<AccountType>(editingAccount ? editingAccount.type : startType);
   const [typeLabel, setTypeLabel] = useState<string | null>(editingAccount?.typeLabel ?? null);
+  // Once the person picks a type themselves (Savings, say), choosing a provider afterwards no longer changes it.
+  const [typeTouched, setTypeTouched] = useState(isEditing);
   const [provider, setProvider] = useState(editingAccount?.provider ?? initialProvider ?? '');
   const [typingProvider, setTypingProvider] = useState(false);
   const [last4, setLast4] = useState(editingAccount?.last4 ?? '');
@@ -73,6 +83,7 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
   const [adjustZero, setAdjustZero] = useState(false);
   const [adjustNote, setAdjustNote] = useState('');
   const [design, setDesign] = useState<CardDesign>(editingAccount ? normalizeDesign(editingAccount.design) : DEFAULT_DESIGN);
+  const [finish, setFinish] = useState<TitaniumFinish>(normalizeFinish(editingAccount?.finish));
   const [color, setColor] = useState(editColor ?? startBrand?.color ?? DEFAULT_COLOR[startType]);
   const [colorTouched, setColorTouched] = useState(isEditing);
   const [icon, setIcon] = useState<IconName>(editingAccount ? editingAccount.icon : startBrand?.kind === 'ewallet' ? 'phone-portrait' : DEFAULT_ACCOUNT_ICON[startType]);
@@ -101,6 +112,7 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
   function selectType(next: AccountType) {
     setType(next);
     setTypeLabel(null);
+    setTypeTouched(true);
     if (!colorTouched && !brand) setColor(DEFAULT_COLOR[next]);
     if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[next]);
   }
@@ -108,6 +120,7 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
   function selectCustomType(label: string) {
     setType('other');
     setTypeLabel(label);
+    setTypeTouched(true);
     if (!colorTouched && !brand) setColor(DEFAULT_COLOR.other);
     if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON.other);
   }
@@ -117,27 +130,29 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
     setTypingProvider(false);
     if (choice.kind === 'brand') {
       const b = choice.brand;
-      const nextType: AccountType = b.kind === 'bank' ? 'bank' : 'other';
+      // A type the person already chose stays: "Simpanan" then "Maybank" is a Maybank savings account.
+      const nextType: AccountType = typeTouched ? type : typeForBrand(b.kind);
       setProvider(b.name);
-      if (!isEditing) {
+      if (!isEditing && !typeTouched) {
         setType(nextType);
         setTypeLabel(null);
       }
       if (!colorTouched) setColor(b.color);
-      if (!iconTouched) setIcon(b.kind === 'ewallet' ? 'phone-portrait' : DEFAULT_ACCOUNT_ICON.bank);
-      if (!nameTouched) setName(b.name);
+      if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[nextType]);
+      if (!nameTouched) setName(nextType === 'savings' ? `${b.name} ${t('acct.type.savings')}` : b.name);
     } else if (choice.kind === 'cash' || choice.kind === 'savings') {
       const nextType: AccountType = choice.kind;
       setProvider('');
       setType(nextType);
       setTypeLabel(null);
+      setTypeTouched(true);
       if (!colorTouched) setColor(DEFAULT_COLOR[nextType]);
       if (!iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[nextType]);
       if (!nameTouched) setName(t(nextType === 'cash' ? 'acct.type.cash' : 'acct.type.savings'));
     } else {
       setProvider(choice.name);
       if (!choice.name) setTypingProvider(true);
-      if (!isEditing) {
+      if (!isEditing && !typeTouched) {
         setType('other');
         setTypeLabel(null);
       }
@@ -168,6 +183,8 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
       icon,
       color,
       design,
+      // Only the Titanium Metallic series keeps a finish.
+      finish: isTitaniumSeries(design) ? finish : undefined,
       provider: showBankFields ? providerName || undefined : undefined,
       last4: showBankFields ? last4 || undefined : undefined,
     };
@@ -309,7 +326,9 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
       spending={0}
       color={color}
       design={design}
+      finish={finish}
       last4={showBankFields && last4.length === 4 ? last4 : undefined}
+      provider={showBankFields ? providerName || undefined : undefined}
     />
   );
 
@@ -426,6 +445,8 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
             <LookSection
               design={design}
               setDesign={setDesign}
+              finish={finish}
+              setFinish={setFinish}
               color={color}
               pickColor={pickColor}
               icon={icon}
@@ -481,6 +502,8 @@ export function AccountForm({ onClose, editingAccount, onOpenAdjustments, initia
             <LookSection
               design={design}
               setDesign={setDesign}
+              finish={finish}
+              setFinish={setFinish}
               color={color}
               pickColor={pickColor}
               icon={icon}

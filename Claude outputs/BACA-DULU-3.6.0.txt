@@ -1,0 +1,30 @@
+WaKira 3.6.0 - Card themes + Spectrum and Titanium Metallic series
+Already applied in the project folder. Originals are in: Claude outputs/backup-before-themes-3.6.0/
+
+NEW files
+  src/constants/app-themes.ts               10 premium themes (dark palettes, light-mode accent), themeForCard()
+  src/context/app-theme-core.ts             theme context object (read by useTheme)
+  src/context/AppThemeContext.tsx           AppThemeProvider: applies the theme of the card picked in Settings
+  src/components/cards/SpectrumCard.tsx     Spectrum Classic / Pulse / Cyber / Neon
+  src/components/cards/TitaniumSeriesCard.tsx  Titanium Contour / Flux / Reserve / Deco, 5 finishes, no chip
+
+CHANGED files
+  src/constants/card-styles.ts              new design ids, finishes, retired designs -> Titanium Contour Graphite, contrast helpers
+  src/hooks/use-theme.ts                    returns the themed palette (all 142 screens follow automatically)
+  src/context/SettingsContext.tsx           themeCard setting (per user, synced with other settings)
+  src/context/TransactionsContext.tsx       Account.finish (optional)
+  src/app/_layout.tsx                       AppThemeProvider inside TransactionsProvider
+  src/app/(app)/more/settings.tsx           Settings > Card theme section
+  src/components/cards/index.ts             exports new cards
+  src/components/cards/thumbs.tsx           picker previews for the new cards
+  src/components/accounts/account-card.tsx  renders every premium design, passes finish
+  src/components/accounts/account-form/account-form.tsx   finish state + saved with the account
+  src/components/accounts/account-form/look-section.tsx   finish picker for the Titanium series
+  src/components/accounts/balance-carousel.tsx            passes finish to cards
+  src/components/home/spending-chart.tsx    chart colours follow the theme (usePeriodColor)
+  src/components/home/spending-overview.tsx uses usePeriodColor
+  src/components/transactions/transaction-row.tsx  uses useTheme instead of fixed Colors
+  src/i18n/en/acct.ts, src/i18n/ms/acct.ts  finish labels
+  src/i18n/en/more.ts, src/i18n/ms/more.ts  Card theme labels
+  src/constants/changelog.ts                3.6.0 entry (bilingual)
+  package.json, app.json                    version 3.6.0

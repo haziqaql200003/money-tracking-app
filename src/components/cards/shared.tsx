@@ -1,12 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Animated, Easing, Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
+import { Text } from '@/components/ui/text';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { useT } from '@/i18n';
 import { fitFontSize } from '@/utils/fit-font';
 
 export type CardSide = 'front' | 'back';
+
+/**
+ * Details every card design prints the same way (3.7.0): the provider's logo and the holder's name.
+ * Set once by AccountCard, so the premium designs do not each need new props.
+ */
+export const CardExtras = createContext<{ provider?: string; holder?: string }>({});
 
 export type WakiraCardProps = {
   bank: string;
@@ -149,9 +157,9 @@ function Stat({ label, icon, value, color, subColor, textStyle, maxWidth }: Stat
     <View style={styles.stat}>
       <View style={styles.statLabelRow}>
         <Ionicons name={icon} size={12} color={subColor} />
-        <Text style={[styles.statLabel, textStyle, { color: subColor }]}>{label}</Text>
+        <Text allowFontScaling={false} style={[styles.statLabel, textStyle, { color: subColor }]}>{label}</Text>
       </View>
-      <Text style={[styles.statValue, textStyle, { color, fontSize: fitFontSize(value, maxWidth, 20, 0.6) }]} numberOfLines={1}>
+      <Text allowFontScaling={false} style={[styles.statValue, textStyle, { color, fontSize: fitFontSize(value, maxWidth, 20, 0.6) }]} numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -189,6 +197,7 @@ export function CardContent({
   engraved = false,
 }: ContentProps) {
   const { t } = useT();
+  const { provider, holder } = useContext(CardExtras);
   const back = side === 'back';
   const ts = engraved ? styles.engrave : styles.shadow;
   const [boxWidth, setBoxWidth] = useState(0);
@@ -202,21 +211,26 @@ export function CardContent({
     >
       <View style={styles.row} pointerEvents="none">
         <View style={styles.bankRow}>
-          {icon ? (
+          {provider ? (
+            <BrandAvatar name={provider} size={26} style={styles.logo} />
+          ) : icon ? (
             <View style={[styles.iconChip, { borderColor: subColor }]}>
               <Ionicons name={icon} size={13} color={color} />
             </View>
           ) : null}
-          <Text style={[styles.bank, ts, { color }]} numberOfLines={1}>
+          <Text allowFontScaling={false} style={[styles.bank, ts, { color }]} numberOfLines={1}>
             {bank}
           </Text>
         </View>
-        {/* i18n-ignore: wordmark */}
-        <Text style={[styles.brand, ts, { color: subColor }]}>WAKIRA</Text>
+        <View style={styles.brandRow}>
+          <Ionicons name="wifi" size={14} color={subColor} style={styles.contactless} />
+          {/* i18n-ignore: wordmark */}
+          <Text allowFontScaling={false} style={[styles.brand, ts, { color: subColor }]}>WAKIRA</Text>
+        </View>
       </View>
       <View>
         <View style={styles.labelRow}>
-          <Text style={[styles.label, ts, { color: subColor }]}>{back ? t('acct.card.thisMonth') : t('acct.card.balance')}</Text>
+          <Text allowFontScaling={false} style={[styles.label, ts, { color: subColor }]}>{back ? t('acct.card.thisMonth') : t('acct.card.balance')}</Text>
           {onToggleHidden ? (
             <Pressable
               onPress={onToggleHidden}
@@ -263,14 +277,21 @@ export function CardContent({
             />
           </View>
         ) : (
-          <Text style={[styles.balance, ts, { color, fontSize: fitFontSize(balanceText, inner, 28, 0.6) }]} numberOfLines={1} pointerEvents="none">
+          <Text allowFontScaling={false} style={[styles.balance, ts, { color, fontSize: fitFontSize(balanceText, inner, 28, 0.6) }]} numberOfLines={1} pointerEvents="none">
             {balanceText}
           </Text>
         )}
       </View>
-      <View style={styles.row} pointerEvents="none">
-        <Text style={[styles.meta, ts, { color: subColor }]}>{last4 ? `•••• ${last4}` : ' '}</Text>
-        <Text style={[styles.meta, ts, { color: subColor }]}>{tier}</Text>
+      <View style={styles.rowBottom} pointerEvents="none">
+        <View style={styles.holderBox}>
+          {holder ? (
+            <Text allowFontScaling={false} style={[styles.holder, ts, { color }]} numberOfLines={1}>
+              {holder.toUpperCase()}
+            </Text>
+          ) : null}
+          <Text allowFontScaling={false} style={[styles.meta, ts, { color: subColor }]}>{last4 ? `•••• ${last4}` : ' '}</Text>
+        </View>
+        <Text allowFontScaling={false} style={[styles.meta, ts, { color: subColor }]}>{tier}</Text>
       </View>
     </View>
   );
@@ -291,6 +312,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   shadow: {
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 1 },
@@ -323,4 +345,9 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12 },
   statValue: { fontSize: 20, fontWeight: '600', marginTop: 2 },
   meta: { fontSize: 12, letterSpacing: 1.5 },
+  holderBox: { flexShrink: 1, marginRight: 12 },
+  holder: { fontSize: 10, fontWeight: '700', letterSpacing: 2, marginBottom: 1 },
+  logo: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  contactless: { transform: [{ rotate: '90deg' }] },
 });

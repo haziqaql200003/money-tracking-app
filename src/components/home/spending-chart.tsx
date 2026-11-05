@@ -3,7 +3,10 @@ import { LayoutChangeEvent, Pressable, StyleSheet, View, useColorScheme } from '
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { ThemedText } from '@/components/ui/themed-text';
-import { Colors, FontSize, Radius } from '@/constants/theme';
+import { FontSize, Radius } from '@/constants/theme';
+import { mixHex } from '@/constants/card-styles';
+import { useAppTheme } from '@/context/AppThemeContext';
+import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { mondayIndex, monthShort, weekdayShort } from '@/i18n/format';
 import type { ChartPeriod, ChartPoint } from '@/context/TransactionsContext';
@@ -21,6 +24,22 @@ export const PERIOD_COLOR: Record<ChartPeriod, { light: string; dark: string }> 
   month: { light: '#8A4FBF', dark: '#B98CE0' }, // purple
   year: { light: '#1F8A70', dark: '#57C9A6' }, // green
 };
+
+/**
+ * Line colour for a chart period. A premium card theme (dark mode) draws the chart in its own colours:
+ * week = accent, month = the theme's second colour, year = a blend of the two.
+ */
+export function usePeriodColor(period: ChartPeriod) {
+  const isDark = useColorScheme() === 'dark';
+  const colors = useTheme();
+  const app = useAppTheme();
+  if (app?.premiumActive) {
+    if (period === 'week') return colors.accent;
+    if (period === 'month') return colors.gold;
+    return mixHex(colors.accent, colors.gold, 0.5);
+  }
+  return PERIOD_COLOR[period][isDark ? 'dark' : 'light'];
+}
 
 const LIMIT_COLOR = '#D97706';
 
@@ -82,10 +101,8 @@ export function SpendingChart({
   dailyLimit?: number;
 }) {
   const { t } = useT();
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const colors = Colors[isDark ? 'dark' : 'light'];
-  const accent = PERIOD_COLOR[period][isDark ? 'dark' : 'light'];
+  const colors = useTheme();
+  const accent = usePeriodColor(period);
   const gradientId = `spendingArea-${period}`;
 
   const [width, setWidth] = useState(0);
@@ -307,4 +324,4 @@ const styles = StyleSheet.create({
   // A small caption sitting just above the dashed line, so the line itself stays quiet.
   limitLabel: { position: 'absolute', right: 2 },
   limitText: { color: LIMIT_COLOR, fontSize: 10, lineHeight: 12, fontWeight: '600', opacity: 0.85 },
-});
+});

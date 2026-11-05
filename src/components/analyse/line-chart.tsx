@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Line, Path, Circle, Text as SvgText } from 'react-native-svg';
 
 import { useScrub } from '@/components/charts/use-scrub';
+import { FONT_FACES } from '@/components/ui/text';
 import { ThemedText } from '@/components/ui/themed-text';
 import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -103,7 +104,7 @@ export function LineChart({ labels, series, hline, splitAt, height = 180, hide, 
               <Line key={`g${tk}`} x1={PAD.l} x2={w - PAD.r} y1={y(tk)} y2={y(tk)} stroke={colors.divider} strokeWidth={1} />
             ))}
             {ticks.map((tk) => (
-              <SvgText key={`t${tk}`} x={PAD.l - 6} y={y(tk) + 4} fontSize={10} fill={colors.textSecondary} textAnchor="end">
+              <SvgText key={`t${tk}`} x={PAD.l - 6} y={y(tk) + 4} fontSize={10} fontFamily={FONT_FACES[500]} fill={colors.textSecondary} textAnchor="end">
                 {hide ? '••' : formatCompact(tk)}
               </SvgText>
             ))}
@@ -132,7 +133,7 @@ export function LineChart({ labels, series, hline, splitAt, height = 180, hide, 
             ) : null}
             {labels.map((l, i) =>
               i % step === 0 || i === labels.length - 1 ? (
-                <SvgText key={`l${i}`} x={x(i)} y={height - 6} fontSize={10} fill={pick === i ? colors.text : colors.textSecondary} fontWeight={pick === i ? '700' : '400'} textAnchor="middle">
+                <SvgText key={`l${i}`} x={x(i)} y={height - 6} fontSize={10} fill={pick === i ? colors.text : colors.textSecondary} fontFamily={pick === i ? FONT_FACES[700] : FONT_FACES[400]} textAnchor="middle">
                   {l}
                 </SvgText>
               ) : null,

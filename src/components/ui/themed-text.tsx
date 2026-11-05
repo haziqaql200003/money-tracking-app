@@ -1,6 +1,7 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, type TextProps } from 'react-native';
+import { Text } from '@/components/ui/text';
 
-import { Fonts, FontSize, ThemeColor, Type } from '@/constants/theme';
+import { FontSize, ThemeColor, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -42,8 +43,8 @@ const styles = StyleSheet.create({
   link: { ...Type.label, fontWeight: '600' },
   linkPrimary: { ...Type.label, fontWeight: '600' },
   code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
+    fontWeight: '600',
     fontSize: FontSize.caption,
+    fontVariant: ['tabular-nums'],
   },
 });

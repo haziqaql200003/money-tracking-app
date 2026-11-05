@@ -186,14 +186,15 @@ export const enAcct = {
   'acct.cash': 'Cash',
 
   // Account types
-  'acct.type.bank': 'Bank',
+  'acct.type.bank': 'Bank account',
   'acct.type.cash': 'Cash',
   'acct.type.other': 'Other',
-  'acct.type.bankHint': 'Savings, current or a bank card account.',
+  'acct.type.bankHint': 'Everyday money: salary in, bills and card spending out.',
+  'acct.type.ewalletHint': 'Touch \'n Go, GrabPay, ShopeePay, Boost and other e-wallets.',
   'acct.type.cashHint': 'Physical money in your wallet or at home.',
   'acct.type.savings': 'Savings',
-  'acct.type.savingsHint': 'A tabung or savings pot, for example ASB, Tabung Haji or a goal account. Money moved here can count toward your goals.',
-  'acct.type.otherHint': 'E-wallets (TNG, Boost), investments or anything else.',
+  'acct.type.savingsHint': 'Money kept apart, at any bank or fund: ASB, Tabung Haji, fixed deposit or a savings account. It is not counted as money you can spend, and money moved here can count toward your goals.',
+  'acct.type.otherHint': 'Investments, gold or anything else.',
 
   // Card designs and colours
   'acct.design.aurora': 'Aurora',
@@ -234,6 +235,13 @@ export const enAcct = {
   'acct.add.design': 'Design',
   'acct.add.premium': 'Premium',
   'acct.add.premiumNote': 'Premium cards use their own colours, so the colour picker is hidden.',
+  'acct.add.finish': 'Finish',
+  'acct.add.finishNote': 'Titanium cards come in five metal finishes. Other premium cards use their own colours.',
+  'acct.finish.graphite': 'Graphite',
+  'acct.finish.champagne': 'Champagne',
+  'acct.finish.rose': 'Rose Gold',
+  'acct.finish.silver': 'Silver',
+  'acct.finish.midnight': 'Midnight',
   'acct.add.colour': 'Colour',
   'acct.add.colourA11y': 'Colour {color}',
   'acct.add.customColour': 'Custom colour',
