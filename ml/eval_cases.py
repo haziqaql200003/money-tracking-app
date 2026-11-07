@@ -60,3 +60,60 @@ CASES = [
     ("macam mana nak bayar zakat pendapatan", "other"), ("explain what epf is", "other"), ("tulis surat rasmi untuk bos", "other"), ("tell me a joke", "other"),
     ("which is better asb or tabung haji", "other"), ("kenapa ringgit jatuh", "other"),
 ]
+
+# Real messages typed in Ask WaKira (Oct-Nov 2026). When the brain gets a real message wrong, add it here with the intent you expected.
+CASES += [
+    ("Record expenses Lunch Rm3.50 with details nasi kuah dan telur mata today", "expense"),
+    ("Record expenses with tajuk Transfer to Syafiq RM 28 with remarks duit bowling on 30 oct 2026", "expense"),
+    ("Record expenses Transfer to Danisha RM 10 with details as follows", "expense"),
+    ("Record expense T-Mart RM 3.50 with details as follows 1x Air A&W", "expense"),
+    ("Record expense Dodo Korea RM 44.50 with details as follows", "expense"),
+    ("Ayam Gepuk Shilla RM 15.45 pay with maybank yesterday with details as below", "expense"),
+    ("Record McDonald's Rm12.90 pay with rytbank details as follows", "expense"),
+    ("Track expenses yesterday Nasi Kerabu Pokdie with details below", "expense"),
+    ("rekod belanja tajuk bayar hutang ali rm 15 catatan makan malam", "expense"),
+    ("REKOD MAKAN TENGAH HARI rm 8 dengan butiran NASI AYAM, TEH AIS kat maybank", "expense"),
+    ("lunch rm12 cash", "expense"), ("beli air suam rm1", "expense"), ("1x Medium Coke rm 3.90", "expense"),
+    ("Saya nak saving 500 hujung bulan ini", "advice"), ("Maksud aku, aku nak save total rm 500 bukan everyday 500", "advice"),
+    ("Mcm mana saya nak boost saving saya", "advice"),
+    ("Apasal ada short rm 18,230 pula", "explain"), ("Terangkan dengan mudah", "explain"), ("Explain: Spending this week is higher than usual", "explain"),
+    ("Apa benda ko merapu ni", "explain"),
+    ("Show purchases under RM20", "find"), ("Show me records for the past 14 days", "find"), ("Show me expenses for the past 2 weeks", "where"),
+    ("Only show me past 14 days", "find"),
+]
+CASES += [
+    ("What bills are coming up?", "forecast"), ("any bills coming up next week", "forecast"), ("bills due this month", "forecast"), ("Bil apa yang akan datang?", "forecast"),
+    ("Record income Freelance RM500 into Maybank today", "income"), ("Rekod pendapatan Freelance RM500 masuk Maybank hari ini", "income"),
+    ("Record expense Lunch RM12 from Cash today", "expense"), ("Rekod belanja Lunch RM12 dari Cash hari ini", "expense"),
+    ("Transfer RM50 from Maybank to Cash today", "transfer"), ("Pindah RM50 dari Maybank ke Cash hari ini", "transfer"),
+    ("Can I afford RM300?", "forecast"), ("Mampu ke saya beli RM300?", "forecast"),
+    ("Show my 5 biggest expenses this month", "find"), ("Tunjuk 5 belanja paling besar bulan ni", "find"),
+]
+
+
+# Messages from real use, reviewed by hand (scripts/brain-log-import.mjs adds them; you check the intent).
+# Format: intent<TAB>message. Lines starting with "#" or "?" (not reviewed yet) are skipped.
+def _real_messages():
+    import os
+    from make_data import INTENTS
+    path = os.path.join(os.path.dirname(__file__), "real_messages.tsv")
+    if not os.path.exists(path):
+        return [], 0
+    out, waiting = [], 0
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("?"):
+                waiting += 1
+                continue
+            intent, _, text = line.partition("\t")
+            intent = intent.strip()
+            if intent in INTENTS and text.strip():
+                out.append((text.replace("\\n", "\n"), intent))
+    return out, waiting
+
+
+REAL, REAL_WAITING = _real_messages()
+CASES += REAL

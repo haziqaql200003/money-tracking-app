@@ -62,7 +62,11 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "i18n:audit": "node scripts/i18n-audit.mjs",
-    "sync:test": "node scripts/sync-selftest.mjs"
+    "sync:test": "node scripts/sync-selftest.mjs",
+    "brain:test": "node scripts/brain-eval.mjs && node scripts/brain-check.mjs",
+    "brain:show": "node scripts/brain-eval.mjs --show",
+    "brain:import": "node scripts/brain-log-import.mjs",
+    "brain:train": "cd ml && python train.py && cd .. && node scripts/brain-check.mjs && node scripts/brain-eval.mjs"
   },
   "private": true
 }

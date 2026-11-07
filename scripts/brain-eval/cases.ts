@@ -1,3 +1,7 @@
+import { en } from '@/i18n/en';
+import { ms } from '@/i18n/ms';
+import { fillTemplate, TEMPLATES, type SlotValues } from '@/services/ai/shortcuts';
+
 /**
  * Conversations the brain must handle. Each step says what must come back.
  * `follow: true` keeps the memory from the step before (a follow-up); otherwise each case starts fresh.
@@ -13,6 +17,8 @@ export type Expect = {
   not?: (string | RegExp)[];
   proposals?: number;
   chips?: boolean;
+  /** The first transaction card's "category/subcategory" must start with this. */
+  category?: string;
 };
 export type Step = { say: string; expect: Expect };
 export type Case = { name: string; lang: 'en' | 'ms'; steps: Step[]; empty?: boolean; bigSpend?: boolean; souqa?: boolean };
@@ -104,11 +110,11 @@ export const CASES: Case[] = [
     { say: 'Update mamak corner with this breakdown\n1x roti canai rm2\n1x teh tarik rm3', expect: { proposals: 0, has: ["can't find a record called \"Mamak Corner\""] } },
   ] },
   { name: 'lunch with details (en)', lang: 'en', steps: [
-    { say: 'Record expenses Lunch Rm3.50 with details nasi kuah dan telur mata today', expect: { intent: 'expense', proposals: 1, has: ['Lunch (Nasi Kuah, Telur Mata) RM3.5'] } },
+    { say: 'Record expenses Lunch Rm3.50 with details nasi kuah dan telur mata today', expect: { category: 'food/Lunch', intent: 'expense', proposals: 1, has: ['Lunch (Nasi Kuah, Telur Mata) RM3.5'] } },
     { say: 'REKOD MAKAN TENGAH HARI rm 8 dengan butiran NASI AYAM, TEH AIS kat maybank', expect: { proposals: 1, has: ['Makan Tengah Hari (Nasi Ayam, Teh Ais) RM8'] } },
   ] },
   { name: 'title and remarks given (en)', lang: 'en', steps: [
-    { say: 'Record expenses with tajuk Transfer to Syafiq RM 28 with remarks duit bowling on 30 oct 2026', expect: { intent: 'expense', proposals: 1, has: ['Transfer to Syafiq (Duit Bowling) RM28'] } },
+    { say: 'Record expenses with tajuk Transfer to Syafiq RM 28 with remarks duit bowling on 30 oct 2026', expect: { category: 'entertainment/', intent: 'expense', proposals: 1, has: ['Transfer to Syafiq (Duit Bowling) RM28'] } },
     { say: 'rekod belanja tajuk bayar hutang ali rm 15 catatan makan malam', expect: { intent: 'expense', proposals: 1, has: ['Bayar Hutang Ali (Makan Malam) RM15'] } },
   ] },
   { name: 'real transfer still works', lang: 'en', steps: [
@@ -119,14 +125,34 @@ export const CASES: Case[] = [
     { say: 'Record expenses Transfer to Danisha RM 10 with details as follows\nDuit A rm 5\nDuit B rm 4', expect: { proposals: 1, has: ['add up to RM9.00', 'Transfer to Danisha RM10'] } },
   ] },
   { name: 'Soru Station receipt 2, total first (en)', lang: 'en', steps: [
-    { say: 'Record expenses Soru Station RM 7.30 with details as follows\n1x Onion Ring rm 6.90\nSST rm 0.41\n3 nov 2026', expect: { intent: 'expense', proposals: 1, has: ['Soru Station RM7.3', '2 items'] } },
+    { say: 'Record expenses Soru Station RM 7.30 with details as follows\n1x Onion Ring rm 6.90\nSST rm 0.41\n3 nov 2026', expect: { category: 'food/', intent: 'expense', proposals: 1, has: ['Soru Station RM7.3', '2 items', 'SST 0.41'] } },
   ] },
   { name: 'one item, date and bank on own lines (en)', lang: 'en', steps: [
-    { say: 'Record expense T-Mart RM 3.50 with details as follows 1x Air A&W\n4 nov 2026\nMaybank', expect: { intent: 'expense', proposals: 1, has: ['T-Mart (Air A&W) RM3.5'] } },
-    { say: 'beli air suam rm1', expect: { proposals: 1, has: ['Air suam'] } },
+    { say: 'Record expense T-Mart RM 3.50 with details as follows 1x Air A&W\n4 nov 2026\nMaybank', expect: { category: 'food/', intent: 'expense', proposals: 1, has: ['T-Mart (Air A&W) RM3.5'] } },
+    { say: 'beli air suam rm1', expect: { category: 'food/', proposals: 1, has: ['Air suam'] } },
   ] },
   { name: 'items plus a "baki" remainder (en)', lang: 'en', steps: [
-    { say: 'Record expense Dodo Korea RM 44.50 with details as follows \n2 x Dodo Dosirak Rm 38\n\nBaki 1 x mineral water\nSST and tax\nYesterday\nMaybank', expect: { intent: 'expense', proposals: 1, has: ['Dodo Korea RM44.5', '2 items'] } },
+    { say: 'Record expense Dodo Korea RM 44.50 with details as follows \n2 x Dodo Dosirak Rm 38\n\nBaki 1 x mineral water\nSST and tax\nYesterday\nMaybank', expect: { category: 'food/', intent: 'expense', proposals: 1, has: ['Dodo Korea RM44.5', '2 items'] } },
+  ] },
+  { name: 'unpriced item lines under a total (en)', lang: 'en', steps: [
+    { say: 'Ayam Gepuk Shilla RM 15.45 pay with maybank yesterday with details as below\n1x Set C Ayam Gepuk Crispy\n1x Ais Kosong', expect: { category: 'food/', intent: 'expense', proposals: 1, has: ['Ayam Gepuk Shilla (Set C Ayam Gepuk Crispy, Ais Kosong) RM15.45'] } },
+    { say: 'Ayam Gepuk Shilla RM 15.45 pay with maybank yesterday with details as below\n1x Set C Ayam Gepuk Crispy RM 13.90\n1x Ais Kosong', expect: { intent: 'expense', proposals: 1, has: ['Ayam Gepuk Shilla RM15.45', '2 items', '1x Ais Kosong'] } },
+  ] },
+  { name: 'details with brackets and a typo in the shop (en)', lang: 'en', steps: [
+    { say: 'Record McDonals Rm12.90 pay with maybank details as follows\n1x Spicy McChicken\n1x French Fries (M)\n1x Medium Coke', expect: { category: 'food/Fast Food', intent: 'expense', proposals: 1, has: ['McDonals (Spicy McChicken, French Fries (M), Medium Coke) RM12.9'] } },
+    { say: 'Record McDonals Rm 7.70 pay with maybank details as follows\n2x French Fries (M)', expect: { category: 'food/Fast Food', intent: 'expense', proposals: 1, has: ['McDonals (2x French Fries (M)) RM7.7'] } },
+  ] },
+  { name: 'curly apostrophe in the shop name (en)', lang: 'en', steps: [
+    { say: 'Record McDonald\u2019s Rm12.90 pay with maybank details as follows\n1x Spicy McChicken\n1x French Fries (M)\n1x Medium Coke', expect: { category: 'food/Fast Food', intent: 'expense', proposals: 1, has: ["McDonald's (Spicy McChicken, French Fries (M), Medium Coke) RM12.9"] } },
+  ] },
+  { name: 'a set: priced main item, sides without price (en)', lang: 'en', steps: [
+    { say: 'Record McDonald\u2019s Rm12.90 pay with maybank details as follows\n1x Spicy Chicken McDeluxe RM12.90\n1x French Fries (M)\n1x Medium Coke', expect: { category: 'food/Fast Food', intent: 'expense', proposals: 1, has: ["McDonald's (Spicy Chicken McDeluxe Set) RM12.9", 'French Fries (M), Medium Coke came with the set', '1x Spicy Chicken McDeluxe 12.9', '1x French Fries (M) 0', '1x Medium Coke 0'], not: ['Record McDonald'] } },
+  ] },
+  { name: 'receipt pasted as JSON', lang: 'en', steps: [
+    { say: '{\n  "merchant": "Soru Station",\n  "date": "2026-10-27",\n  "time": "21:01",\n  "receipt_no": "261103AAN485P",\n  "category": "Food & Dining",\n  "payment_method": "Card",\n  "currency": "MYR",\n  "items": [\n    {\n      "name": "Homemade Meatball",\n      "quantity": 1,\n      "price": 6.9\n    },\n    {\n      "name": "Korean Chicken Wing",\n      "quantity": 1,\n      "price": 14.9\n    },\n    {\n      "name": "Creamy Mushroom Chicken Grill",\n      "quantity": 1,\n      "price": 11.9\n    },\n    {\n      "name": "Chicken XL",\n      "quantity": 1,\n      "price": 18.9\n    },\n    {\n      "name": "Chicken Chop Crispy",\n      "quantity": 1,\n      "price": 11.9\n    },\n    {\n      "name": "Chicken Chop Crispy",\n      "quantity": 1,\n      "price": 11.9\n    },\n    {\n      "name": "Air Suam",\n      "quantity": 1,\n      "price": 0.5\n    },\n    {\n      "name": "Tower Mango",\n      "quantity": 1,\n      "price": 15.9\n    },\n    {\n      "name": "Nasi Lemak Ayam Berempah",\n      "quantity": 1,\n      "price": 10.9\n    },\n    {\n      "name": "Nasi Goreng Chicken Grill",\n      "quantity": 1,\n      "price": 10.9\n    }\n  ],\n  "subtotal": 114.6,\n  "sst": 6.88,\n  "rounding": 0.02,\n  "total": 121.5,\n  "payment_status": "Paid"\n}', expect: { intent: 'expense', proposals: 1, has: ['Soru Station RM121.5', '12 items', '1x Chicken XL 18.9', 'SST / Tax 6.88', 'Rounding 0.02'], category: 'food/' } },
+    { say: '{\n  "merchant": "Soru Station",\n  "date": "2026-10-27",\n  "items": [\n    {\n      "name": "Onion Ring",\n      "quantity": 1,\n      "price": 6.9\n    }\n  ],\n  "subtotal": 6.9,\n  "sst": 0.41,\n  "rounding": -0.01,\n  "total": 7.3,\n  "currency": "MYR"\n}', expect: { proposals: 1, has: ['Soru Station RM7.3', '3 items', 'Rounding -0.01'] } },
+    { say: '```json\n{"store": "Kedai Runcit", "items": [{"name": "Telur", "qty": 2, "price": 5.4}, {"name": "Beras", "qty": 1, "price": 20}], "subtotal": 30.8, "total": 30.8}\n```', expect: { proposals: 1, has: ['Kedai Runcit RM30.8', '2x Telur 10.8'] } },
+    { say: '{"merchant": "Amazon", "total": 20, "currency": "USD", "items": [{"name": "Book", "price": 20}]}', expect: { proposals: 0, has: ['USD'] } },
   ] },
   { name: 'instalment one go (ms)', lang: 'ms', steps: [{ say: 'rekod ansuran atome iphone case rm150 3 bulan', expect: { has: ['Ini yang saya akan sediakan'] } }] },
   { name: 'debts question', lang: 'ms', steps: [{ say: 'berapa hutang saya', expect: { has: ['RM1,200.00', 'Ali'.length ? 'RM50.00' : ''], visuals: ['bars'] } }] },
@@ -163,3 +189,56 @@ export const CASES: Case[] = [
     { say: 'What about last month?', expect: {} },
   ] },
 ];
+
+/* ---------------------------------------------------------------- shortcut templates
+ * Every template in Ask WaKira's Shortcuts, filled with sample answers, in both languages, must give the right answer.
+ * If a template's wording changes in src/i18n/{en,ms}/ai.ts, these cases catch a message the brain no longer understands.
+ */
+const SAMPLE: Record<string, SlotValues> = {
+  expense: { title: 'Lunch', amount: '12.90', account: 'a2', date: 'yesterday' },
+  receipt: { title: 'Kedai Runcit', amount: '25.40', account: 'a2', details: '1x Beras RM 20\n1x Telur RM 5.40' },
+  income: { title: 'Freelance', amount: '500', account: 'a1' },
+  transfer: { amount: '50', from: 'a1', to: 'a2' },
+  instalment: { title: 'iPhone case', amount: '150', months: '3', provider: 'Atome', account: 'a1' },
+  owedToMe: { person: 'Ali', amount: '20', title: 'lunch' },
+  iOwe: { person: 'Ali', amount: '20', title: 'lunch' },
+  budget: { category: 'food', amount: '600' },
+  goal: { amount: '5000', title: 'Wedding', deadline: '2027-12-31' },
+  recurring: { title: 'Netflix', amount: '17', account: 'a1' },
+  afford: { amount: '300' },
+  saveTarget: { amount: '500' },
+};
+const WANT: Record<string, (lang: 'en' | 'ms') => Expect> = {
+  expense: () => ({ intent: 'expense', proposals: 1, has: ['Lunch RM12.9'], category: 'food/Lunch' }),
+  receipt: () => ({ intent: 'expense', proposals: 1, has: ['Kedai Runcit RM25.4', '1x Beras 20'] }),
+  income: () => ({ intent: 'income', proposals: 1, has: ['Freelance RM500'] }),
+  transfer: () => ({ intent: 'transfer', proposals: 1 }),
+  instalment: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'iPhone case', 'Atome'] }),
+  owedToMe: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'Ali'] }),
+  iOwe: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'Ali'] }),
+  budget: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'RM600.00'] }),
+  goal: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'Wedding', '2027-12-31'] }),
+  recurring: (l) => ({ proposals: 0, has: [l === 'en' ? 'set up' : 'sediakan', 'Netflix'], not: ['from Maybank', 'dari Maybank'] }),
+  where: () => ({ intent: 'where', visuals: ['donut'] }),
+  afford: () => ({ intent: 'forecast', has: ['RM300.00'] }),
+  saveTarget: () => ({ intent: 'advice', has: ['RM500'] }),
+  compare: () => ({ intent: 'compare' }),
+  bills: () => ({ intent: 'forecast' }),
+  balance: () => ({ intent: 'balance', has: ['RM7,833.70'] }),
+  biggest: () => ({ intent: 'find' }),
+  saveMore: () => ({ intent: 'advice' }),
+};
+const ACCOUNT_NAMES: Record<string, string> = { a1: 'Maybank', a2: 'Cash', a3: 'TNG eWallet', a4: 'ASB' };
+for (const lang of ['en', 'ms'] as const) {
+  const dict = (lang === 'en' ? en : ms) as unknown as Record<string, string>;
+  for (const tpl of TEMPLATES) {
+    const say = fillTemplate(dict[tpl.msgKey], SAMPLE[tpl.id] ?? {}, {
+      lang,
+      todayKey: '2026-10-29',
+      accountName: (id) => ACCOUNT_NAMES[id],
+      categoryName: (id) => (id === 'food' ? 'Food & Drinks' : undefined),
+    });
+    if (!say) throw new Error(`template ${tpl.id} (${lang}) could not be filled`);
+    CASES.push({ name: `shortcut template ${tpl.id} (${lang})`, lang, steps: [{ say, expect: WANT[tpl.id](lang) }] });
+  }
+}

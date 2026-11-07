@@ -18,7 +18,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from eval_cases import CASES
+from eval_cases import CASES, REAL, REAL_WAITING
 from features import featurize
 from lexicon import CATEGORY_LEXICON, EXPENSE_CATEGORY_IDS, INCOME_CATEGORY_IDS
 from make_data import INTENTS, decorate, fill, generate, generate_full
@@ -174,6 +174,7 @@ def nb_predict(m, text):
 
 
 def main():
+    print(f"Real messages from ml/real_messages.tsv: {len(REAL)} used, {REAL_WAITING} still waiting for review (lines starting with '?').")
     # ---- 1. honest evaluation of the router
     train, test = generate()
     train = train + lexicon_examples(random.Random(5), 2) + other_examples(random.Random(8))

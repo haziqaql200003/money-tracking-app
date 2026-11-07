@@ -7,6 +7,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ActionCard } from '@/components/ai/action-card';
 import { AiVisual } from '@/components/ai/ai-visual';
 import { ProposalCard, type ProposalStatus } from '@/components/ai/proposal-card';
+import { ShortcutForm, type ShortcutFormMode } from '@/components/ai/shortcut-form';
+import { ShortcutsSheet } from '@/components/ai/shortcuts-sheet';
 import { useIsDesktop } from '@/components/desktop/use-desktop';
 import { TAB_BAR_HEIGHT } from '@/components/glass/glass-tab-bar';
 import { IconButton } from '@/components/ui/icon-button';
@@ -22,11 +24,13 @@ import { useTransactions } from '@/context/TransactionsContext';
 import { useAiData } from '@/hooks/use-ai-data';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
+import { accountName, categoryName } from '@/i18n/data';
 import { AiError, askWakira, trimHistory, withoutFiles, type AiErrorCode, type Content } from '@/services/ai/client';
 import { EMPTY_MEMORY, think, type ActionProposal, type Memory, type Visual } from '@/services/ai/brain';
 import { validAction } from '@/services/ai/brain/actions';
 import { validateVisuals } from '@/services/ai/brain/types';
 import type { Proposal } from '@/services/ai/engine';
+import { MAX_SHORTCUTS, missingSlots, runText, shortcutId, TEMPLATES, validShortcuts, type FillContext, type Shortcut, type Template } from '@/services/ai/shortcuts';
 import { Alert } from '@/services/dialog';
 import { pickScanFile, ScanError, type ScanErrorCode, type ScanSource } from '@/services/receipt-scan';
 import { loadJSON, saveJSON, userKey } from '@/services/storage';
@@ -76,7 +80,11 @@ const SCAN_ERR: Record<ScanErrorCode, TKey> = {
   busy: 'scan.errBusy',
   network: 'scan.errNetwork',
 };
-const SUGGEST: TKey[] = ['ai.suggest.where', 'ai.suggest.forecast', 'ai.suggest.habits', 'ai.suggest.budget', 'ai.suggest.compare', 'ai.suggest.transfer', 'ai.suggest.record'];
+/** Questions offered on an empty chat. Each one is a tested template (scripts/brain-eval runs them all). */
+const SUGGEST_IDS = ['where', 'compare', 'bills', 'saveMore', 'balance'];
+/** Templates shown as big tiles on an empty chat. */
+const QUICK_IDS = ['expense', 'receipt', 'income', 'transfer'];
+type Glyph = keyof typeof Ionicons.glyphMap;
 
 let msgCounter = 0;
 const msgId = () => `m${Date.now().toString(36)}${(msgCounter++).toString(36)}`;
@@ -100,9 +108,9 @@ export default function AiScreen() {
   const desktop = useIsDesktop();
   const todayKey = toDateKey(new Date());
   const data = useAiData(todayKey);
-  const { addTransaction, updateTransaction, addTransfer, deleteTransaction, deleteTransfer, addRecurring, deleteRecurring } = useTransactions();
+  const { addTransaction, updateTransaction, addTransfer, deleteTransaction, deleteTransfer, addRecurring, deleteRecurring, selectableAccounts } = useTransactions();
   const { createInstalment, addIou } = useDebts();
-  const { updateCategory } = useCategories();
+  const { updateCategory, getCategory } = useCategories();
   const { addGoal, deleteGoal } = usePlan();
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -118,11 +126,53 @@ export default function AiScreen() {
   const askedQ = useRef(false);
   /** The brain's short-term memory: a question waiting for an answer, and what the last answer was about. */
   const memoryRef = useRef<Memory>(EMPTY_MEMORY);
+  /** The pengguna's own shortcuts, kept on this phone. */
+  const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
+  const [shortcutsLoaded, setShortcutsLoaded] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [form, setForm] = useState<ShortcutFormMode | null>(null);
+  /** A short line above the message box ("Saved to your shortcuts."), gone after a moment. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const userId = user?.id ?? null;
   // Signed in: the chat is kept per pengguna. Phone-only: one local chat. Either way it never leaves this phone.
   const storeKey = userId ? userKey(userId, 'ai:chat') : 'ai:chat:local';
   const online = cloud && !!user;
+  const shortcutKey = userId ? userKey(userId, 'ai:shortcuts') : 'ai:shortcuts:local';
+  const fillCtx: FillContext = {
+    lang,
+    todayKey,
+    accountName: (id) => {
+      const a = selectableAccounts.find((x) => x.id === id);
+      return a ? accountName(a) : undefined;
+    },
+    categoryName: (id) => {
+      const c = getCategory(id);
+      return c ? categoryName(c) : undefined;
+    },
+  };
+
+  useEffect(() => {
+    let alive = true;
+    void loadJSON<unknown>(shortcutKey).then((v) => {
+      if (!alive) return;
+      setShortcuts(validShortcuts(v));
+      setShortcutsLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [shortcutKey]);
+
+  useEffect(() => {
+    if (shortcutsLoaded) void saveJSON(shortcutKey, shortcuts);
+  }, [shortcutsLoaded, shortcutKey, shortcuts]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(id);
+  }, [notice]);
 
   // Load the saved chat for this pengguna.
   useEffect(() => {
@@ -368,6 +418,45 @@ export default function AiScreen() {
     setAction(msg, index, { status: 'pending', savedId: undefined });
   }
 
+  /** Runs a saved shortcut: straight away when nothing is missing, otherwise the form asks for the rest. */
+  function runShortcut(sc: Shortcut) {
+    setSheetOpen(false);
+    const text = missingSlots(sc.text, sc.values, sc.literal).length === 0 ? runText(sc, fillCtx) : null;
+    if (text) void send(text);
+    else setForm({ kind: 'run', shortcut: sc });
+  }
+
+  function openTemplate(tpl: Template) {
+    setSheetOpen(false);
+    setForm({ kind: 'template', template: tpl });
+  }
+
+  function saveShortcut(sc: Shortcut) {
+    setShortcuts((list) => (list.some((x) => x.id === sc.id) ? list.map((x) => (x.id === sc.id ? sc : x)) : [...list, sc].slice(-MAX_SHORTCUTS)));
+    setForm(null);
+    setNotice(t('ai.sc.savedToast'));
+  }
+
+  /** Long-press on something the pengguna sent: put it back to edit, or keep it as a one-tap shortcut. */
+  function messageMenu(m: ChatMsg) {
+    if (m.role !== 'user' || !m.text) return;
+    Alert.alert(t('ai.msg.menuTitle'), m.text.length > 120 ? `${m.text.slice(0, 117)}…` : m.text, [
+      { text: t('ai.msg.edit'), onPress: () => setInput(m.text) },
+      {
+        text: t('ai.msg.saveShortcut'),
+        onPress: () => {
+          if (shortcuts.length >= MAX_SHORTCUTS) {
+            Alert.alert(t('ai.sc.title'), t('ai.sc.full', { n: MAX_SHORTCUTS }));
+            return;
+          }
+          const first = m.text.split('\n')[0].trim();
+          saveShortcut({ id: shortcutId(), name: first.length > 28 ? `${first.slice(0, 27)}…` : first, icon: 'chatbubble-ellipses-outline', text: m.text, values: {}, literal: true, created: Date.now() });
+        },
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  }
+
   function clear() {
     Alert.alert(t('ai.clearTitle'), t('ai.clearMsg'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -400,14 +489,20 @@ export default function AiScreen() {
     const visuals = validateVisuals(m.visuals);
     return (
       <View key={m.id} style={[styles.msg, mine ? styles.mine : styles.theirs]}>
-        <View style={[styles.bubble, mine ? { backgroundColor: colors.accent } : { backgroundColor: colors.backgroundElement }]}>
+        <Pressable
+          onLongPress={mine ? () => messageMenu(m) : undefined}
+          delayLongPress={350}
+          disabled={!mine}
+          accessibilityHint={mine ? t('ai.msg.menuTitle') : undefined}
+          style={[styles.bubble, mine ? { backgroundColor: colors.accent } : { backgroundColor: colors.backgroundElement }]}
+        >
           {m.file ? (
             <View style={styles.fileTag}>
               <Ionicons name={m.file === 'pdf' ? 'document-text-outline' : 'image-outline'} size={14} color={mine ? colors.onAccent : colors.textSecondary} />
               <ThemedText type="small" style={{ color: mine ? colors.onAccent : colors.textSecondary }}>{m.file === 'pdf' ? t('ai.filePdf') : t('ai.fileImage')}</ThemedText>
             </View>
           ) : null}
-          {m.text ? <ThemedText selectable style={mine ? { color: colors.onAccent } : undefined}>{m.text}</ThemedText> : null}
+          {m.text ? <ThemedText selectable={!mine} style={mine ? { color: colors.onAccent } : undefined}>{m.text}</ThemedText> : null}
           {m.checked ? (
             <View style={styles.fileTag}>
               <Ionicons name="phone-portrait-outline" size={12} color={colors.textSecondary} />
@@ -419,7 +514,7 @@ export default function AiScreen() {
               <ThemedText type="smallBold" style={{ color: colors.accent }}>{t('ai.err.retry')}</ThemedText>
             </Pressable>
           ) : null}
-        </View>
+        </Pressable>
         {visuals.length ? (
           <View style={styles.cards}>
             {visuals.map((v, i) => (
@@ -478,7 +573,15 @@ export default function AiScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <ScreenHeader title={t('ai.title')} right={messages.length ? <IconButton icon="trash-outline" label={t('ai.clear')} onPress={clear} /> : undefined} />
+        <ScreenHeader
+          title={t('ai.title')}
+          right={
+            <View style={styles.headerActions}>
+              <IconButton icon="flash-outline" label={t('ai.sc.open')} onPress={() => setSheetOpen(true)} />
+              {messages.length ? <IconButton icon="trash-outline" label={t('ai.clear')} onPress={clear} /> : null}
+            </View>
+          }
+        />
 
         {(
           <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -488,7 +591,8 @@ export default function AiScreen() {
               contentContainerStyle={styles.list}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+              // An empty chat stays at the top (greeting and quick start); a conversation follows the newest message.
+              onContentSizeChange={() => messages.length > 0 && scrollRef.current?.scrollToEnd({ animated: true })}
             >
               <View style={[styles.msg, styles.theirs]}>
                 <View style={[styles.bubble, { backgroundColor: colors.backgroundElement }]}>
@@ -498,8 +602,29 @@ export default function AiScreen() {
 
               {messages.length === 0 && loaded ? (
                 <View style={styles.suggest}>
-                  <ThemedText type="smallBold" style={muted}>{t('ai.suggestTitle')}</ThemedText>
-                  {[...explain, ...SUGGEST.map((k) => t(k))].map((s) => (
+                  <ThemedText type="smallBold" style={muted}>{t('ai.sc.quickStart')}</ThemedText>
+                  <View style={styles.quickGrid}>
+                    {TEMPLATES.filter((x) => QUICK_IDS.includes(x.id)).map((tpl) => (
+                      <Pressable
+                        key={tpl.id}
+                        onPress={() => openTemplate(tpl)}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.quickTile, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }, pressed && styles.pressed]}
+                      >
+                        <View style={[styles.quickIcon, { backgroundColor: colors.accentSoft }]}>
+                          <Ionicons name={tpl.icon as Glyph} size={18} color={colors.accent} />
+                        </View>
+                        <ThemedText type="smallBold" numberOfLines={2} style={styles.flex}>{t(tpl.labelKey)}</ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button" style={({ pressed }) => [styles.allShortcuts, pressed && styles.pressed]}>
+                    <Ionicons name="flash-outline" size={14} color={colors.accent} />
+                    <ThemedText type="smallBold" style={{ color: colors.accent }}>{t('ai.sc.all')}</ThemedText>
+                  </Pressable>
+
+                  <ThemedText type="smallBold" style={[muted, styles.sectionGap]}>{t('ai.suggestTitle')}</ThemedText>
+                  {[...explain, ...TEMPLATES.filter((x) => SUGGEST_IDS.includes(x.id)).map((x) => t(x.msgKey))].map((s) => (
                     <Pressable
                       key={s}
                       onPress={() => void send(s)}
@@ -527,6 +652,38 @@ export default function AiScreen() {
               <ThemedText type="small" style={[muted, styles.footer]}>{t('ai.footer')}</ThemedText>
             </ScrollView>
 
+            {notice ? (
+              <View style={[styles.notice, { backgroundColor: colors.accentSoft }]} accessibilityLiveRegion="polite">
+                <Ionicons name="checkmark-circle" size={14} color={colors.accent} />
+                <ThemedText type="small" style={{ color: colors.accent }}>{notice}</ThemedText>
+              </View>
+            ) : null}
+            {!keyboard && messages.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={styles.barScroll} contentContainerStyle={styles.bar}>
+                <Pressable
+                  onPress={() => setSheetOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('ai.sc.open')}
+                  style={({ pressed }) => [styles.barChip, { backgroundColor: colors.accent }, pressed && styles.pressed]}
+                >
+                  <Ionicons name="flash" size={14} color={colors.onAccent} />
+                  <ThemedText type="smallBold" style={{ color: colors.onAccent }}>{t('ai.sc.title')}</ThemedText>
+                </Pressable>
+                {shortcuts.map((sc) => (
+                  <Pressable
+                    key={sc.id}
+                    onPress={() => runShortcut(sc)}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.barChip, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }, styles.barChipLine, pressed && styles.pressed]}
+                  >
+                    <Ionicons name={sc.icon as Glyph} size={14} color={colors.accent} />
+                    <ThemedText type="small" numberOfLines={1} style={styles.barText}>{sc.name}</ThemedText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+
             <View style={[styles.composer, { backgroundColor: colors.backgroundElement, borderColor: colors.divider }]}>
               {file ? (
                 <View style={[styles.fileChip, { backgroundColor: colors.backgroundSelected }]}>
@@ -547,7 +704,7 @@ export default function AiScreen() {
                   placeholder={t('ai.placeholder')}
                   placeholderTextColor={colors.textSecondary}
                   multiline
-                  maxLength={1000}
+                  maxLength={4000}
                   style={[styles.input, { color: colors.text }]}
                 />
                 <Pressable
@@ -565,6 +722,31 @@ export default function AiScreen() {
           </KeyboardAvoidingView>
         )}
       </SafeAreaView>
+
+      <ShortcutsSheet
+        visible={sheetOpen}
+        shortcuts={shortcuts}
+        ctx={fillCtx}
+        onClose={() => setSheetOpen(false)}
+        onRun={runShortcut}
+        onEdit={(sc) => {
+          setSheetOpen(false);
+          setForm({ kind: 'edit', shortcut: sc });
+        }}
+        onDelete={(sc) => setShortcuts((list) => list.filter((x) => x.id !== sc.id))}
+        onTemplate={openTemplate}
+      />
+      <ShortcutForm
+        mode={form}
+        ctx={fillCtx}
+        shortcutCount={shortcuts.length}
+        onClose={() => setForm(null)}
+        onSend={(text) => {
+          setForm(null);
+          void send(text);
+        }}
+        onSaveShortcut={saveShortcut}
+      />
     </ThemedView>
   );
 }
@@ -587,6 +769,18 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.pill },
   suggest: { gap: Spacing.two },
+  sectionGap: { marginTop: Spacing.two },
+  headerActions: { flexDirection: 'row', gap: Spacing.two },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  quickTile: { width: '48%', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: Radius.md, borderWidth: StyleSheet.hairlineWidth },
+  quickIcon: { width: 32, height: 32, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  allShortcuts: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 4 },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.pill, marginBottom: Spacing.two },
+  barScroll: { flexGrow: 0, marginBottom: Spacing.two },
+  bar: { gap: 6, paddingRight: Spacing.two },
+  barChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.pill },
+  barChipLine: { borderWidth: StyleSheet.hairlineWidth },
+  barText: { maxWidth: 160 },
   suggestion: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderRadius: Radius.md },
   pressed: { opacity: 0.7 },
   footer: { textAlign: 'center', fontSize: 11 },

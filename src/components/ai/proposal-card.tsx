@@ -27,6 +27,8 @@ type Props = {
 };
 
 const MASK = 'RM ••••';
+/** Line items listed on the card; the rest are counted. */
+const ITEMS_SHOWN = 6;
 
 /** A record the assistant prepared. Nothing is saved until the pengguna taps Save; they can change it first. */
 export function ProposalCard({ proposal, status, onSave, onSkip, onUndo }: Props) {
@@ -50,7 +52,13 @@ export function ProposalCard({ proposal, status, onSave, onSkip, onUndo }: Props
     setAmountText(text);
     const n = Math.round(Number(text.replace(',', '.')) * 100) / 100;
     if (!Number.isFinite(n)) return;
-    setDraft((d) => (d.kind === 'transaction' ? { ...d, tx: { ...d.tx, amount: n } } : { ...d, tr: { ...d.tr, amount: n } }));
+    setDraft((d) => {
+      if (d.kind === 'transfer') return { ...d, tr: { ...d.tr, amount: n } };
+      // Line items must add up to the amount; a changed amount that no longer matches drops them (like the add form).
+      const sum = (d.tx.items ?? []).reduce((s, x) => s + x.amount, 0);
+      const items = d.tx.items && Math.abs(sum - n) <= 0.05 ? d.tx.items : undefined;
+      return { ...d, tx: { ...d.tx, amount: n, items } };
+    });
   };
 
   const amount = draft.kind === 'transaction' ? draft.tx.amount : draft.tr.amount;
@@ -75,7 +83,7 @@ export function ProposalCard({ proposal, status, onSave, onSkip, onUndo }: Props
       tone: income ? colors.positive : colors.negative,
       label: income ? t('ai.card.income') : t('ai.card.expense'),
       title: tx.title,
-      meta: [cat ? categoryName(cat) : '', tx.subcategory ? subcategoryName(tx.subcategory) : '', accLabel(tx.accountId), dayLabel(tx.date), tx.items?.length ? t('ai.card.items', { n: tx.items.length }) : '']
+      meta: [cat ? categoryName(cat) : '', tx.subcategory ? subcategoryName(tx.subcategory) : '', accLabel(tx.accountId), dayLabel(tx.date)]
         .filter(Boolean)
         .join(' · '),
       amount: `${income ? '+' : '-'}${money(tx.amount)}`,
@@ -97,6 +105,18 @@ export function ProposalCard({ proposal, status, onSave, onSkip, onUndo }: Props
         </View>
         <ThemedText type="smallBold" style={{ color: header.tone }}>{header.amount}</ThemedText>
       </View>
+
+      {draft.kind === 'transaction' && draft.tx.items?.length ? (
+        <View style={[styles.items, { borderTopColor: colors.divider }]}>
+          {draft.tx.items.slice(0, ITEMS_SHOWN).map((it) => (
+            <View key={it.id} style={styles.itemRow}>
+              <ThemedText type="small" numberOfLines={1} style={styles.flex}>{it.label}</ThemedText>
+              <ThemedText type="small" style={it.amount === 0 ? muted : undefined}>{it.amount === 0 ? t('ai.card.included') : money(it.amount)}</ThemedText>
+            </View>
+          ))}
+          {draft.tx.items.length > ITEMS_SHOWN ? <ThemedText type="small" style={muted}>{t('ai.card.moreItems', { n: draft.tx.items.length - ITEMS_SHOWN })}</ThemedText> : null}
+        </View>
+      ) : null}
 
       {status === 'pending' && draft.notes.length ? (
         <View style={styles.notes}>
@@ -215,6 +235,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { width: 34, height: 34, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   notes: { gap: 4 },
+  items: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, gap: 4 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   note: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   editor: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 6 },
   input: { borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },

@@ -35,9 +35,11 @@ for (const c of CASES) {
       const kinds = r.visuals.map((v) => v.kind);
       for (const k of e.visuals ?? []) if (!kinds.includes(k as never)) problems.push(`no ${k} chart (got ${kinds.join(',') || 'none'})`);
       if (validateVisuals(r.visuals).length !== r.visuals.length) problems.push('invalid chart data');
-      for (const h of e.has ?? []) if (!(typeof h === 'string' ? `${r.text}\n${r.proposals.map((p) => (p.kind === 'transaction' ? `${p.tx.title} RM${p.tx.amount}` : '')).join('\n')}\n${r.actions.map((a) => a.summary.map((x) => `${x.label} ${x.value}`).join('\n')).join('\n')}`.toLowerCase().includes(h.toLowerCase()) : h.test(r.text))) problems.push(`missing "${String(h)}"`);
+      for (const h of e.has ?? []) if (!(typeof h === 'string' ? `${r.text}\n${r.proposals.map((p) => (p.kind === 'transaction' ? `${p.tx.title} RM${p.tx.amount} ${(p.tx.items ?? []).map((i) => `${i.label} ${i.amount}`).join(' ')}` : '')).join('\n')}\n${r.actions.map((a) => a.summary.map((x) => `${x.label} ${x.value}`).join('\n')).join('\n')}`.toLowerCase().includes(h.toLowerCase()) : h.test(r.text))) problems.push(`missing "${String(h)}"`);
       for (const h of e.not ?? []) if (typeof h === 'string' ? r.text.includes(h) : h.test(r.text)) problems.push(`should not say "${String(h)}"`);
       if (e.proposals !== undefined && r.proposals.length !== e.proposals) problems.push(`${r.proposals.length} cards`);
+      if (e.category && !r.proposals.some((p) => p.kind === 'transaction' && `${p.tx.categoryId}/${p.tx.subcategory}`.startsWith(e.category!)))
+        problems.push(`category ${r.proposals.map((p) => (p.kind === 'transaction' ? `${p.tx.categoryId}/${p.tx.subcategory}` : p.kind)).join(',')}`);
       if (e.chips && r.chips.length === 0) problems.push('no follow-up buttons');
       if (/set up|sediakan/.test(e.has?.join(' ') ?? '') && r.actions.length !== 1) problems.push(`${r.actions.length} set-up cards`);
       if (/\{\w+\}|NaN|undefined|Infinity/.test(r.text)) problems.push('broken text');

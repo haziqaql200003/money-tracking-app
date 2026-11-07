@@ -269,7 +269,7 @@ const FILLER = new Set(
   (
     'beli bayar byr bayaran tadi baru semalam kelmarin smlm ni ini today yesterday guna gunakan pakai dgn dengan kat dekat di at on for untuk the a an my aku saya i paid pay spent spend ' +
     'bought buy got dapat terima dah sudah masuk dalam dari ke to from using via cash tunai ringgit rm myr sen je saja sahaja lah la ye ya nak mahu want to record rekod catat tolong please wakira ' +
-    'sebanyak sebanyaknya total jumlah lagi tu nya pula pun dan and expense expenses perbelanjaan'
+    'sebanyak sebanyaknya total jumlah lagi tu nya pula pun dan and expense expenses perbelanjaan into income pendapatan'
   ).split(' '),
 );
 
@@ -286,9 +286,13 @@ export function cleanTitle(segment: string, remove: Span[]): string {
   out += segment.slice(i);
   const words = out
     .replace(/\bhari\s+(?:ni|ini)\b/gi, ' ')
-    .replace(/[^\p{L}\p{N}\s'&-]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s'&()-]/gu, ' ')
     .split(/\s+/)
-    .filter((w) => w && !FILLER.has(w.toLowerCase()) && !/^\d+([/-]\d+)*$/.test(w));
+    .filter((w) => /[\p{L}\p{N}]/u.test(w) && !FILLER.has(w.toLowerCase().replace(/[()]/g, '')) && !/^\(?\d+([/-]\d+)*\)?$/.test(w));
+  // "pay with maybank" leaves a dangling "with" once the account is removed.
+  const DANGLING = /^(?:with|dengan|guna|using|via|pay|by)$/i;
+  while (words.length > 0 && DANGLING.test(words[words.length - 1])) words.pop();
+  while (words.length > 0 && DANGLING.test(words[0])) words.shift();
   const title = words.join(' ').trim().slice(0, 60);
   return title ? title[0].toUpperCase() + title.slice(1) : '';
 }

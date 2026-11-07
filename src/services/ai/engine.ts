@@ -543,9 +543,11 @@ function proposeTransactions(d: AiData, a: Args): ToolResult {
     const rawItems = Array.isArray(it.line_items) ? (it.line_items as Args[]) : [];
     const lines = rawItems
       .map((x, i) => ({ id: `ai${Date.now().toString(36)}${i}`, label: str(x.label, 60), amount: round2(num(x.amount)) }))
-      .filter((x) => x.label && Number.isFinite(x.amount) && x.amount !== 0);
-    // Like receipt scanning: line items are kept only when they add up to the amount.
-    const items = lines.length >= 2 && Math.abs(lines.reduce((s, x) => s + x.amount, 0) - amount) <= 0.05 ? lines : undefined;
+      .filter((x) => x.label && Number.isFinite(x.amount));
+    // Like receipt scanning: line items are kept only when they add up to the amount. A RM0 line is something that came
+    // with another item (the fries and drink in a burger set), so it is kept as long as at least one line has a price.
+    const items =
+      lines.length >= 2 && lines.some((x) => x.amount !== 0) && Math.abs(lines.reduce((s, x) => s + x.amount, 0) - amount) <= 0.05 ? lines : undefined;
     if (type === 'debit') {
       const acc = d.accounts.find((x) => x.id === accountId);
       if (acc && acc.balance - amount < 0 && !acc.creditLimit) notes.push('lowBalance');

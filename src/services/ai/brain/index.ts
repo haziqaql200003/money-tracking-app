@@ -11,11 +11,14 @@
  * explain, help, greet, thanks). Anything else, or anything it is not sure about, comes back `handled: false` so the
  * chat can ask the server AI (when signed in) or say it did not understand.
  */
+import type { TKey } from '@/i18n';
+
 import { runTool, type AiData } from '../engine';
 import { breakdownAction, budgetAction, tidyCase, detectBudgetSet, detectGoal, detectInstalment, detectRecurring, goalAction, instalmentAction, instalmentDraft, iouAction, monthsIn, recurringAction, validAction } from './actions';
 import { adviceSay } from './advice';
 import { affordSay, cashflowSay, debtsSay, detectAfford, detectCashflow, detectDebtQuestion, detectSaveTarget, detectScenario, detectTrend, monthsAsked, namedMonths, percentAsked, saveTargetSay, scenarioSay, trendSay, twoMonthsSay } from './analysis';
 import { coldCategory } from './cold-category';
+import { readJsonReceipt } from './json-receipt';
 import { classifyIntent, type Intent } from './intent';
 import { balanceSay, budgetSay, compareSay, findSay, forecastSay, habitsSay, rm, transfersSay, whenArgs, whereSay, type Say, type Translate, type When } from './reply';
 import {
@@ -84,15 +87,28 @@ function say(text: string, extra: Omit<Out, 'text'>): BrainAnswer {
 /** Marker replaced by the previous topic in think(). */
 const KEEP = { intent: 'other' } as Topic;
 
+/** The phone keyboard types curly quotes, long dashes and no-break spaces; the rules read plain ones ("McDonald’s" -> "McDonald's"). */
+export function plainText(text: string): string {
+  return text
+    .replace(/[\u2018\u2019\u201B\u02BC\u00B4`]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[\u00A0\u2009\u200A\u202F\u200B]/g, ' ');
+}
+
 export function think(input: { text: string; data: AiData; t: Translate; memory?: Memory | null }): BrainResult {
   const memory = input.memory ?? EMPTY_MEMORY;
-  const r = decide(input.text, input.data, input.t, memory);
+  const r = decide(plainText(input.text), input.data, input.t, memory);
   if (r.handled && r.memory.last === KEEP) r.memory = { ...r.memory, last: memory.last };
   if (!r.handled) r.memory = { pending: null, last: memory.last };
   return r;
 }
 
 function decide(raw: string, data: AiData, t: Translate, memory: Memory): BrainResult {
+  // A receipt pasted as JSON (from another AI or scanner): read before anything else, and before the text is shortened.
+  const json = raw.length <= 8000 ? jsonRecord(raw, data, t) : null;
+  if (json) return json;
   const text = raw.trim().slice(0, 1000);
   if (!text) return { handled: false, intent: 'other', p: 0, reason: 'empty', memory };
 
@@ -232,7 +248,7 @@ const HEADER_NOISE =
 const DEBT_LINE = /\b(hutang|debt|owe|owes|pinjam|belanja dia|for him|for her|untuk dia)\b/i;
 
 /** "Record expenses Transfer to Danisha RM 10 with details as follows". */
-const LEAD = /^\s*(?:please\s+|tolong\s+)?(?:(?:record|rekod|catat|add|tambah|log)\s+(?:an?\s+)?(?:expenses?|perbelanjaan|belanja)\s*)?(?:(?:with|dengan)\s+)?(?:(?:tajuk|title)\s+)?/i;
+const LEAD = /^\s*(?:please\s+|tolong\s+)?(?:(?:record|rekod|catat|add|tambah|log|track)\s+(?:an?\s+)?(?:(?:expenses?|perbelanjaan|belanja)\b\s*)?)?(?:(?:with|dengan)\s+)?(?:(?:tajuk|title)\s+)?/i;
 const HAS_RM = /\b(?:rm|myr)\s*\d|\d\s*(?:rm|myr|ringgit)\b/i;
 /** "Transfer to Danisha": money handed to a person is not a bank fee. */
 const PERSON_TRANSFER = /^\s*(?:transfer|tf|bank ?in)\s+(?:to|kat|kepada|ke)\s+\p{L}/iu;
@@ -250,6 +266,22 @@ function restLabel(line: string, data: AiData): string {
   const q = l.match(/^(\d+)\s*[x×]\s*/i);
   const body = q ? l.slice(q[0].length) : l;
   return `${q ? `${q[1]}x ` : ''}${tidyCase(body)}`;
+}
+
+/** The record's name from the first line: no "record expenses", no amount, no "with details...", no account or date words. */
+function headTitle(head: string, hh: { start: number; end: number }, data: AiData): string {
+  let h = `${head.slice(0, hh.start)} ${head.slice(hh.end)}`
+    .replace(/\b(?:with|dengan)?\s*(?:details?|butiran|as follows|as below|seperti berikut|berikut)\b.*$/i, ' ')
+    .replace(LEAD, '');
+  for (const a of [...findAccounts(h, data)].sort((x, y) => y.start - x.start)) h = `${h.slice(0, a.start)} ${h.slice(a.end)}`;
+  const d = dateIn(h, data.todayKey);
+  if (d) h = h.replace(d.match, ' ');
+  return h
+    .replace(/\b(?:today|yesterday|semalam|tadi|kelmarin|hari ini)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b(?:(?:pay(?:ing)?|paid|bayar(?:an)?)\s+)?(?:with|using|via|guna|dengan|from|dari|kat)\s*$/i, '')
+    .replace(/[\s:–,-]+$/, '')
+    .trim();
 }
 
 /**
@@ -283,31 +315,109 @@ function totalFirstRecord(text: string, lines: string[], data: AiData, t: Transl
       .slice(0, 60);
     if (left > 0.005 && label) restItem = { label, amount: left };
   }
-  if (rows.length + (restItem ? 1 : 0) < 2) return null;
-  const lineItems: { label: string; amount: number }[] = rows.map((r) => {
+  // "1x Set C RM 13.90 / 1x Ais Kosong": one line has no price, so it gets what is left of the total.
+  if (!restItem && rows.length >= 1) {
+    const unpriced = lines.slice(1).filter((l) => !HAS_RM.test(l) && /^\s*\d+\s*[x×]\s*\S/i.test(l));
+    const left = Math.round((hh.value - rows.reduce((sum, r) => sum + r.hit!.value, 0)) * 100) / 100;
+    const label = unpriced.map((l) => restLabel(l, data)).filter(Boolean).join(', ').slice(0, 60);
+    if (unpriced.length > 0 && left > 0.005 && label) restItem = { label, amount: left };
+  }
+  // Lines with a quantity but no price that did NOT get the leftover ("1x French Fries (M)" under a priced set) come with the item above.
+  const included = restItem
+    ? []
+    : lines
+        .slice(1)
+        .filter((l) => !HAS_RM.test(l) && /^\s*\d+\s*[x×]\s*\S/i.test(l))
+        .map((l) => restLabel(l, data))
+        .filter(Boolean);
+  const labelOf = (r: (typeof rows)[number]) => {
     const raw = `${r.l.slice(0, r.hit!.start)} ${r.l.slice(r.hit!.end)}`.replace(/^[\s•*-]+/, '').replace(/\s+/g, ' ').trim();
     const q = raw.match(/^(\d+)\s*[x×]\s*/i);
-    return { label: `${q ? `${q[1]}x ` : ''}${tidyCase(q ? raw.slice(q[0].length) : raw)}`.slice(0, 60), amount: r.hit!.value };
-  });
+    return `${q ? `${q[1]}x ` : ''}${tidyCase(q ? raw.slice(q[0].length) : raw)}`.slice(0, 60);
+  };
+  const rowsSum = Math.round(rows.reduce((sum, r) => sum + r.hit!.value, 0) * 100) / 100;
+  // "1x Spicy Chicken McDeluxe RM12.90 / 1x French Fries (M) / 1x Medium Coke" under a RM12.90 total: ONE set. The sides have no price of their own,
+  // and a record can only keep line items that have a price, so the set is named in the title.
+  if (!restItem && rows.length === 1 && included.length > 0 && Math.abs(rowsSum - hh.value) <= 0.05) {
+    const main = labelOf(rows[0]).replace(/^1x\s+/i, '');
+    const name = tidyCase(headTitle(head, hh, data)).slice(0, 60);
+    const setTitle = fitTitle(name, `${main} Set`);
+    if (!setTitle) return null;
+    const sides = included.map((x) => x.replace(/^1x\s+/i, ''));
+    // The main item carries the price; the sides are kept as RM0 lines so the record still shows what was in the set.
+    const setItems = [{ label: labelOf(rows[0]), amount: hh.value }, ...included.map((label) => ({ label, amount: 0 }))];
+    const set = runTool(
+      'propose_transactions',
+      {
+        items: [
+          {
+            title: setTitle,
+            amount: hh.value,
+            type: 'expense',
+            account_id: findAccounts(text, data)[0]?.id,
+            date: findDate(text, data.todayKey),
+            line_items: setItems,
+            ...categoryWithDetails(name, [main, ...sides].join(', '), setTitle, 'expense', data),
+          },
+        ],
+      },
+      data,
+    );
+    if (!set.proposals?.length) return null;
+    return say(t('ai.b.rcpt.set', { title: setTitle, total: rm(hh.value), names: sides.join(', ') }), { intent: 'expense', p: 1, proposals: set.proposals });
+  }
+  if (rows.length + (restItem ? 1 : 0) < 2) return null;
+  const lineItems: { label: string; amount: number }[] = rows.map((r) => ({ label: labelOf(r), amount: r.hit!.value }));
   if (restItem) lineItems.push(restItem);
+  for (const label of included) lineItems.push({ label, amount: 0 });
   const total = Math.round(lineItems.reduce((sum, x) => sum + x.amount, 0) * 100) / 100;
   const adds = Math.abs(total - hh.value) <= 0.05;
-  const title = tidyCase(
-    `${head.slice(0, hh.start)} ${head.slice(hh.end)}`
-      .replace(/\b(?:with|dengan)?\s*(?:details?|butiran|as follows|seperti berikut|berikut)\b.*$/i, ' ')
-      .replace(LEAD, '')
-      .replace(/[\s:–,-]+$/, ''),
-  ).slice(0, 60);
+  const title = tidyCase(headTitle(head, hh, data)).slice(0, 60);
   if (!title) return null;
   const items = adds ? lineItems : [];
   const accounts = findAccounts(text, data);
   const res = runTool(
     'propose_transactions',
-    { items: [{ title, amount: hh.value, type: 'expense', account_id: accounts[0]?.id, date: findDate(text, data.todayKey), line_items: items, ...categoryWithDetails(title, '', title, 'expense', data) }] },
+    { items: [{ title, amount: hh.value, type: 'expense', account_id: accounts[0]?.id, date: findDate(text, data.todayKey), line_items: items, ...categoryWithDetails(title, lineItems.map((x) => x.label.replace(/^\d+x\s+/i, '')).join(', '), title, 'expense', data) }] },
     data,
   );
   if (!res.proposals?.length) return null;
-  const first = adds ? t('ai.b.rcpt.single', { title, n: items.length, total: rm(hh.value) }) : t('ai.b.rcpt.mismatch', { sum: rm(total), total: rm(hh.value) });
+  const first = adds
+    ? `${t('ai.b.rcpt.single', { title, n: items.length, total: rm(hh.value) })}${included.length ? ` ${t('ai.b.rcpt.included', { names: included.join(', ') })}` : ''}`
+    : t('ai.b.rcpt.mismatch', { sum: rm(total), total: rm(hh.value) });
+  return say(first, { intent: 'expense', p: 1, proposals: res.proposals });
+}
+
+/** One expense from a JSON receipt: its items plus tax, service, discount and rounding as lines, so they add up to the total. */
+function jsonRecord(raw: string, data: AiData, t: Translate): BrainAnswer | null {
+  const r = readJsonReceipt(raw, t as (k: TKey) => string);
+  if (!r) return null;
+  if (data.accounts.length === 0) return say(t('ai.b.noAccount'), { intent: 'expense', p: 1 });
+  if (r.currency && !/^(MYR|RM)$/.test(r.currency)) return say(t('ai.b.json.currency', { cur: r.currency }), { intent: 'expense', p: 1 });
+  const title = tidyCase(r.merchant);
+  const names = r.lines
+    .filter((l) => /^\d+x\s/.test(l.label))
+    .map((l) => l.label.replace(/^\d+x\s+/, ''))
+    .join(', ');
+  const res = runTool(
+    'propose_transactions',
+    {
+      items: [
+        {
+          title,
+          amount: r.total,
+          type: 'expense',
+          account_id: r.payment ? findAccounts(r.payment, data)[0]?.id : undefined,
+          date: r.date,
+          line_items: r.adds ? r.lines : [],
+          ...categoryWithDetails(title, names, title, 'expense', data),
+        },
+      ],
+    },
+    data,
+  );
+  if (!res.proposals?.length) return null;
+  const first = r.adds || r.lines.length === 0 ? t('ai.b.rcpt.single', { title, n: r.adds ? r.lines.length : 0, total: rm(r.total) }) : t('ai.b.rcpt.mismatch', { sum: rm(r.sum), total: rm(r.total) });
   return say(first, { intent: 'expense', p: 1, proposals: res.proposals });
 }
 
@@ -368,11 +478,30 @@ const TITLE_CUE = /\b(?:tajuk|title)\s+(.+?)(?=\s+(?:rm|myr)\s*\d|\s+\d|\s+(?:wi
  * decides the category (a title like "Transfer to Syafiq" says nothing). A meal word in the title ("Lunch") still picks that sub-category.
  */
 function categoryWithDetails(base: string, details: string, title: string, kind: 'expense' | 'income', data: AiData) {
-  const fromDetails = details ? category(details, kind, data, 0.5) : {};
-  if (!('category_id' in fromDetails)) return PERSON_TRANSFER.test(title) && kind === 'expense' ? { category_id: 'other', subcategory: 'Other' } : category(title, kind, data);
-  const cat = data.categories.find((c) => c.id === fromDetails.category_id);
-  const word = cat?.subcategories.find((s) => base && new RegExp(`\\b${s.replace(/[^\w ]/g, '')}\\b`, 'i').test(base));
-  return word ? { ...fromDetails, subcategory: word } : fromDetails;
+  // With a meal word in the name ("Lunch"), that meal is the sub-category.
+  const withMeal = (g: { category_id: string; subcategory: string }) => {
+    const cat = data.categories.find((c) => c.id === g.category_id);
+    const word = cat?.subcategories.find((s) => base && new RegExp(`\\b${s.replace(/[^\w ]/g, '')}\\b`, 'i').test(base));
+    return word ? { ...g, subcategory: word } : g;
+  };
+  const person = kind === 'expense' && PERSON_TRANSFER.test(base || title);
+  if (!details) return person ? { category_id: 'other', subcategory: 'Other' } : category(title, kind, data);
+  if (person) {
+    // "Transfer to Syafiq (Duit Bowling)": what it was FOR decides, the name says nothing.
+    const g = category(details, kind, data, 0.5);
+    return g.category_id && g.subcategory ? withMeal({ category_id: g.category_id, subcategory: g.subcategory }) : { category_id: 'other', subcategory: 'Other' };
+  }
+  // Ask three ways (the name, the items, both) and take the category that at least two agree on:
+  // any one of them alone can be fooled ("Medium Coke" -> News, "SST and tax" -> Taxes, "Shilla" -> hotel).
+  const items = details.replace(/\b(?:mineral|bottled|plain)\s+water\b/gi, 'teh').replace(/\b(?:sst|tax|cukai|service charges?|servis|rounding|delivery|charges?|caj|and|dan)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  const tries = [base ? category(base, kind, data) : {}, items ? category(items, kind, data) : {}, category(`${base} ${items}`.trim(), kind, data)].flatMap((g) =>
+    g.category_id && g.subcategory ? [{ category_id: g.category_id, subcategory: g.subcategory }] : [],
+  );
+  const votes = new Map<string, number>();
+  for (const g of tries) votes.set(g.category_id, (votes.get(g.category_id) ?? 0) + 1);
+  const agreed = tries.find((g) => (votes.get(g.category_id) ?? 0) >= 2);
+  const pick = agreed ?? tries[1] ?? tries[0];
+  return pick ? withMeal(pick) : category(title, kind, data);
 }
 
 /**
@@ -382,7 +511,7 @@ function categoryWithDetails(base: string, details: string, title: string, kind:
  */
 function parseDetails(raw: string, data: AiData): string | null {
   const out: string[] = [];
-  for (const line0 of raw.replace(/\b(?:as follows|seperti berikut|berikut|below|bawah)\b/gi, ' ').split(/\n+/)) {
+  for (const line0 of raw.replace(/\b(?:as follows|as below|as per below|seperti berikut|seperti di bawah|di bawah|berikut|following|below|bawah)\b/gi, ' ').split(/\n+/)) {
     let line = line0;
     const d = dateIn(line, data.todayKey);
     if (d) line = line.replace(d.match, ' ');
@@ -398,7 +527,21 @@ function parseDetails(raw: string, data: AiData): string | null {
   return out.join(', ');
 }
 
-function recordItems(text: string, intent: 'expense' | 'income', p: number, data: AiData, t: Translate): BrainAnswer {
+/** "Base (detail, detail)" in at most 60 characters. Details that do not fit are cut from the end and shown as "…". */
+function fitTitle(base: string, details: string, max = 60): string {
+  if (!base) return details.slice(0, max);
+  const all = details.split(', ');
+  const make = (list: string[], more: boolean) => `${base} (${list.join(', ')}${more ? ', …' : ''})`;
+  if (make(all, false).length <= max) return make(all, false);
+  for (let n = all.length - 1; n >= 1; n--) if (make(all.slice(0, n), true).length <= max) return make(all.slice(0, n), true);
+  return base.slice(0, max);
+}
+
+/** "Record expense", "Rekod belanja", "Record income", "Rekod pendapatan": the command, not part of the record's name. */
+const RECORD_CMD = /^\s*(?:please\s+|tolong\s+)?(?:record|rekod|catat|add|tambah|log|track)\s+(?:an?\s+)?(?:new\s+|baru\s+)?(?:(?:expenses?|perbelanjaan|belanja|income|pendapatan|duit\s+masuk)\b\s*)?/i;
+
+function recordItems(raw: string, intent: 'expense' | 'income', p: number, data: AiData, t: Translate): BrainAnswer {
+  const text = raw.replace(RECORD_CMD, '');
   if (data.accounts.length === 0) return say(t('ai.b.noAccount'), { intent, p });
   const date = findDate(text, data.todayKey);
   const allAccounts = [...new Set(findAccounts(text, data).map((a) => a.id))];
@@ -429,7 +572,7 @@ function recordItems(text: string, intent: 'expense' | 'income', p: number, data
     const own = findAccounts(piece.seg, data);
     const given = pieces.length === 1 ? main.match(TITLE_CUE)?.[1]?.trim() : undefined;
     const base = given ? tidyCase(given) : tidyCase(cleanTitle(piece.seg, [hit, ...own]));
-    const title = details && pieces.length === 1 ? (base ? `${base} (${details})` : details) : base;
+    const title = details && pieces.length === 1 ? fitTitle(base, details) : base;
     if (!title && pieces.length === 1) {
       const acc = own[0]?.id ?? (allAccounts.length === 1 ? allAccounts[0] : undefined);
       return say(t('ai.b.askTitle', { amount: rm(hit.value) }), { intent, p, pending: { kind: 'tx', type: intent, title: '', amount: hit.value, accountId: acc, date } });

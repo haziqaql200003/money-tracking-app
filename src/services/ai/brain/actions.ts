@@ -65,7 +65,15 @@ function nameFrom(text: string, extra: RegExp[] = []): string {
     .split(/\s+/)
     .filter((w) => w && !NOISE.has(w.toLowerCase()) && !/^\d+([.,]\d+)?k?$/i.test(w) && !/^(rm|myr)\d/i.test(w) && !/^\d+(x|bln|bulan|months?)$/i.test(w));
   const name = words.join(' ').trim().slice(0, 50);
-  return name ? name[0].toUpperCase() + name.slice(1) : '';
+  // "iPhone", "eBay": a word that already has its own capital letters keeps them.
+  return name ? (/^\p{Ll}\p{L}*\p{Lu}/u.test(name) ? name : name[0].toUpperCase() + name.slice(1)) : '';
+}
+
+/** "from Maybank", "dari Cash", "guna TNG": the account part of a message, so it is not taken as part of a name. */
+function accountPhrases(d: AiData): RegExp[] {
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const names = [...new Set(d.accounts.flatMap((a) => [a.name, a.provider ?? '']).filter((x) => x.trim().length >= 2))];
+  return names.map((n) => new RegExp(`\\b(?:(?:pay(?:ing)?|bayar)\\s+)?(?:from|dari|guna|using|via|pakai|with|dengan)?\\s*${esc(n.trim())}\\b`, 'gi'));
 }
 
 /* ---------------- instalment / BNPL ---------------- */
@@ -101,7 +109,7 @@ export function instalmentDraft(text: string, d: AiData): InstalmentDraft {
   body = body.replace(/\b(?:with|dengan|at|tanpa|no)?\s*\d+(?:[.,]\d+)?\s*%\s*(?:interest|faedah|kadar)?/gi, ' ').replace(/\b(?:interest|faedah|bunga)\b/gi, ' ');
   const hit = pickAmount(findAmounts(body), body);
   return {
-    name: nameFrom(body, PROVIDERS.map(([re]) => new RegExp(re.source, 'gi'))),
+    name: nameFrom(body, [...accountPhrases(d), ...PROVIDERS.map(([re]) => new RegExp(re.source, 'gi'))]),
     provider,
     amount: hit?.value,
     perMonth: /\b(sebulan|per month|a month|monthly|\/bulan|\/month|setiap bulan|each month)\b/i.test(text),
@@ -268,7 +276,7 @@ export function recurringAction(t: Translate, d: AiData, text: string): ActionPr
   if (!hit || !accountId) return null;
   const frequency: RecurringRule['frequency'] = /\b(minggu|week|weekly)\b/i.test(text) ? 'weekly' : /\b(tahun|year|yearly|tahunan)\b/i.test(text) ? 'yearly' : 'monthly';
   const income = /\b(gaji|salary|income|pendapatan|elaun|allowance|terima|receive)\b/i.test(text);
-  const title = nameFrom(text, [/\b(setiap|tiap|tiap-tiap|every|monthly|bulanan|weekly|yearly|tahunan|minggu|week|tahun|year|langganan|subscription)\b/gi]) || t('ai.b.act.billName');
+  const title = nameFrom(text, [...accountPhrases(d), /\b(setiap|tiap|tiap-tiap|every|monthly|bulanan|weekly|yearly|tahunan|minggu|week|tahun|year|langganan|subscription)\b/gi]) || t('ai.b.act.billName');
   const dayMatch = text.match(/\b(?:hb|haribulan|on the|pada)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:hb|haribulan|th|st|nd|rd)\b/i);
   const day = dayMatch ? Number(dayMatch[1] ?? dayMatch[2]) : undefined;
   // First time: the next date with that day (or one period from today), so a bill paid today is not counted twice.
@@ -342,7 +350,8 @@ const sameWord = (a: string, b: string) => a === b || (Math.min(a.length, b.leng
 export function tidyCase(s: string): string {
   const clean = s.replace(/\s+/g, ' ').trim();
   if (clean !== clean.toLowerCase() && clean !== clean.toUpperCase()) return clean;
-  return clean.toLowerCase().replace(/(^|[\s(/&-])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase());
+  const cased = clean.toLowerCase().replace(/(^|[\s(/&-])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase());
+  return cased.replace(/\b(?:Sst|Gst|Vat|Kfc|Tng|Atm|Tnb|Jpj|Lrt|Mrt|Ktm|Pdrm|Ptptn|Epf|Kwsp|Asb)\b/g, (w) => w.toUpperCase());
 }
 
 export type BreakdownResult = { action: ActionProposal } | { ask: true } | { notFound: string };

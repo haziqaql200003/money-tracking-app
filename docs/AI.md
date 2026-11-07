@@ -3,7 +3,7 @@
 The chat answers questions about the pengguna's money, records spending, and explains things simply. **It runs on the phone with no AI service.**
 The only exception is photos / PDFs and the few questions it does not know. Those go to the optional AI server (Layer 2), and only when the pengguna is signed in.
 
-Stack this was built and tested against (from `package.json`): WaKira 3.5.0, Expo SDK 58.0.21, React 19.3.0, React Native 0.88.1, Expo Router 58.0.28, TypeScript 6.0.3, React Compiler on (`app.json` `experiments.reactCompiler: true`). **No dependency was added or changed.**
+Stack this was built and tested against (from `package.json`): WaKira 3.7.0, Expo SDK 58.0.23, React 19.3.0, React Native 0.88.1, Expo Router 58.0.30, TypeScript 6.0.3, React Compiler on (`app.json` `experiments.reactCompiler: true`). **No dependency was added or changed** (Ask WaKira still runs in Expo Go).
 
 ---
 
@@ -137,6 +137,13 @@ If a chart is dropped, the text still shows.
 | Savings goal ("simpan RM5000 untuk kahwin sebelum Dis 2027") | Works offline, card, Undo | actions.ts -> `addGoal` |
 | Recurring bill / income ("bayar Unifi RM129 setiap bulan") | Works offline, card, Undo | actions.ts -> `addRecurring` |
 | Debt questions ("berapa hutang saya") | Works offline, bars | analysis.ts `debtsSay` |
+| Receipt typed over several lines (items first, or the total on the first line and items below) | Works offline, one card with line items | index.ts `receiptRecord`, `totalFirstRecord` |
+| A set: one priced item, sides with no price ("1x McDeluxe RM12.90 / 1x Fries / 1x Coke") | Works offline, sides saved as RM0 "Included" lines | `totalFirstRecord` (engine keeps RM0 lines when one line has a price) |
+| "Baki 1x mineral water, SST and tax": the rest of the total as one line | Works offline | `totalFirstRecord` + `REST_CUE` |
+| Title / remarks / details given in words ("tajuk X", "with remarks Y", "with details as below") | Works offline | `TITLE_CUE`, `DETAILS_CUE`, `parseDetails`, `fitTitle` |
+| Add a breakdown to a record that is already saved ("update Souqa Pasta with this breakdown") | Works offline, card, Undo | actions.ts `breakdownAction` |
+| Receipt pasted as JSON (from ChatGPT / Gemini / a scanner) | Works offline, one card: items + tax + rounding | brain/json-receipt.ts |
+| Shortcuts: 18 templates (record, set up, ask) + the pengguna's own one-tap shortcuts | Works offline | services/ai/shortcuts.ts, components/ai/shortcut-form.tsx, shortcuts-sheet.tsx |
 | Paying an instalment, editing a debt, assets, tax relief | Not yet | open those screens |
 
 ---
@@ -157,7 +164,8 @@ Not now. Here is the assessment.
 ## 5. Tests and results
 
 ```
-node scripts/brain-eval.mjs           # 45 conversation steps, fake 7-month records (scripts/brain-eval/fixture.ts)
+npm run brain:test                    # conversation tests + TypeScript/Python parity
+node scripts/brain-eval.mjs           # conversation steps, fake 7-month records (scripts/brain-eval/fixture.ts)
 node scripts/brain-eval.mjs --show    # same, printing every answer
 node scripts/brain-check.mjs          # TypeScript model == Python model
 python ml/train.py                    # retrain + accuracy report
@@ -180,6 +188,13 @@ Acceptance criteria used:
 
 ---
 
+Results on 8 Nov 2026 (after the November round, section 8):
+- **Conversation tests:** 129 / 129 passed, including 36 shortcut-template cases (every template, filled, in English and Malay), 11 category checks, JSON receipts and all the developer's real messages from October-November.
+- **Router:** 92.4% on 184 hand-written and real messages, measured *before* they were added to training (the final model is trained on them too). 79.1% on unseen synthetic sentence shapes.
+- **Category model:** every shop / item name from the developer's real messages now lands in the right category (McDonald's, Medium Coke, French Fries, Soru Station, Dodo Korea, Ayam Gepuk, T-Mart, Air A&W...).
+- **Parity, type check, lint, i18n audit:** all clean.
+- **UI:** the chat screen, shortcuts sheet, template form and item list on the card were drawn in a browser (react-native-web) and checked by eye. Not yet checked on a real phone.
+
 ## 6. Limitations (honest)
 
 - The router is not a language model. It knows 17 intents and was trained on generated sentences, so real messages will score lower than the test numbers. Add misses to `ml/eval_cases.py`, then retrain.
@@ -192,6 +207,33 @@ Acceptance criteria used:
 ## 7. Layer 2 (optional server AI)
 
 `supabase/functions/wakira-ai/` is only used for photos / PDFs and unknown questions when signed in. It has a provider chain (Gemini, Mistral, Groq, ..., Claude), limits (`AI_MONTHLY_LIMIT`) and consent on first use. See `providers.ts` for secrets. The prompt now asks for the same plain, friendly style.
+
+## 8. November 2026 round
+
+**Receipts and sets.** One message = one record. The brain reads a receipt typed in any of these shapes: items first; the total on the first line with items below; one priced item plus unpriced sides (a set, saved with RM0 "Included" lines); priced items plus "Baki ..." for the rest; or the whole receipt as JSON. Lines that only hold a date or an account ("3 nov 2026", "Maybank") are never items. When the items do not add up to the total, the total wins and the reply says so.
+
+**Shortcuts** (`src/services/ai/shortcuts.ts`). A template is a normal chat message with slots, for example `Record expense {title} {amount}[ from {account}][ {date}]`. `{slot}` must be filled; a part in `[ ]` is dropped when its slot is empty. The English and Malay wording live in `ai.sc.x.*` in `src/i18n/{en,ms}/ai.ts`. Filling a template makes a message that goes through the same brain and the same Save / Skip cards as typing it, so a shortcut can never save anything without a tap. Saved shortcuts keep the answers the pengguna gave; empty fields are asked each time, and the date always means "the day it runs". A sent message can also be kept as a shortcut (long-press it). Shortcuts are stored on the phone (`u:<id>:ai:shortcuts`, or `ai:shortcuts:local`), at most 40.
+
+To add a template: add it to `TEMPLATES`, add `ai.sc.t.<id>` (tile name) and `ai.sc.x.<id>` (message) in both languages, then add sample answers and the expected result in the template block at the end of `scripts/brain-eval/cases.ts`. The tests fail if the brain does not understand the new wording.
+
+**Teaching the brain from real messages.**
+1. Use Ask WaKira in development. Every message prints `[brain] "<message>" answered on phone <intent> <confidence>` (or `-> server`) in the Metro terminal.
+2. Paste those lines into `ml/brain-log.txt` and run `npm run brain:import`. New messages land in `ml/real_messages.tsv` as `?<intent>  <message>`.
+3. Open the file. Fix the intent where the brain was wrong, then remove the `?`. Lines still starting with `?` are not used.
+4. Run `npm run brain:train`. It retrains (`ml/train.py`), checks TypeScript against Python and runs every conversation test.
+
+For a category that is wrong, add the shop or item name to `ml/lexicon.py` under the right category and subcategory, then run `npm run brain:train`. Add a `category:` expectation to a case in `scripts/brain-eval/cases.ts` so it stays fixed.
+
+## 9. Handoff: rules for anyone (or any AI tool) changing this
+
+- **The brain never invents a number.** Every amount in an answer comes from `engine.ts` / `analysis.ts` / `advice.ts`. Don't let a language model write numbers into replies.
+- **Nothing is saved without a tap.** New abilities return a proposal (`proposals`) or a set-up card (`actions`, checked by `validAction`), never a direct write.
+- **Charts are data**, validated by `validateVisuals` before drawing. Don't render model-written code or markup.
+- **Both languages always.** Every user-facing string is a key in `src/i18n/en/*` and `src/i18n/ms/*`. Run `npm run i18n:audit`.
+- **`featurize.ts` must match `ml/features.py` line for line.** Change both, retrain, run `node scripts/brain-check.mjs`.
+- **Before calling a change done:** `npx tsc --noEmit`, `npm run lint`, `npm run i18n:audit`, `npm run brain:test`. Add a case for every bug you fix.
+- **Order of rules in `decide()` matters:** JSON receipt -> pending answer -> multi-line (breakdown update, receipts) -> follow-ups -> deep questions -> router. A new rule that catches too much will break other tests, which is what the tests are for.
+- **Where to plug in a cloud model later (ChatGPT, Gemini, Grok...):** only behind `handled: false` (the brain is unsure) and for photos / PDFs, through `supabase/functions/wakira-ai/providers.ts`. A good use is turning a receipt photo into the JSON shape `brain/json-receipt.ts` reads, so the phone's own rules still check the numbers and make the card.
 
 ## Files
 
@@ -206,5 +248,10 @@ Acceptance criteria used:
 | `src/services/ai/brain/intent.ts`, `featurize.ts`, `cold-category.ts` | Model inference |
 | `src/components/ai/ai-visual.tsx` | Draws the chart specs with the app's chart components |
 | `src/app/(app)/more/ai.tsx` | Chat screen (charts, follow-up buttons, memory) |
-| `ml/` | Training data and training script |
+| `src/services/ai/brain/json-receipt.ts` | Reads a receipt pasted as JSON |
+| `src/services/ai/shortcuts.ts` | Templates, slots, filling, saved shortcuts |
+| `src/components/ai/shortcuts-sheet.tsx`, `shortcut-form.tsx` | Shortcuts list / template gallery, fill-in form with live preview |
+| `src/components/ai/proposal-card.tsx` | Record card (now lists line items, "Included" for RM0 lines) |
+| `ml/` | Training data (`lexicon.py`, `eval_cases.py`, `real_messages.tsv`) and `train.py` |
+| `scripts/brain-log-import.mjs` | Metro `[brain]` log lines -> `ml/real_messages.tsv` for review |
 | `scripts/brain-eval*`, `scripts/brain-check.mjs` | Tests |
