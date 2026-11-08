@@ -1,20 +1,26 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text } from '@/components/ui/text';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
 
-import { CountUp, MONO, Rise, Stamp } from '@/components/story/story-kit';
-import { dateText, dayName, int, rm2, weekNo, type StoryCtx } from '@/components/story/story-common';
+import { Text } from '@/components/ui/text';
+import { CountUp, Feed, Grow, MONO, Pop, Print, Rise, Stamp } from '@/components/story/story-kit';
+import { dateText, dayName, label, rm2, weekNo, type StoryCtx } from '@/components/story/story-common';
 import type { StorySlide } from '@/components/story/story-player';
 import { weekdayShort } from '@/i18n/format';
 import type { Report } from '@/utils/report-data';
 
 const INK = '#1C1B19';
 const PAPER = '#FBF8F1';
-const BACKS = ['#2A241D', '#1D2A25', '#2A1D25', '#1D2330', '#2A2A1D', '#161A26'];
+const BACK = '#2A241D';
+const MUTED = '#57524A';
+const RED = '#C2255C';
+const GREEN = '#0F7A55';
+const BLUE = '#1C7ED6';
 
-/** Concept C: the week comes out as a shop receipt. */
+/**
+ * Weekly story (3.8): the week printed as a shop receipt. Five slides at most, one warm backdrop,
+ * the receipt feeds out of a printer slot and each line prints in turn.
+ */
 export function weeklySlides(r: Report, c: StoryCtx): StorySlide[] {
   const { t, tp } = c;
   const no = weekNo(r.period.from);
@@ -33,72 +39,97 @@ export function weeklySlides(r: Report, c: StoryCtx): StorySlide[] {
 
   const pages: { key: string; body: ReactNode }[] = [];
 
+  // 1. Intro
   pages.push({
     key: 'intro',
     body: (
       <>
-        <Text style={[s.small, s.center, s.spaced]}>{'*** WAKIRA ***' /* i18n-ignore: brand */}</Text>
-        <Text style={[s.tiny, s.center]}>{t('rpt.w.no', { n: no })}</Text>
+        <Print paper={PAPER} delay={700}>
+          <Text style={[s.small, s.center, s.spaced, s.bold]}>{'*** WAKIRA ***' /* i18n-ignore: brand */}</Text>
+        </Print>
+        <Print paper={PAPER} delay={900}>
+          <Text style={[s.tiny, s.center]}>{tp('rpt.w.no', r.records, { n: no })}</Text>
+        </Print>
         <Dash />
-        <Text style={[s.big, s.center]}>{t('rpt.w.introTitle')}</Text>
-        <Text style={[s.small, s.center]}>{`${dateText(r.period.from)} – ${dateText(r.period.to)}`}</Text>
+        <Rise delay={1150}>
+          <Text style={[s.big, s.center]}>{t('rpt.w.introTitle')}</Text>
+        </Rise>
+        <Print paper={PAPER} delay={1400}>
+          <Text style={[s.small, s.center]}>{`${dateText(r.period.from)} – ${dateText(r.period.to)}`}</Text>
+        </Print>
         <Dash />
-        <Rise delay={900}>
-          <Text style={[s.small, s.center, s.bold]}>{t('rpt.w.tapToRead')}</Text>
+        <Rise delay={1800}>
+          <Text style={[s.tiny, s.center, s.bold]}>{t('rpt.w.tapToRead')}</Text>
         </Rise>
       </>
     ),
   });
 
+  // 2. Day by day
+  const max = Math.max(1, ...r.daily.slice(0, 7));
+  const busiest = r.priciestDay;
   pages.push({
     key: 'days',
     body: (
       <>
-        <Text style={[s.small, s.center, s.spaced]}>{t('rpt.w.dailyHead')}</Text>
+        <Text style={[s.small, s.center, s.spaced, s.bold]}>{t('rpt.w.dailyHead')}</Text>
         <Dash />
-        {Array.from({ length: 7 }, (_, d) => (
-          <Rise key={d} delay={500 + d * 160}>
-            <View style={s.leader}>
-              <Text style={s.line}>{weekdayShort(d).toUpperCase()}</Text>
-              <View style={s.dots} />
-              <Text style={[s.line, s.bold]}>{d < r.daysCounted ? (r.daily[d] > 0 ? rm2(r.daily[d]) : '—') : '…'}</Text>
-            </View>
-          </Rise>
-        ))}
+        {Array.from({ length: 7 }, (_, d) => {
+          const counted = d < r.daysCounted;
+          const v = r.daily[d] ?? 0;
+          const hi = counted && v > 0 && v === max;
+          return (
+            <Print key={d} paper={PAPER} delay={700 + d * 170}>
+              <View style={s.day}>
+                <Text style={[s.line, s.dayName, hi && s.bold]}>{weekdayShort(d).toUpperCase()}</Text>
+                <View style={s.track}>
+                  {counted && v > 0 ? <Grow delay={800 + d * 170} style={[s.trackFill, { width: `${Math.max(3, (v / max) * 100)}%`, backgroundColor: hi ? RED : '#8E877A' }]} /> : null}
+                </View>
+                <Text style={[s.line, s.amount, hi && s.bold]}>{!counted ? '…' : v > 0 ? rm2(v) : '—'}</Text>
+              </View>
+            </Print>
+          );
+        })}
         <Dash />
-        <View style={s.row}>
+        <Rise delay={2000} style={s.row}>
           <Text style={[s.total, s.bold]}>{t('rpt.w.total')}</Text>
-          <CountUp value={r.spend} format={rm2} delay={1500} style={[s.total, s.bold]} />
-        </View>
-        {r.priciestDay ? <Text style={s.tiny}>{t('rpt.w.priciest', { day: `${dayName(r.priciestDay.date)} · ${rm2(r.priciestDay.amount)}` })}</Text> : null}
+          <CountUp value={r.spend} format={rm2} delay={2000} style={[s.total, s.bold]} />
+        </Rise>
+        <Rise delay={2500}>
+          <Text style={s.tiny}>
+            {[busiest ? t('rpt.w.busiest', { day: dayName(busiest.date).toUpperCase(), amount: rm2(busiest.amount) }) : null, tp('rpt.w.noSpend', r.noSpendDays)].filter(Boolean).join(' · ')}
+          </Text>
+        </Rise>
       </>
     ),
   });
 
+  // 3. Against last week
   if (r.prev.spend > 0) {
     const saved = diff >= 0;
+    const pct = Math.round((Math.abs(diff) / r.prev.spend) * 100);
     pages.push({
       key: 'vs',
       body: (
         <>
-          <Text style={[s.small, s.center, s.spaced]}>{t('rpt.w.vsHead')}</Text>
+          <Text style={[s.small, s.center, s.spaced, s.bold]}>{t('rpt.w.vsHead')}</Text>
           <Dash />
-          <View style={s.row}>
-            <Text style={s.line}>{t('rpt.w.lastWeek')}</Text>
-            <Text style={s.line}>{rm2(r.prev.spend)}</Text>
-          </View>
-          <View style={s.row}>
-            <Text style={s.line}>{t('rpt.w.thisWeek')}</Text>
-            <Text style={s.line}>{rm2(r.spend)}</Text>
-          </View>
+          <Print paper={PAPER} delay={600}>
+            <Pair label={t('rpt.w.lastWeek')} value={rm2(r.prev.spend)} />
+          </Print>
+          <Print paper={PAPER} delay={850}>
+            <Pair label={t('rpt.w.thisWeek')} value={rm2(r.spend)} />
+          </Print>
           <Dash />
-          <Rise delay={400}>
-            <Text style={[s.huge, s.center, { color: saved ? '#0F7A55' : '#C2255C' }]}>{`${saved ? '-' : '+'}${Math.abs(r.spendChange ?? 0)}%`}</Text>
+          <Pop delay={1200}>
+            <Text style={[s.huge, s.center, { color: saved ? GREEN : RED }]}>{`${saved ? '−' : '+'}${pct}%`}</Text>
+          </Pop>
+          <Rise delay={1500}>
+            <Text style={[s.small, s.center]}>{saved ? t('rpt.w.kept', { amount: rm2(diff) }) : t('rpt.w.more', { amount: rm2(-diff) })}</Text>
           </Rise>
-          <Text style={[s.small, s.center]}>{saved ? t('rpt.w.kept', { amount: rm2(diff) }) : t('rpt.w.more', { amount: rm2(-diff) })}</Text>
           <View style={s.stampBox}>
-            <Stamp delay={1000} style={[s.stamp, { borderColor: saved ? '#C2255C' : '#1C7ED6' }]}>
-              <Text style={[s.stampText, { color: saved ? '#C2255C' : '#1C7ED6' }]}>{saved ? t('rpt.w.stampSave') : t('rpt.w.stampUp')}</Text>
+            <Stamp delay={2000} rotate={-8} style={[s.stamp, { borderColor: saved ? RED : BLUE }]}>
+              <Text style={[s.stampText, { color: saved ? RED : BLUE }]}>{saved ? t('rpt.w.stampSave') : t('rpt.w.stampUp')}</Text>
             </Stamp>
           </View>
         </>
@@ -106,73 +137,90 @@ export function weeklySlides(r: Report, c: StoryCtx): StorySlide[] {
     });
   }
 
+  // 4. Where it went
   if (r.places.length > 0 || top) {
     pages.push({
       key: 'places',
       body: (
         <>
-          <Text style={[s.small, s.center, s.spaced]}>{t('rpt.w.placesHead')}</Text>
+          <Text style={[s.small, s.center, s.spaced, s.bold]}>{t('rpt.w.placesHead')}</Text>
           <Dash />
-          {r.places.map((p, j) => (
-            <Rise key={`${p.title}-${j}`} delay={500 + j * 300}>
+          {r.places.slice(0, 3).map((p, j) => (
+            <Print key={`${p.title}-${j}`} paper={PAPER} delay={600 + j * 330}>
               <View style={s.row}>
                 <Text style={[s.line, s.bold, s.flex]} numberOfLines={1}>
-                  {p.title.toUpperCase()}
+                  {label(p.title).toUpperCase()}
                 </Text>
                 <Text style={[s.line, s.bold]}>{rm2(p.amount)}</Text>
               </View>
               <Text style={s.tiny}>{tp('rpt.w.times', p.count)}</Text>
-            </Rise>
+            </Print>
           ))}
-          <Dash />
-          {top ? <Text style={s.tiny}>{t('rpt.w.topCat', { name: c.catName(top.id).toUpperCase(), amount: rm2(top.amount) })}</Text> : null}
+          {top ? (
+            <>
+              <Dash />
+              <Rise delay={1800} style={s.gap2}>
+                <Text style={s.tiny}>{t('rpt.w.topCatHead')}</Text>
+                <View style={s.row}>
+                  <Text style={[s.line, s.bold, s.flex]} numberOfLines={1}>
+                    {c.catName(top.id).toUpperCase()}
+                  </Text>
+                  <Text style={[s.line, s.bold]}>{rm2(top.amount)}</Text>
+                </View>
+                <Text style={s.tiny}>{t('rpt.w.topCatShare', { pct: Math.round(top.share * 100) })}</Text>
+              </Rise>
+            </>
+          ) : null}
         </>
       ),
     });
   }
 
-  pages.push({
-    key: 'streak',
-    body: (
-      <>
-        <Text style={[s.small, s.center, s.spaced]}>{t('rpt.w.streakHead')}</Text>
-        <Dash />
-        <CountUp value={r.longestStreak} format={int} delay={300} style={[s.giant, s.center]} />
-        <Text style={[s.small, s.center, s.bold]}>{t('rpt.w.streakLabel')}</Text>
-        <View style={s.dotsRow}>
-          {Array.from({ length: 7 }, (_, d) => (
-            <Rise key={d} delay={900 + d * 120}>
-              <View style={[s.day, { backgroundColor: r.recorded[d] ? INK : 'transparent' }]} />
-            </Rise>
-          ))}
-        </View>
-        <Dash />
-        <Text style={[s.tiny, s.spaced]}>{t('rpt.w.challengeHead')}</Text>
-        <View style={s.challenge}>
-          <View style={s.box} />
-          <Text style={[s.line, s.flex]}>{challenge}</Text>
-        </View>
-      </>
-    ),
-  });
-
+  // 5. Summary
+  const days = r.recorded.slice(0, 7);
+  const recordedDays = days.filter((x, d) => x && d < r.daysCounted).length;
   pages.push({
     key: 'sum',
     body: (
       <>
-        <Text style={[s.small, s.center, s.spaced]}>{t('rpt.w.sumHead', { n: no })}</Text>
+        <Text style={[s.small, s.center, s.spaced, s.bold]}>{t('rpt.w.sumHead', { n: no })}</Text>
         <Dash />
-        <Pair label={t('rpt.w.in')} value={rm2(r.income)} />
-        <Pair label={t('rpt.w.out')} value={rm2(r.spend)} />
-        <Pair label={t('rpt.w.records')} value={tp('rpt.w.recordsValue', r.records)} />
-        {weeklyBudget > 0 ? <Pair label={t('rpt.w.budget')} value={t('rpt.w.budgetUsed', { pct: Math.round((r.spend / weeklyBudget) * 100) })} /> : null}
-        <Dash />
-        <View style={[s.stampBox, { height: 104 }]}>
-          <Stamp delay={600} style={[s.round, { borderColor: '#1C7ED6' }]}>
-            <Text style={[s.tiny, s.spaced, { color: '#1C7ED6' }]}>{t('rpt.w.grade')}</Text>
-            <Text style={[s.gradeText, { color: '#1C7ED6' }]}>{r.grade}</Text>
+        <View style={s.sumTop}>
+          <View style={s.flex}>
+            <Print paper={PAPER} delay={500}>
+              <Pair label={t('rpt.w.in')} value={rm2(r.income)} />
+            </Print>
+            <Print paper={PAPER} delay={650}>
+              <Pair label={t('rpt.w.out')} value={rm2(r.spend)} />
+            </Print>
+            <Print paper={PAPER} delay={800}>
+              <Pair label={t('rpt.w.records')} value={String(r.records)} />
+            </Print>
+            {weeklyBudget > 0 ? (
+              <Print paper={PAPER} delay={950}>
+                <Pair label={t('rpt.w.budget')} value={`${Math.round((r.spend / weeklyBudget) * 100)}%`} />
+              </Print>
+            ) : null}
+          </View>
+          <Stamp delay={1500} rotate={12} style={s.grade}>
+            <Text style={[s.gradeLabel, { color: BLUE }]}>{t('rpt.w.grade')}</Text>
+            <Text style={[s.gradeText, { color: BLUE }]}>{r.grade}</Text>
           </Stamp>
         </View>
+        <Dash />
+        <Text style={[s.tiny, s.center]}>{t('rpt.w.recordedOn', { n: recordedDays })}</Text>
+        <View style={s.dots}>
+          {days.map((on, d) => (
+            <Pop key={d} delay={1100 + d * 110}>
+              <View style={[s.dot, on && d < r.daysCounted && s.dotOn]} />
+            </Pop>
+          ))}
+        </View>
+        <Dash />
+        <Text style={s.tiny}>{t('rpt.w.challengeHead')}</Text>
+        <Rise delay={1900}>
+          <Challenge text={challenge} doneLabel={t('rpt.w.challengeDone')} />
+        </Rise>
         <Barcode />
         <Text style={[s.tiny, s.center]}>{t('rpt.w.thanks')}</Text>
       </>
@@ -181,33 +229,49 @@ export function weeklySlides(r: Report, c: StoryCtx): StorySlide[] {
 
   return pages.map((p, j) => ({
     key: p.key,
-    bg: BACKS[j % BACKS.length],
-    fg: '#F4EFE6',
+    bg: BACK,
+    fg: PAPER,
+    accent: PAPER,
+    track: 'rgba(251,248,241,0.22)',
+    button: { bg: PAPER, fg: INK, border: 'rgba(251,248,241,0.4)' },
     backdrop: <Dots />,
     final: j === pages.length - 1,
     content: <Receipt>{p.body}</Receipt>,
   }));
 }
 
+/** The printer slot and the receipt feeding out of it. */
 function Receipt({ children }: { children: ReactNode }) {
   return (
-    <View style={s.center1}>
-      <Animated.View entering={FadeInDown.duration(900)} style={s.paperWrap}>
+    <View style={s.wrap}>
+      <View style={s.slot} />
+      <Feed style={s.feed}>
         <View style={s.paper}>{children}</View>
         <View style={s.teeth}>
           {Array.from({ length: 30 }, (_, j) => (
             <View key={j} style={s.tooth} />
           ))}
         </View>
-      </Animated.View>
+      </Feed>
     </View>
   );
 }
 
-function Pair({ label, value }: { label: string; value: string }) {
+/** Next week's challenge: tick it off on the receipt. */
+function Challenge({ text, doneLabel }: { text: string; doneLabel: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <Pressable onPress={() => setDone((d) => !d)} style={s.challenge} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityHint={doneLabel} hitSlop={8}>
+      <View style={[s.box, done && s.boxOn]}>{done ? <View style={s.tick} /> : null}</View>
+      <Text style={[s.line, s.flex, done && s.struck]}>{text}</Text>
+    </Pressable>
+  );
+}
+
+function Pair({ label: name, value }: { label: string; value: string }) {
   return (
     <View style={s.row}>
-      <Text style={s.line}>{label}</Text>
+      <Text style={s.line}>{name}</Text>
       <Text style={s.line}>{value}</Text>
     </View>
   );
@@ -217,12 +281,12 @@ function Dash() {
   return <View style={s.dash} />;
 }
 
-const BARS = [2, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 2, 2, 1, 3, 1, 2, 1, 1, 2, 3, 1, 2, 1, 3, 1, 1, 2];
+const BARS = [3, 1, 2, 1, 3, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 2, 1, 1, 2, 3, 1, 2, 1, 3, 2, 1];
 function Barcode() {
   return (
     <View style={s.barcode}>
       {BARS.map((w, j) => (
-        <View key={j} style={{ width: w, height: '100%', backgroundColor: j % 2 === 0 ? INK : 'transparent', marginRight: 1 }} />
+        <View key={j} style={{ width: w, height: '100%', backgroundColor: INK, marginRight: 2 }} />
       ))}
     </View>
   );
@@ -232,44 +296,54 @@ function Dots() {
   return (
     <Svg width="100%" height="100%">
       <Defs>
-        <Pattern id="dots" width={18} height={18} patternUnits="userSpaceOnUse">
-          <Circle cx={2} cy={2} r={1} fill="rgba(255,255,255,0.08)" />
+        <Pattern id="wkdots" width={14} height={14} patternUnits="userSpaceOnUse">
+          <Circle cx={2} cy={2} r={1} fill="rgba(255,240,220,0.08)" />
         </Pattern>
       </Defs>
-      <Rect width="100%" height="100%" fill="url(#dots)" />
+      <Rect width="100%" height="100%" fill="url(#wkdots)" />
     </Svg>
   );
 }
 
 const s = StyleSheet.create({
-  center1: { flex: 1, justifyContent: 'center', paddingBottom: 30 },
-  paperWrap: { shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 22, shadowOffset: { width: 0, height: 16 }, elevation: 12 },
-  paper: { backgroundColor: PAPER, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 16, gap: 10 },
-  teeth: { height: 10, overflow: 'hidden', flexDirection: 'row', justifyContent: 'center' },
-  tooth: { width: 14, height: 14, backgroundColor: PAPER, transform: [{ rotate: '45deg' }], marginTop: -7, marginHorizontal: 0.5 },
+  wrap: { flex: 1, paddingTop: 8 },
+  slot: { height: 12, borderRadius: 8, backgroundColor: '#14110D', marginHorizontal: -6, zIndex: 2, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  feed: { marginTop: -6, marginHorizontal: 4 },
+  paper: { backgroundColor: PAPER, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 14, gap: 8 },
+  teeth: { height: 8, overflow: 'hidden', flexDirection: 'row', justifyContent: 'center' },
+  tooth: { width: 12, height: 12, backgroundColor: PAPER, transform: [{ rotate: '45deg' }], marginTop: -6, marginHorizontal: 0.5 },
   small: { fontFamily: MONO, fontSize: 13, color: INK },
-  tiny: { fontFamily: MONO, fontSize: 11, color: INK, opacity: 0.75 },
-  line: { fontFamily: MONO, fontSize: 14, color: INK },
-  total: { fontFamily: MONO, fontSize: 18, color: INK },
-  big: { fontSize: 34, lineHeight: 38, fontWeight: '800', letterSpacing: -1, color: INK },
-  huge: { fontSize: 54, lineHeight: 58, fontWeight: '800', letterSpacing: -1 },
-  giant: { fontSize: 76, lineHeight: 80, fontWeight: '800', color: INK },
+  tiny: { fontFamily: MONO, fontSize: 11, color: MUTED, letterSpacing: 0.3 },
+  line: { fontFamily: MONO, fontSize: 13.5, color: INK, fontVariant: ['tabular-nums'] },
+  total: { fontSize: 19, color: INK, fontVariant: ['tabular-nums'] },
+  big: { fontSize: 30, lineHeight: 34, fontWeight: '800', letterSpacing: -0.8, color: INK },
+  huge: { fontSize: 64, lineHeight: 68, fontWeight: '800', letterSpacing: -2 },
   center: { textAlign: 'center' },
-  spaced: { letterSpacing: 2 },
-  bold: { fontWeight: '700' },
+  spaced: { letterSpacing: 2.2 },
+  bold: { fontWeight: '800' },
   flex: { flex: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  leader: { flexDirection: 'row', alignItems: 'flex-end' },
-  dots: { flex: 1, borderBottomWidth: 2, borderStyle: 'dotted', borderColor: 'rgba(28,27,25,0.35)', marginHorizontal: 8, marginBottom: 4 },
-  dash: { borderTopWidth: 2, borderStyle: 'dashed', borderColor: INK, marginVertical: 2 },
-  stampBox: { height: 90, alignItems: 'center', justifyContent: 'center' },
-  stamp: { borderWidth: 4, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 22 },
-  stampText: { fontFamily: MONO, fontSize: 26, fontWeight: '700', letterSpacing: 3 },
-  round: { width: 128, height: 92, borderRadius: 64, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
-  gradeText: { fontSize: 40, lineHeight: 44, fontWeight: '800' },
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  day: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: INK },
-  challenge: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  box: { width: 16, height: 16, borderWidth: 2, borderColor: INK, marginTop: 2 },
-  barcode: { height: 34, flexDirection: 'row', justifyContent: 'center' },
+  gap2: { gap: 2 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  day: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
+  dayName: { width: 40 },
+  amount: { width: 84, textAlign: 'right' },
+  track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#EEE8DC', overflow: 'hidden' },
+  trackFill: { height: 6, borderRadius: 3 },
+  dash: { borderTopWidth: 1.5, borderStyle: 'dashed', borderColor: '#B9B2A4', marginVertical: 4 },
+  stampBox: { height: 76, alignItems: 'center', justifyContent: 'center' },
+  stamp: { borderWidth: 3, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16 },
+  stampText: { fontSize: 20, fontWeight: '800', letterSpacing: 2 },
+  sumTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  grade: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  gradeLabel: { fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  gradeText: { fontSize: 24, lineHeight: 28, fontWeight: '800' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginVertical: 2 },
+  dot: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: INK },
+  dotOn: { backgroundColor: INK },
+  challenge: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 2 },
+  box: { width: 16, height: 16, borderWidth: 1.5, borderColor: INK, borderRadius: 3, marginTop: 1, alignItems: 'center', justifyContent: 'center' },
+  boxOn: { backgroundColor: GREEN, borderColor: GREEN },
+  tick: { width: 8, height: 4, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: '#FFFFFF', transform: [{ rotate: '-45deg' }, { translateY: -1 }] },
+  struck: { textDecorationLine: 'line-through', color: MUTED },
+  barcode: { height: 30, flexDirection: 'row', justifyContent: 'center', marginTop: 6 },
 });

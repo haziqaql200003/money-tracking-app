@@ -1,22 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnalyseForecast } from '@/components/analyse/analyse-forecast';
+import { DebtCard, EmergencyCard, InflationCard, PaydayCard, RecurringCard } from '@/components/analyse/advanced-cards';
+import { useAdvanced } from '@/hooks/use-advanced';
+import { RecordsSheet, type RecordsQuery } from '@/components/analyse/records-sheet';
+import { Button } from '@/components/ui/button';
 import { CategoryIcon } from '@/components/ui/category-icon';
 import { HeatMatrix } from '@/components/charts/heat-matrix';
 import { ScrubBars } from '@/components/charts/scrub-bars';
 import { LineChart } from '@/components/analyse/line-chart';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Chip } from '@/components/ui/chip';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { cycleInfo, cycleRange, daysBetween } from '@/utils/cycle';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
-import { useT } from '@/i18n';
+import { useT, type TKey } from '@/i18n';
 import { accountName, categoryName as categoryLabel, subcategoryName } from '@/i18n/data';
 import { weekdayShort } from '@/i18n/format';
 import { upcomingBills, upcomingOccurrences, billsTotal } from '@/utils/bills';
@@ -39,26 +45,37 @@ import {
   topSubcategories,
   unusualExpenses,
 } from '@/utils/deep-insights';
-import { currentWindow, monthKeysEnding } from '@/utils/insights';
+import type { FahamPeriod } from '@/utils/faham-period';
+import { monthlyTotals } from '@/utils/insights';
 import { looksLikeSavings } from '@/utils/saved';
 import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 
-type Props = { months: number; todayKey: string };
+type Props = { period: FahamPeriod; todayKey: string };
+
+const DEEP_SECTIONS = ['cashflow', 'spending', 'savings', 'forecast', 'accounts'] as const;
+type DeepSection = (typeof DEEP_SECTIONS)[number];
 
 /** The "Deep dive" tab of Faham: forecast, calendar, income, records, budgets, unusual spending and more. */
-export function AnalyseDeep({ months, todayKey }: Props) {
+export function AnalyseDeep({ period, todayKey }: Props) {
+  const { months } = period;
   const colors = useTheme();
   const { t, tp } = useT();
-  const { transactions, accounts, transfers, recurringRules } = useTransactions();
+  // `raw` keeps corrections and moved money: balance lines need them. Everything else reads ledger entries.
+  const { transactions: raw, accounts, transfers, recurringRules } = useTransactions();
+  const { entries: transactions } = useLedger();
   const { expenseCategories, getCategory, totalBudget } = useCategories();
   const { hideAmounts } = usePrivacy();
 
-  const keys = useMemo(() => monthKeysEnding(todayKey, months), [todayKey, months]);
+  const keys = period.keys;
   const [calendarKey, setCalendarKey] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [pickedCategory, setPickedCategory] = useState<string | null>(null);
+  const [sec, setSec] = useState<DeepSection>('cashflow');
+  const [drill, setDrill] = useState<RecordsQuery | null>(null);
+  const adv = useAdvanced(todayKey);
+  const router = useRouter();
 
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
   const catName = (id: string) => {
@@ -67,21 +84,21 @@ export function AnalyseDeep({ months, todayKey }: Props) {
   };
 
   const d = useMemo(() => {
-    const w = currentWindow(todayKey, months);
+    const w = period.window;
     const daysLeft = cycleInfo(todayKey).daysAfterToday;
     const bills = billsTotal(upcomingBills(recurringRules, todayKey, daysLeft));
     // "Money you can use" leaves out debt accounts and savings accounts. Moving money into savings then counts as leaving it.
     const hiddenIds = new Set(accounts.filter((a) => a.hidden || looksLikeSavings(a)).map((a) => a.id));
     const startingTotal = accounts.reduce((s, a) => (hiddenIds.has(a.id) ? s : s + a.initialBalance), 0);
     const spendByCat = new Map<string, number>();
-    for (const tx of transactions) if (tx.type === 'debit' && tx.date >= w.from && tx.date <= w.to) spendByCat.set(tx.categoryId, (spendByCat.get(tx.categoryId) ?? 0) + tx.amount);
+    for (const tx of transactions) if (tx.type === 'debit' && tx.amount > 0 && tx.date >= w.from && tx.date <= w.to) spendByCat.set(tx.categoryId, (spendByCat.get(tx.categoryId) ?? 0) + tx.amount);
     const outlookNow = monthOutlook(transactions, todayKey, bills, totalBudget);
     const scheduled = upcomingOccurrences(recurringRules, todayKey, daysLeft).map((o) => ({ date: o.date, amount: o.amount, type: o.type }));
     const topIds = [...spendByCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id);
     return {
       w,
       outlook: outlookNow,
-      cycle: cycleBalance({ transactions, startingTotal, todayKey, upcoming: scheduled, dailyEveryday: outlookNow.dailyEveryday, debt: { hiddenIds, transfers } }),
+      cycle: cycleBalance({ transactions: raw, startingTotal, todayKey, upcoming: scheduled, dailyEveryday: outlookNow.dailyEveryday, debt: { hiddenIds, transfers } }),
       matrix: categoryMatrix(transactions, topIds, keys, todayKey),
       sizes: spendingSizes(transactions, w),
       split: fixedVsEveryday(transactions, w),
@@ -92,19 +109,21 @@ export function AnalyseDeep({ months, todayKey }: Props) {
       budgets: budgetHistory(transactions, expenseCategories.map((c) => ({ categoryId: c.id, limit: c.monthlyLimit })), w, keys, todayKey),
       unusual: unusualExpenses(transactions, w, 3),
       rhythm: monthRhythm(transactions, w),
-      balance: balanceTrend(transactions, startingTotal, keys, todayKey, { hiddenIds, transfers }),
+      balance: balanceTrend(raw, startingTotal, keys, todayKey, { hiddenIds, transfers }),
+      months: monthlyTotals(transactions, keys),
       topCats: [...spendByCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([id]) => id),
     };
-  }, [transactions, accounts, transfers, recurringRules, expenseCategories, totalBudget, todayKey, months, keys]);
+  }, [transactions, raw, accounts, transfers, recurringRules, expenseCategories, totalBudget, todayKey, period, keys]);
 
   // Calendar-month mode: real months. Payday mode: the same financial months as everything else, with the range shown.
   const { calendarMonths } = useSettings();
   const byCycle = !calendarMonths;
   const calKeys = useMemo(() => {
     if (byCycle) return keys;
-    const first = cycleRange(keys[0]).from.slice(0, 7);
+    const first = period.window.from.slice(0, 7);
     const lastEnd = cycleRange(keys[keys.length - 1]).to;
-    const last = (lastEnd > todayKey ? lastEnd : todayKey).slice(0, 7);
+    // A period that ends in the past stops at its own last day; a live one runs to the end of the running month.
+    const last = (period.live ? (lastEnd > todayKey ? lastEnd : todayKey) : period.window.to).slice(0, 7);
     const out: string[] = [];
     let [y, m] = first.split('-').map(Number);
     while (`${y}-${String(m).padStart(2, '0')}` <= last && out.length < 400) {
@@ -115,7 +134,7 @@ export function AnalyseDeep({ months, todayKey }: Props) {
       }
     }
     return out;
-  }, [keys, todayKey, byCycle]);
+  }, [keys, todayKey, byCycle, period]);
   const todayMonth = byCycle ? cycleInfo(todayKey).key : todayKey.slice(0, 7);
   const activeCalendarKey = calendarKey && calKeys.includes(calendarKey) ? calendarKey : calKeys.includes(todayMonth) ? todayMonth : calKeys[calKeys.length - 1];
   const calendar = useMemo(() => monthCalendar(transactions, activeCalendarKey, byCycle), [transactions, activeCalendarKey, byCycle]);
@@ -196,8 +215,16 @@ export function AnalyseDeep({ months, todayKey }: Props) {
 
   return (
     <>
-      <ThemedText type="title" style={styles.group}>{t('plan.deep.group.forecast')}</ThemedText>
+      {/* Five sections behind one row of chips, so no screen scrolls through everything at once */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.secRow} style={styles.secScroll}>
+        {DEEP_SECTIONS.map((k) => (
+          <Chip key={k} size="sm" label={t(`plan.deep.sec.${k}` as TKey)} active={sec === k} onPress={() => setSec(k)} />
+        ))}
+      </ScrollView>
+      <ThemedText type="small" style={[muted, styles.secNote]}>{t(`plan.deep.sec.${sec}Note` as TKey)}</ThemedText>
 
+      {sec === 'forecast' ? (
+      <>
       {/* 1. Month-end outlook */}
       {outlookVisible ? (
         <>
@@ -250,7 +277,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'cashflow' ? (
+      <>
       {/* Cycle balance, day by day */}
       {d.cycle.points.length > 1 ? (
         <>
@@ -296,7 +327,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'accounts' ? (
+      <>
       {/* 12. Balance trend */}
       {d.balance.length > 1 ? (
         <>
@@ -319,18 +354,23 @@ export function AnalyseDeep({ months, todayKey }: Props) {
             />
             <ThemedText type="small" style={{ color: balLast >= balFirst ? colors.positive : colors.negative, fontWeight: '700' }}>
               {balLast >= balFirst
-                ? months === 1 ? t('plan.deep.balance.upOne', { amount: money(balLast - balFirst) }) : t('plan.deep.balance.up', { amount: money(balLast - balFirst), months })
-                : months === 1 ? t('plan.deep.balance.downOne', { amount: money(balFirst - balLast) }) : t('plan.deep.balance.down', { amount: money(balFirst - balLast), months })}
+                ? period.preset === 'custom' || period.preset === 'YTD' ? t('plan.deep.balance.upRange', { amount: money(balLast - balFirst) }) : months === 1 ? t('plan.deep.balance.upOne', { amount: money(balLast - balFirst) }) : t('plan.deep.balance.up', { amount: money(balLast - balFirst), months })
+                : period.preset === 'custom' || period.preset === 'YTD' ? t('plan.deep.balance.downRange', { amount: money(balFirst - balLast) }) : months === 1 ? t('plan.deep.balance.downOne', { amount: money(balFirst - balLast) }) : t('plan.deep.balance.down', { amount: money(balFirst - balLast), months })}
             </ThemedText>
             <ThemedText type="small" style={muted}>{t('plan.deep.balance.note')}</ThemedText>
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
-      <AnalyseForecast months={months} todayKey={todayKey} />
+      {sec === 'forecast' ? <AnalyseForecast part="forecast" months={months} todayKey={todayKey} /> : null}
+      {sec === 'savings' ? <AnalyseForecast part="savings" months={months} todayKey={todayKey} /> : null}
+      {sec === 'savings' ? <EmergencyCard data={adv.emergency} /> : null}
 
-      <ThemedText type="title" style={styles.group}>{t('plan.deep.group.patterns')}</ThemedText>
 
+      {sec === 'spending' ? (
+      <>
       {/* 2. Calendar */}
       {section(t('plan.deep.calendar.title'))}
       <View style={card}>
@@ -414,7 +454,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
             : t('plan.deep.calendar.total', { month: byCycle ? `${monthLabel(activeCalendarKey, 'long')} (${cycleRangeLabel(activeCalendarKey)})` : monthLabel(activeCalendarKey, 'long'), amount: money(calendar.total) })}
         </ThemedText>
       </View>
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* How big expenses are */}
       {d.sizes.some((b) => b.count > 0) ? (
         <>
@@ -437,7 +481,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* 10. Rhythm */}
       {d.rhythm.parts.some((p) => p.total > 0) ? (
         <>
@@ -458,7 +506,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'cashflow' ? (
+      <>
       {/* 3. Fixed vs everyday */}
       {d.split.fixed + d.split.everyday > 0 ? (
         <>
@@ -488,7 +540,36 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
+      {/* Month by month: income, spending and what was kept in each financial month of the period */}
+      {sec === 'cashflow' && d.months.length > 1 ? (
+        <>
+          {section(t('plan.deep.months.title'))}
+          <View style={list}>
+            <View style={[styles.row, styles.monthHead]}>
+              <ThemedText type="small" style={[muted, styles.monthCol]} />
+              <ThemedText type="small" style={[muted, styles.numCol]}>{t('plan.analyse.snap.income')}</ThemedText>
+              <ThemedText type="small" style={[muted, styles.numCol]}>{t('plan.analyse.snap.spending')}</ThemedText>
+              <ThemedText type="small" style={[muted, styles.numCol]}>{t('plan.analyse.snap.net')}</ThemedText>
+            </View>
+            {d.months.map((m) => (
+              <View key={m.key} style={[styles.row, hair]}>
+                <ThemedText type="small" style={styles.monthCol}>{monthLabel(m.key, 'short')}</ThemedText>
+                <ThemedText type="small" style={[styles.numCol, { color: colors.positive }]} numberOfLines={1} adjustsFontSizeToFit>{money(m.income)}</ThemedText>
+                <ThemedText type="small" style={[styles.numCol, { color: colors.negative }]} numberOfLines={1} adjustsFontSizeToFit>{money(m.spending)}</ThemedText>
+                <ThemedText type="smallBold" style={[styles.numCol, { color: m.net < 0 ? colors.negative : colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {hideAmounts ? MASK : `${m.net < 0 ? '-' : ''}${formatMoney(Math.abs(m.net))}`}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+          <ThemedText type="small" style={[styles.foot, muted]}>{t('plan.deep.months.note')}</ThemedText>
+        </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* Categories by month */}
       {d.matrix.length > 0 && keys.length > 1 ? (
         <>
@@ -510,7 +591,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* 7. Category over time */}
       {d.topCats.length > 0 && chosenCategory ? (
         <>
@@ -532,7 +617,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* 5. Top subcategories */}
       {d.subs.length > 0 ? (
         <>
@@ -541,7 +630,12 @@ export function AnalyseDeep({ months, todayKey }: Props) {
             {d.subs.map((s, i) => {
               const c = getCategory(s.categoryId);
               return (
-                <View key={`${s.categoryId}|${s.name}`} style={[styles.row, i > 0 && hair]}>
+                <Pressable
+                  key={`${s.categoryId}|${s.name}`}
+                  onPress={() => setDrill({ categoryId: s.categoryId, subcategory: s.name, window: d.w })}
+                  style={({ pressed }) => [styles.row, i > 0 && hair, pressed && { opacity: 0.6 }]}
+                  accessibilityRole="button"
+                >
                   <CategoryIcon icon={c?.icon ?? 'help-circle'} color={c?.color ?? '#8E8E93'} size={36} />
                   <View style={styles.flex}>
                     <ThemedText numberOfLines={1}>{subcategoryName(s.name)}</ThemedText>
@@ -553,13 +647,17 @@ export function AnalyseDeep({ months, todayKey }: Props) {
                     <ThemedText style={{ fontWeight: '700' }}>{money(s.total)}</ThemedText>
                     <ThemedText type="small" style={muted}>{p1(s.share)}%</ThemedText>
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* 6. Records */}
       {d.rec.expenseCount > 0 ? (
         <>
@@ -588,7 +686,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           ) : null}
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'spending' ? (
+      <>
       {/* 9. Unusual */}
       {d.unusual.length > 0 ? (
         <>
@@ -597,7 +699,12 @@ export function AnalyseDeep({ months, todayKey }: Props) {
             {d.unusual.map((u, i) => {
               const c = getCategory(u.transaction.categoryId);
               return (
-                <View key={u.transaction.id} style={[styles.row, i > 0 && hair]}>
+                <Pressable
+                  key={u.transaction.id}
+                  onPress={() => setDrill({ categoryId: u.transaction.categoryId, window: d.w })}
+                  style={({ pressed }) => [styles.row, i > 0 && hair, pressed && { opacity: 0.6 }]}
+                  accessibilityRole="button"
+                >
                   <CategoryIcon icon={c?.icon ?? 'help-circle'} color={c?.color ?? '#8E8E93'} size={36} />
                   <View style={styles.flex}>
                     <ThemedText numberOfLines={1}>{u.transaction.title || catName(u.transaction.categoryId)}</ThemedText>
@@ -606,15 +713,26 @@ export function AnalyseDeep({ months, todayKey }: Props) {
                     </ThemedText>
                   </View>
                   <ThemedText style={{ fontWeight: '700', color: colors.negative }}>{money(u.transaction.amount)}</ThemedText>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
-      <ThemedText type="title" style={styles.group}>{t('plan.deep.group.money')}</ThemedText>
 
+      {/* Deeper checks: lifestyle inflation and payday behaviour (utils/advanced.ts) */}
+      {sec === 'cashflow' ? (
+        <>
+          <InflationCard data={adv.inflation} />
+          <PaydayCard data={adv.payday} available={adv.available} />
+        </>
+      ) : null}
+
+      {sec === 'cashflow' ? (
+      <>
       {/* 4. Income */}
       {d.income.total > 0 ? (
         <>
@@ -661,7 +779,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'accounts' ? (
+      <>
       {/* 8. Budget history */}
       {d.budgets.length > 0 ? (
         <>
@@ -691,7 +813,11 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
 
+      {sec === 'accounts' ? (
+      <>
       {/* 11. By account */}
       {d.byAccount.length > 1 ? (
         <>
@@ -717,11 +843,44 @@ export function AnalyseDeep({ months, todayKey }: Props) {
           </View>
         </>
       ) : null}
+      </>
+      ) : null}
+      {/* Recurring commitments and debt burden */}
+      {sec === 'accounts' ? (
+        <>
+          <RecurringCard data={adv.recurring} />
+          <DebtCard data={adv.burden} todayKey={todayKey} />
+        </>
+      ) : null}
+
+      {/* Accounts & budgets: the modules where these can be changed */}
+      {sec === 'accounts' ? (
+        <>
+          {!(d.balance.length > 1 || d.budgets.length > 0 || d.byAccount.length > 1) ? (
+            <View style={card}>
+              <ThemedText type="small" style={muted}>{t('plan.deep.accounts.none')}</ThemedText>
+            </View>
+          ) : null}
+          <View style={styles.links}>
+            <Button label={t('fc.go.budgets')} variant="secondary" size="sm" icon="pie-chart" onPress={() => router.push('/more/budgets')} style={styles.flex} />
+            <Button label={t('plan.deep.links.assets')} variant="secondary" size="sm" icon="wallet" onPress={() => router.push('/more/assets')} style={styles.flex} />
+          </View>
+        </>
+      ) : null}
+
+      <RecordsSheet query={drill} entries={transactions} onClose={() => setDrill(null)} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  secScroll: { marginHorizontal: -Spacing.one, marginBottom: Spacing.two },
+  secRow: { gap: Spacing.two, paddingHorizontal: Spacing.one },
+  secNote: { marginBottom: Spacing.two, paddingHorizontal: Spacing.one },
+  monthHead: { paddingBottom: Spacing.one },
+  monthCol: { width: 44 },
+  numCol: { flex: 1, textAlign: 'right', ...tabularNums },
+  links: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.three },
   flex: { flex: 1 },
   center: { alignItems: 'center', gap: Spacing.two },
   trio: { flexDirection: 'row', gap: 12, marginTop: Spacing.two },

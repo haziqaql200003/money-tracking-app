@@ -21,7 +21,7 @@ import type { Visual } from './types';
 
 type R = Record<string, any>; // plain JSON made by engine.ts
 
-const real = (d: AiData) => d.transactions.filter((x) => !isAdjustmentEntry(x));
+const real = (d: AiData) => d.ledger ?? d.transactions.filter((x) => !isAdjustmentEntry(x));
 const label = (key: string) => monthLabel(key, 'short');
 const avgOf = (a: number[]) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0);
 const catName = (d: AiData, id?: string) => {

@@ -4,6 +4,7 @@ import { useCategories } from '@/context/CategoriesContext';
 import { useDebts } from '@/context/DebtsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useHealthScore } from '@/hooks/use-health-score';
+import { useLedger } from '@/hooks/use-ledger';
 import { t } from '@/i18n';
 import { accountName, categoryName } from '@/i18n/data';
 import { trainCategoryModel } from '@/services/ai/category-model';
@@ -17,6 +18,7 @@ export function useAiData(todayKey: string): AiData {
   const { transactions, transfers, selectableAccounts, accountBalance, recurringRules } = useTransactions();
   const { categories, getCategory } = useCategories();
   const health = useHealthScore(todayKey);
+  const { entries } = useLedger();
   const { debts, ious } = useDebts();
 
   // Retrained only when the records change.
@@ -25,7 +27,8 @@ export function useAiData(todayKey: string): AiData {
   const feed = useMemo(
     () =>
       buildFeed({
-        transactions,
+        // Same ledger as the Insight tab, so Ask WaKira explains the same findings.
+        transactions: entries,
         todayKey,
         categoryName: (id) => {
           const c = getCategory(id);
@@ -35,10 +38,11 @@ export function useAiData(todayKey: string): AiData {
         fixedMonthly: health.fixedMonthly,
         debtMonthly: health.debtMonthly,
         budget: health.totalBudget,
+        budgets: health.budgets,
         savingsBalance: health.savingsBalance,
         goals: health.goalFacts,
       }),
-    [transactions, todayKey, getCategory, health.fixedMonthly, health.debtMonthly, health.totalBudget, health.savingsBalance, health.goalFacts],
+    [entries, todayKey, getCategory, health.budgets, health.fixedMonthly, health.debtMonthly, health.totalBudget, health.savingsBalance, health.goalFacts],
   );
 
   const accounts = useMemo(
@@ -50,6 +54,7 @@ export function useAiData(todayKey: string): AiData {
     () => ({
       todayKey,
       transactions,
+      ledger: entries,
       transfers,
       accounts,
       categories,
@@ -67,6 +72,6 @@ export function useAiData(todayKey: string): AiData {
       debts,
       ious,
     }),
-    [todayKey, transactions, transfers, accounts, categories, recurringRules, health, feed, model, debts, ious],
+    [todayKey, transactions, entries, transfers, accounts, categories, recurringRules, health, feed, model, debts, ious],
   );
 }

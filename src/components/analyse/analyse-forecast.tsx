@@ -9,6 +9,7 @@ import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { formatCompact, formatMoney } from '@/utils/currency';
@@ -18,7 +19,7 @@ import { goalMonthSaved, goalProjection, goalSaved, activeGoals } from '@/utils/
 import { monthKeysEnding } from '@/utils/insights';
 import { isEnded, isTransfer, monthlyEquivalent } from '@/utils/recurring';
 import { looksLikeSavings } from '@/utils/saved';
-import { cycleOf } from '@/utils/cycle';
+import { cycleOf, shiftCycle } from '@/utils/cycle';
 import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
@@ -29,18 +30,25 @@ function shiftMonth(key: string, by: number) {
   const dt = new Date(Date.UTC(y, m - 1 + by, 1));
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
 }
+/** The financial months after the one holding today (payday cycles, so a 25th payday does not repeat a month). */
 function nextKeys(todayKey: string, n: number) {
-  return Array.from({ length: n }, (_, i) => shiftMonth(todayKey, i + 1));
+  return Array.from({ length: n }, (_, i) => shiftCycle(cycleOf(todayKey), i + 1));
 }
 const HIST = 6;
 
-type Props = { months: number; todayKey: string };
+/**
+ * forecast = the next months (spending, income, saving, left over) and the savings projection: all ESTIMATES.
+ * savings  = savings balance, rate, runway, money saved month by month and goals: real records, plus goal pace.
+ */
+type Props = { months: number; todayKey: string; part: 'forecast' | 'savings' };
 
 /** The "Forecast" tab of Faham: this month so far, the next months for spending, income and saving, and goals. */
-export function AnalyseForecast({ months, todayKey }: Props) {
+export function AnalyseForecast({ months, todayKey, part }: Props) {
   const colors = useTheme();
   const { t } = useT();
-  const { transactions, transfers, accounts, recurringRules, accountBalance } = useTransactions();
+  const { transfers, accounts, recurringRules, accountBalance } = useTransactions();
+  // Ledger entries: corrections and moved money are not income or spending, refunds lower spending.
+  const { entries: transactions } = useLedger();
   const { goals, goalEntries } = usePlan();
   const { hideAmounts } = usePrivacy();
 
@@ -179,7 +187,7 @@ export function AnalyseForecast({ months, todayKey }: Props) {
       lo.push(Math.round(accLo));
       hi.push(Math.round(accHi));
     });
-    const keys2 = [...hk, shiftMonth(todayKey, 0), ...nextKeys(todayKey, H)];
+    const keys2 = [...hk, cycleOf(todayKey), ...nextKeys(todayKey, H)];
     return {
       labels: keys2.map((k) => monthLabel(k, 'short')),
       hist: [...hist, ...nulls(H + 1)],
@@ -197,7 +205,7 @@ export function AnalyseForecast({ months, todayKey }: Props) {
     const nulls = (n: number) => Array.from({ length: n }, () => null as number | null);
     const last = hist[hist.length - 1] ?? 0;
     return {
-      labels: [...hk, shiftMonth(todayKey, 0), ...nextKeys(todayKey, HORIZON)].map((k) => monthLabel(k, 'short')),
+      labels: [...hk, cycleOf(todayKey), ...nextKeys(todayKey, HORIZON)].map((k) => monthLabel(k, 'short')),
       hist: [...hist, ...nulls(HORIZON + 1)],
       mid: [...nulls(hk.length - 1), last, ...ex.map((p) => p.value)],
       lo: [...nulls(hk.length - 1), last, ...ex.map((p) => p.low)],
@@ -263,6 +271,8 @@ export function AnalyseForecast({ months, todayKey }: Props) {
 
   return (
     <View>
+      {part === 'forecast' ? (
+      <>
       {section(t('fc.next.title', { n: HORIZON }))}
       <View style={card}>
         {!hasHistory ? (
@@ -278,7 +288,11 @@ export function AnalyseForecast({ months, todayKey }: Props) {
           </>
         )}
       </View>
+      </>
+      ) : null}
 
+      {part === 'savings' ? (
+      <>
       {section(t('fc.sav.title'))}
       <View style={card}>
         <View style={styles.trio}>
@@ -381,7 +395,11 @@ export function AnalyseForecast({ months, todayKey }: Props) {
           </>
         )}
       </View>
+      </>
+      ) : null}
 
+      {part === 'forecast' ? (
+      <>
       {section(t('fc.totalChart.title'))}
       <View style={card}>
         <LineChart
@@ -424,7 +442,11 @@ export function AnalyseForecast({ months, todayKey }: Props) {
           { c: colors.textSecondary, k: t('fc.totalChart.range'), dashed: true },
         ])}
       </View>
+      </>
+      ) : null}
 
+      {part === 'savings' ? (
+      <>
       {section(t('fc.goals.title'))}
       <View style={card}>
         {goalRows.length === 0 ? (
@@ -447,6 +469,8 @@ export function AnalyseForecast({ months, todayKey }: Props) {
           ))
         )}
       </View>
+      </>
+      ) : null}
     </View>
   );
 }

@@ -17,5 +17,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["node_modules", "dist", "supabase/functions"]
+  "exclude": ["node_modules", "dist", "supabase/functions", "Claude outputs"]
 }

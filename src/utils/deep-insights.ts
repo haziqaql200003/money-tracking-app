@@ -1,6 +1,7 @@
 import type { Transaction, Transfer } from '@/context/TransactionsContext';
 import { addDays, cycleInfo, cycleOf, cycleRange, dayInCycle, daysBetween, shiftCycle } from '@/utils/cycle';
 import { type Window } from '@/utils/insights';
+import { isSpendItem } from '@/utils/ledger';
 import { r1 } from '@/utils/percent';
 
 /**
@@ -118,7 +119,7 @@ export function monthCalendar(transactions: Transaction[], monthKey: string, byC
     if (!d) continue;
     if (t.type === 'debit') {
       d.total += t.amount;
-      d.count++;
+      if (t.amount > 0) d.count++;
     } else d.income += t.amount;
   }
   for (const d of days) {
@@ -138,13 +139,22 @@ export function monthCalendar(transactions: Transaction[], monthKey: string, byC
 
 export type FixedSplit = { fixed: number; everyday: number; fixedShare: number };
 
-/** "Fixed" = created by a recurring rule (rent, subscriptions). Everything else is everyday spending. */
+/** Subcategories that are commitments even when typed in by hand (stored English names). */
+export const FIXED_SUBCATEGORIES: ReadonlySet<string> = new Set(
+  ['Rent', 'Mortgage / Housing Loan', 'Electricity', 'Water', 'Internet', 'Mobile Phone', 'Maintenance Fee', 'Car Insurance / Road Tax', 'Health Insurance', 'Insurance', 'Student Loan', 'Public Transport Pass'].map((s) => s.toLowerCase()),
+);
+
+/** Fixed commitment: created by a recurring rule, in the Subscriptions category, or a bill-type subcategory. */
+export const isFixedExpense = (t: Transaction) =>
+  !!t.recurringId || t.categoryId === 'subscriptions' || FIXED_SUBCATEGORIES.has((t.subcategory ?? '').trim().toLowerCase());
+
+/** "Fixed" = commitments (see isFixedExpense). Everything else is everyday spending. Refunds lower everyday spending. */
 export function fixedVsEveryday(transactions: Transaction[], w: Window): FixedSplit {
   let fixed = 0;
   let everyday = 0;
   for (const t of transactions) {
     if (t.type !== 'debit' || !inWindow(t, w)) continue;
-    if (t.recurringId) fixed += t.amount;
+    if (t.amount > 0 && isFixedExpense(t)) fixed += t.amount;
     else everyday += t.amount;
   }
   const all = fixed + everyday;
@@ -214,7 +224,7 @@ export function topSubcategories(transactions: Transaction[], w: Window, limit =
   const map = new Map<string, SubSpend>();
   let all = 0;
   for (const t of transactions) {
-    if (t.type !== 'debit' || !inWindow(t, w)) continue;
+    if (!isSpendItem(t) || !inWindow(t, w)) continue;
     all += t.amount;
     const name = t.subcategory?.trim();
     if (!name) continue;
@@ -255,9 +265,11 @@ export function records(transactions: Transaction[], w: Window, keys: string[], 
   let count = 0;
   for (const t of transactions) {
     if (t.type !== 'debit' || !inWindow(t, w)) continue;
-    spendDays.add(t.date);
+    // Refunds (negative) lower the totals but are not a spending day or an expense.
     byMonth.set(cycleOf(t.date), (byMonth.get(cycleOf(t.date)) ?? 0) + t.amount);
     total += t.amount;
+    if (t.amount <= 0) continue;
+    spendDays.add(t.date);
     count++;
   }
   const active = first ? keys.filter((k) => k >= cycleOf(first)) : [];
@@ -372,7 +384,7 @@ export type Unusual = { transaction: Transaction; typical: number; times: number
 export function unusualExpenses(transactions: Transaction[], w: Window, limit = 3): Unusual[] {
   const byCat = new Map<string, Transaction[]>();
   for (const t of transactions) {
-    if (t.type !== 'debit' || !inWindow(t, w)) continue;
+    if (!isSpendItem(t) || !inWindow(t, w)) continue;
     const list = byCat.get(t.categoryId) ?? [];
     list.push(t);
     byCat.set(t.categoryId, list);
@@ -415,8 +427,8 @@ export function monthRhythm(transactions: Transaction[], w: Window): Rhythm {
 export type BalancePoint = { key: string; balance: number };
 
 /**
- * Total money across all accounts at the end of each month. Transfers between accounts do not change the total,
- * so only the starting balances and the real income / spending matter.
+ * Money at the end of each month across the accounts NOT in `debt.hiddenIds` (the caller puts debt and savings
+ * accounts there). Pass the RAW transaction list, not ledger entries: corrections and card payments change balances.
  */
 export function balanceTrend(
   transactions: Transaction[],

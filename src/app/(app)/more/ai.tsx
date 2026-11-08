@@ -52,6 +52,8 @@ type ChatMsg = {
   /** Follow-up questions shown as buttons under the latest answer. */
   chips?: string[];
   checked?: boolean;
+  /** Who wrote the words: the on-device brain, or the AI server (facts still come from tools run on the phone). */
+  source?: 'device' | 'server';
   /** Set on an error reply: the message to send again. */
   retry?: string;
 };
@@ -249,6 +251,7 @@ export default function AiScreen() {
             actions: local.actions.length ? local.actions.map((a) => ({ a, status: 'pending' as const })) : undefined,
             chips: local.chips.length ? local.chips : undefined,
             checked: local.checked,
+            source: 'device',
           },
         ]);
         setHistory((h) => [...h, { role: 'user', parts: [{ text }] }, { role: 'model', parts: [{ text: local.text }] }]);
@@ -292,6 +295,7 @@ export default function AiScreen() {
           text: plain(res.text) || (res.proposals.length ? t('ai.checkCards') : t('ai.emptyReply')),
           cards: res.proposals.length ? res.proposals.map((p) => ({ p, status: 'pending' as const })) : undefined,
           checked: res.toolsUsed.some((n) => !n.startsWith('propose_')),
+          source: 'server',
         },
       ]);
     } catch (e) {
@@ -503,7 +507,13 @@ export default function AiScreen() {
             </View>
           ) : null}
           {m.text ? <ThemedText selectable={!mine} style={mine ? { color: colors.onAccent } : undefined}>{m.text}</ThemedText> : null}
-          {m.checked ? (
+          {/* Calculated facts and AI-written explanations are labelled apart */}
+          {m.source === 'server' && !mine ? (
+            <View style={styles.fileTag}>
+              <Ionicons name="sparkles-outline" size={12} color={colors.textSecondary} />
+              <ThemedText type="small" style={[muted, styles.tiny]}>{m.checked ? t('ai.fromServerChecked') : t('ai.fromServer')}</ThemedText>
+            </View>
+          ) : m.checked ? (
             <View style={styles.fileTag}>
               <Ionicons name="phone-portrait-outline" size={12} color={colors.textSecondary} />
               <ThemedText type="small" style={[muted, styles.tiny]}>{t('ai.checked')}</ThemedText>

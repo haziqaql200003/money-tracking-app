@@ -28,6 +28,11 @@ export type AiAccount = Account & { balance: number; savings: boolean };
 export type AiData = {
   todayKey: string;
   transactions: Transaction[];
+  /**
+   * Ledger entries (utils/ledger.ts): what Faham analyses. When given, totals, habits, comparisons and forecasts use
+   * these so Ask WaKira's numbers match Faham's. Finding and listing records still uses `transactions`.
+   */
+  ledger?: Transaction[];
   transfers: Transfer[];
   /** Accounts the pengguna can pick (no internal debt accounts), with their balances. */
   accounts: AiAccount[];
@@ -126,8 +131,10 @@ function lookups(d: AiData) {
   };
 }
 
-/** Real records only: balance corrections are not spending habits. */
+/** Real records only: balance corrections are not spending habits. Used to find and list records. */
 const realTx = (d: AiData) => d.transactions.filter((t) => !isAdjustmentEntry(t));
+/** What totals and analysis read: the Faham ledger when given (corrections and moved money out, refunds lower spending). */
+const analysisTx = (d: AiData) => d.ledger ?? realTx(d);
 const inW = (date: string, w: Window) => date >= w.from && date <= w.to;
 
 function txRow(t: Transaction, L: ReturnType<typeof lookups>) {
@@ -152,13 +159,13 @@ function getOverview(d: AiData): ToolResult {
   const L = lookups(d);
   let income = 0;
   let spending = 0;
-  for (const t of d.transactions) {
+  for (const t of analysisTx(d)) {
     if (cycleOf(t.date) !== info.key || t.date > d.todayKey) continue;
     if (t.type === 'credit') income += t.amount;
     else spending += t.amount;
   }
   const bills = billsTotal(upcomingBills(d.recurringRules, d.todayKey, info.daysAfterToday));
-  const outlook = monthOutlook(d.transactions, d.todayKey, bills, d.totalBudget);
+  const outlook = monthOutlook(analysisTx(d), d.todayKey, bills, d.totalBudget);
   return {
     response: {
       today: d.todayKey,
@@ -195,8 +202,9 @@ function spendingBreakdown(d: AiData, a: Args): ToolResult {
   const groups = new Map<string, { id: string; label: string; total: number; count: number }>();
   let total = 0;
   let count = 0;
-  for (const t of realTx(d)) {
-    if (t.type !== type || !inW(t.date, w)) continue;
+  for (const t of analysisTx(d)) {
+    // Purchases only: refunds (negative entries) lower totals elsewhere but are not a category of their own.
+    if (t.type !== type || !inW(t.date, w) || t.amount <= 0) continue;
     if (catFilter && t.categoryId !== catFilter) continue;
     if (accFilter && t.accountId !== accFilter) continue;
     let key: string;
@@ -325,7 +333,7 @@ function listTransfers(d: AiData, a: Args): ToolResult {
 function comparePeriods(d: AiData, a: Args): ToolResult {
   const months = clampInt(a.months, 1, 12, 1);
   const L = lookups(d);
-  const tx = realTx(d);
+  const tx = analysisTx(d);
   const w = currentWindow(d.todayKey, months);
   const prev = previousWindow(w, months);
   const now = windowSummary(tx, w);
@@ -352,7 +360,7 @@ function comparePeriods(d: AiData, a: Args): ToolResult {
 function spendingHabits(d: AiData, a: Args): ToolResult {
   const w = resolveWindow(a, d.todayKey, 'last_3_months');
   const L = lookups(d);
-  const tx = realTx(d);
+  const tx = analysisTx(d);
   const week = weekdayPattern(tx, w);
   const weekendAvg = (week[5].average + week[6].average) / 2;
   const weekdayAvg = week.slice(0, 5).reduce((s, r) => s + r.average, 0) / 5;
@@ -377,7 +385,7 @@ function spendingHabits(d: AiData, a: Args): ToolResult {
 
 function forecast(d: AiData, a: Args): ToolResult {
   const months = clampInt(a.months, 1, 6, 3);
-  const tx = realTx(d);
+  const tx = analysisTx(d);
   const past = monthKeysEnding(d.todayKey, 7).slice(0, -1); // the 6 complete months before this one
   const everyday = monthlySums(tx.filter((x) => x.type === 'debit' && !x.recurringId), past);
   const income = monthlySums(tx.filter((x) => x.type === 'credit'), past);
@@ -388,7 +396,7 @@ function forecast(d: AiData, a: Args): ToolResult {
   const nowKey = cycleOf(d.todayKey);
   const info = cycleInfo(d.todayKey);
   const billsNow = billsTotal(upcomingBills(d.recurringRules, d.todayKey, info.daysAfterToday));
-  const thisMonth = monthOutlook(d.transactions, d.todayKey, billsNow, d.totalBudget);
+  const thisMonth = monthOutlook(analysisTx(d), d.todayKey, billsNow, d.totalBudget);
 
   const usable = d.accounts.filter((x) => !x.savings).reduce((s, x) => s + x.balance, 0);
   let running = usable;

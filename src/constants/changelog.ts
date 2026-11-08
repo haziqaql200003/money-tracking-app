@@ -14,9 +14,34 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.7.0';
+export const CURRENT_VERSION = '3.8.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.8.0',
+    date: '2026-11-08',
+    title: 'Analyse, rebuilt', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Faham dibina semula',
+    highlights: [
+      { text: 'Every number in Analyse now agrees: refunds lower spending, and money moved to savings or card payments no longer counts as spending', ms: 'Setiap angka dalam Faham kini sepadan: bayaran balik mengurangkan belanja, dan wang dipindah ke simpanan atau bayaran kad tidak lagi dikira sebagai belanja' }, // i18n-ignore: bilingual data
+      { text: 'Insights that show their numbers, a five-part health check and a What if… planner', ms: 'Insight yang menunjukkan angkanya, semakan kesihatan lima bahagian dan perancang Bagaimana jika…' }, // i18n-ignore: bilingual data
+      { text: 'New weekly, monthly and yearly stories, with a Shareable view', ms: 'Cerita mingguan, bulanan dan tahunan baharu, dengan paparan Boleh kongsi' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Pick the period for all of Analyse at once: 1, 3, 6 or 12 months, this year, or your own dates. Months follow your payday.', ms: 'Pilih tempoh untuk seluruh Faham sekali gus: 1, 3, 6 atau 12 bulan, tahun ini, atau tarikh anda sendiri. Bulan ikut hari gaji anda.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Overview shows money in, out and kept against the period before, where your income went and the top three things to know. Tap any number to see the records behind it.', ms: 'Ringkasan menunjukkan wang masuk, keluar dan disimpan berbanding tempoh sebelum, ke mana pendapatan pergi dan tiga perkara utama. Ketik mana-mana angka untuk melihat rekod di sebaliknya.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Deep dive has five sections, a month-by-month table and a tap-through from any category to its records.', ms: 'Terperinci ada lima bahagian, jadual bulan demi bulan dan boleh ketik dari mana-mana kategori terus ke rekodnya.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Insights are ranked by how much they matter to you. Each one shows the numbers it rests on, how sure it is and one thing to do. Hide the ones you have seen.', ms: 'Insight disusun ikut betapa penting ia bagi anda. Setiap satu menunjukkan angka asasnya, tahap keyakinan dan satu tindakan. Sembunyikan yang sudah dilihat.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Financial health in five parts: cash flow, savings, debt, budgets and emergency readiness. Each part shows how it is worked out and what data is missing. It is not a credit score.', ms: 'Kesihatan kewangan dalam lima bahagian: aliran tunai, simpanan, hutang, bajet dan persediaan kecemasan. Setiap bahagian menunjukkan cara kiraan dan data yang belum ada. Ia bukan skor kredit.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Deeper checks: recurring payments you have not set up, your own inflation, how long your savings would last, your first week after payday, and when your debts end.', ms: 'Semakan lanjut: bayaran berulang yang belum ditetapkan, inflasi peribadi anda, berapa lama simpanan boleh bertahan, minggu pertama selepas gaji, dan bila hutang anda habis.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'What if…: try a pay rise, a spending cut, extra saving or a new commitment and see the result side by side. Nothing in your records changes.', ms: 'Bagaimana jika…: cuba kenaikan gaji, potongan belanja, simpanan tambahan atau komitmen baharu dan lihat hasilnya bersebelahan. Tiada rekod anda yang berubah.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Stories redesigned: the week prints as a receipt, the month is told in soft colours, and the year has a songket look. Shorter, with one point per slide.', ms: 'Cerita direka semula: minggu dicetak sebagai resit, bulan diceritakan dalam warna lembut, dan tahun bertema songket. Lebih pendek, satu perkara setiap slaid.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Stories have a Private / Shareable switch. Shareable hides amounts and shop names before you share.', ms: 'Cerita ada suis Peribadi / Boleh kongsi. Boleh kongsi menyembunyikan jumlah dan nama kedai sebelum anda kongsi.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Ask WaKira uses the same numbers as Analyse and says whether an answer came from your phone or the server.', ms: 'Tanya WaKira guna angka yang sama dengan Faham dan memberitahu sama ada jawapan datang dari telefon anda atau pelayan.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Refunds no longer show as income, and balance corrections no longer show as income or spending.', ms: 'Bayaran balik tidak lagi dipaparkan sebagai pendapatan, dan pelarasan baki tidak lagi dipaparkan sebagai pendapatan atau belanja.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Comparisons with last month now line up with your payday instead of the calendar.', ms: 'Perbandingan dengan bulan lepas kini sejajar dengan hari gaji anda, bukan kalendar.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.7.0',
     date: '2026-11-02',

@@ -16,15 +16,31 @@ export type StorySlide = {
   content: ReactNode;
   /** The last slide has its own buttons, so taps there are not used to move on. */
   final?: boolean;
+  /** Progress bar fill and header text; `fg` when not given. */
+  accent?: string;
+  /** Progress bar track; `fg` at 28% when not given. */
+  track?: string;
+  /** Share and Play again colours on the last slide; `fg` on `bg` when not given. */
+  button?: { bg: string; fg: string; border?: string };
 };
 
-type Props = { visible: boolean; onClose: () => void; title: string; slides: StorySlide[]; duration?: number; onShare?: () => void };
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  slides: StorySlide[];
+  duration?: number;
+  onShare?: () => void;
+  /** Shareable view: amounts and record names hidden. Shown with a toggle in the header when given. */
+  masked?: boolean;
+  onToggleMask?: () => void;
+};
 
 /**
  * Full-screen stories: bars across the top, tap right for the next one, tap left to go back, hold to pause.
  * Each slide is mounted fresh when it opens, so its entrance animations play every time.
  */
-export function StoryPlayer({ visible, onClose, title, slides, duration = 7000, onShare }: Props) {
+export function StoryPlayer({ visible, onClose, title, slides, duration = 7000, onShare, masked, onToggleMask }: Props) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
@@ -84,11 +100,20 @@ export function StoryPlayer({ visible, onClose, title, slides, duration = 7000, 
   }
 
   const fill = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+  // The background fades from one slide's colour to the next (the monthly story changes colour every slide).
+  const bgColor = useSharedValue(slide?.bg ?? '#000000');
+  useEffect(() => {
+    if (slide?.bg) bgColor.value = withTiming(slide.bg, { duration: 450 });
+  }, [slide?.bg, bgColor]);
+  const bgStyle = useAnimatedStyle(() => ({ backgroundColor: bgColor.value }));
   if (!slide) return null;
+  const accent = slide.accent ?? slide.fg;
+  const track = slide.track ?? hexA(slide.fg, 0.28);
+  const btn = slide.button ?? { bg: slide.fg, fg: slide.bg, border: hexA(slide.fg, 0.45) };
 
   return (
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen" onRequestClose={onClose} statusBarTranslucent>
-      <View style={[styles.root, { backgroundColor: slide.bg }]}>
+      <Animated.View style={[styles.root, bgStyle]}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {slide.backdrop}
         </View>
@@ -100,12 +125,12 @@ export function StoryPlayer({ visible, onClose, title, slides, duration = 7000, 
         {slide.final ? (
           <View style={[styles.actions, { bottom: insets.bottom + 20 }]}>
             {onShare ? (
-              <Pressable onPress={onShare} style={[styles.primary, { backgroundColor: slide.fg }]} accessibilityRole="button">
-                <Ionicons name="share-outline" size={18} color={slide.bg} />
-                <Text style={[styles.primaryText, { color: slide.bg }]}>{t('rpt.share')}</Text>
+              <Pressable onPress={onShare} style={[styles.primary, { backgroundColor: btn.bg }]} accessibilityRole="button">
+                <Ionicons name="share-outline" size={18} color={btn.fg} />
+                <Text style={[styles.primaryText, { color: btn.fg }]}>{t('rpt.share')}</Text>
               </Pressable>
             ) : null}
-            <Pressable onPress={() => setIndex(0)} style={[styles.secondary, { borderColor: hexA(slide.fg, 0.45) }]} accessibilityRole="button">
+            <Pressable onPress={() => setIndex(0)} style={[styles.secondary, { borderColor: btn.border ?? hexA(slide.fg, 0.45) }]} accessibilityRole="button">
               <Text style={[styles.secondaryText, { color: slide.fg }]}>{t('rpt.replay')}</Text>
             </Pressable>
           </View>
@@ -121,22 +146,35 @@ export function StoryPlayer({ visible, onClose, title, slides, duration = 7000, 
         <View style={[styles.top, { top: insets.top + 10 }]} pointerEvents="box-none">
           <View style={styles.bars} pointerEvents="none">
             {slides.map((s, j) => (
-              <View key={s.key} style={[styles.bar, { backgroundColor: hexA(slide.fg, 0.28) }]}>
-                {j < i ? <View style={[styles.barFill, { width: '100%', backgroundColor: slide.fg }]} /> : null}
-                {j === i ? <Animated.View style={[styles.barFill, { backgroundColor: slide.fg }, fill]} /> : null}
+              <View key={s.key} style={[styles.bar, { backgroundColor: track }]}>
+                {j < i ? <View style={[styles.barFill, { width: '100%', backgroundColor: accent }]} /> : null}
+                {j === i ? <Animated.View style={[styles.barFill, { backgroundColor: accent }, fill]} /> : null}
               </View>
             ))}
           </View>
           <View style={styles.head}>
-            <Text style={[styles.title, { color: slide.fg }]} numberOfLines={1}>
+            <Text style={[styles.title, { color: accent }]} numberOfLines={1}>
               {title}
             </Text>
+            {onToggleMask ? (
+              <Pressable
+                onPress={onToggleMask}
+                hitSlop={10}
+                style={[styles.maskChip, { borderColor: hexA(slide.fg, 0.45), backgroundColor: masked ? hexA(slide.fg, 0.16) : 'transparent' }]}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: !!masked }}
+                accessibilityLabel={masked ? t('rpt.mask.show') : t('rpt.mask.hide')}
+              >
+                <Ionicons name={masked ? 'eye-off-outline' : 'eye-outline'} size={15} color={slide.fg} />
+                <Text style={[styles.maskText, { color: slide.fg }]}>{masked ? t('rpt.mask.shareable') : t('rpt.mask.private')}</Text>
+              </Pressable>
+            ) : null}
             <Pressable onPress={onClose} hitSlop={14} accessibilityRole="button" accessibilityLabel={t('rpt.close')}>
               <Ionicons name="close" size={26} color={slide.fg} />
             </Pressable>
           </View>
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -159,6 +197,8 @@ const styles = StyleSheet.create({
   barFill: { height: 3, borderRadius: 3 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   title: { fontSize: 13, fontWeight: '800', letterSpacing: 0.4, flex: 1 },
+  maskChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, marginRight: 12 },
+  maskText: { fontSize: 11, fontWeight: '800' },
   actions: { position: 'absolute', left: 22, right: 22, flexDirection: 'row', gap: 10 },
   primary: { flex: 1.4, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   primaryText: { fontSize: 16, fontWeight: '800' },

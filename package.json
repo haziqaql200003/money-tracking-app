@@ -1,7 +1,7 @@
 {
   "name": "wakira",
   "main": "expo-router/entry",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "dependencies": {
     "@expo/ui": "~58.0.27",
     "@expo/vector-icons": "^15.0.2",
@@ -63,6 +63,8 @@
     "lint": "expo lint",
     "i18n:audit": "node scripts/i18n-audit.mjs",
     "sync:test": "node scripts/sync-selftest.mjs",
+    "ledger:test": "node scripts/ledger-selftest.mjs",
+    "faham:test": "node scripts/ledger-selftest.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/windows.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/ledger-flow.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/period.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/ringkasan.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/insights.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/health.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/advanced.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/stories.mjs && node --import ./scripts/faham-check/register.mjs scripts/faham-check/crosscheck.mjs",
     "brain:test": "node scripts/brain-eval.mjs && node scripts/brain-check.mjs",
     "brain:show": "node scripts/brain-eval.mjs --show",
     "brain:import": "node scripts/brain-log-import.mjs",

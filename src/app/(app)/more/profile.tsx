@@ -30,6 +30,7 @@ import { formatMoney } from '@/utils/currency';
 import { cycleInfo, daysToPayday, nextPayday } from '@/utils/cycle';
 import { cycleRangeLabel, toDateKey } from '@/utils/dates';
 import { snapshotOf } from '@/utils/insight-feed';
+import { ledgerEntries } from '@/utils/ledger';
 import { p1 } from '@/utils/percent';
 import { Alert } from '@/services/dialog';
 
@@ -57,7 +58,7 @@ export default function ProfileScreen() {
   const stateName = state ? (MY_STATES.find((x) => x.code === state)?.name ?? state) : t('more.profile.stateAny');
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
-  const snapshot = useMemo(() => snapshotOf(transactions, toDateKey(new Date())), [transactions]);
+  const snapshot = useMemo(() => snapshotOf(ledgerEntries(transactions), toDateKey(new Date())), [transactions]);
   const since = useMemo(() => {
     if (transactions.length === 0) return null;
     const earliest = transactions.reduce((min, tx) => (tx.date < min ? tx.date : min), transactions[0].date);

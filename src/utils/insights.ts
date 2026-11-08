@@ -1,12 +1,15 @@
 import type { Transaction } from '@/context/TransactionsContext';
 import { t, tp } from '@/i18n';
 import { weekdayLong } from '@/i18n/format';
-import { cycleOf, cycleRange, shiftCycle } from '@/utils/cycle';
+import { addDays, cycleOf, cycleRange, daysBetween, shiftCycle } from '@/utils/cycle';
+import { isSpendItem } from '@/utils/ledger';
 import { p1, r1 } from '@/utils/percent';
 
 /**
  * Pure analysis helpers for the Faham tab.
  *
+ * Callers pass LEDGER entries (utils/ledger.ts): corrections and moved money are already out, and refunds are
+ * debits with a negative amount, so every total below nets them against spending automatically.
  * Only real transactions are analysed. Transfers between accounts are a separate entity and
  * "Confirm each time" recurring entries only become transactions once confirmed, so neither can
  * distort income, spending or savings here.
@@ -47,9 +50,17 @@ export function currentWindow(todayKey: string, months: number): Window {
   return { from: cycleRange(monthKeysEnding(todayKey, months)[0]).from, to: todayKey };
 }
 
-/** The same-length window immediately before, ending the same number of months earlier (like-for-like). */
+/**
+ * The like-for-like window before `w`: it starts at the financial month `months` cycles earlier and runs for the
+ * same number of days, never past the end of the cycle that mirrors w's last cycle. Uses payday cycles, so it stays
+ * aligned for end-of-month and holiday-shifted paydays too.
+ */
 export function previousWindow(w: Window, months: number): Window {
-  return { from: shiftMonths(w.from, -months), to: shiftMonths(w.to, -months) };
+  const firstKey = cycleOf(w.from);
+  const from = cycleRange(shiftCycle(firstKey, -months)).from;
+  const cap = cycleRange(shiftCycle(cycleOf(w.to), -months)).to;
+  const to = addDays(from, daysBetween(w.from, w.to));
+  return { from, to: to < cap ? to : cap };
 }
 
 const inWindow = (t: Transaction, w: Window) => t.date >= w.from && t.date <= w.to;
@@ -130,7 +141,8 @@ export function categoryTrends(transactions: Transaction[], w: Window, prev: Win
   let all = 0;
 
   for (const t of transactions) {
-    if (t.type !== 'debit') continue;
+    // Refunds have no expense category of their own, so category rows show purchases only.
+    if (!isSpendItem(t)) continue;
     if (inWindow(t, w)) {
       totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
       all += t.amount;
@@ -208,7 +220,7 @@ export type TitleRow = { title: string; total: number; count: number };
 export function topTitles(transactions: Transaction[], w: Window, limit = 5): TitleRow[] {
   const map = new Map<string, TitleRow>();
   for (const t of transactions) {
-    if (t.type !== 'debit' || !inWindow(t, w)) continue;
+    if (!isSpendItem(t) || !inWindow(t, w)) continue;
     const label = t.title.trim();
     if (!label) continue;
     const key = label.toLowerCase();

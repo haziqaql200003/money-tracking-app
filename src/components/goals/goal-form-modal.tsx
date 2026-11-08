@@ -24,6 +24,7 @@ import { toDateKey } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { nextCreditDue } from '@/utils/debts';
 import { emergencyTarget, snapshotOf } from '@/utils/insight-feed';
+import { ledgerEntries } from '@/utils/ledger';
 import { looksLikeSavings } from '@/utils/saved';
 import type { SavingsGoal } from '@/utils/goals';
 import { Alert } from '@/services/dialog';
@@ -94,7 +95,7 @@ function GoalForm({ editing, onDone }: { editing?: SavingsGoal | null; onDone: (
 
   const targetNumber = parseFloat(target.replace(',', '.'));
   const today = toDateKey(new Date());
-  const emergency = emergencyTarget(snapshotOf(transactions, today));
+  const emergency = emergencyTarget(snapshotOf(ledgerEntries(transactions), today));
   const deadlineValid = !hasDeadline || deadline > today || (!!editing && deadline === editing.deadline);
   const monthlyN = parseFloat(monthly.replace(',', '.'));
   const startN = parseFloat(startAmount.replace(',', '.'));

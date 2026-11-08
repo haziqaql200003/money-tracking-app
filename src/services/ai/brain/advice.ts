@@ -23,7 +23,7 @@ type Idea = { kind: 'cut' | 'small' | 'subs' | 'rising' | 'budget'; save: number
 const round10 = (n: number) => Math.max(10, Math.round(n / 10) * 10);
 
 export function adviceSay(t: Translate, d: AiData, opts: { simple?: boolean; categoryId?: string } = {}): Say {
-  const real = d.transactions.filter((x) => !isAdjustmentEntry(x));
+  const real = d.ledger ?? d.transactions.filter((x) => !isAdjustmentEntry(x));
   // The last 3 complete financial months that have any records.
   const keys = monthKeysEnding(d.todayKey, 4).slice(0, -1);
   const inc = monthlySums(real.filter((x) => x.type === 'credit'), keys);

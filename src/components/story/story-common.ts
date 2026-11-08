@@ -21,10 +21,22 @@ export const dateText = (key: string) => formatDate(toDate(key));
 export const monthName = (key: string) => monthLong(Number(key.slice(5, 7)) - 1);
 export const monthYear = (key: string) => formatMonthYear(toDate(`${key}-01`));
 
+/**
+ * Shareable view: while on, every amount reads "RM ••••" and every record title (shop, place, purchase) reads "•••".
+ * Set by ReportStory just before it builds the slides, so all three stories follow it without passing it around.
+ */
+let masked = false;
+export const setStoryMask = (on: boolean) => {
+  masked = on;
+};
+export const isStoryMasked = () => masked;
+/** A record's own title (a shop or purchase name): hidden in the shareable view. */
+export const label = (title: string) => (masked ? '•••' : title);
+
 /** RM with no sen, for big headline numbers: "RM 25,438". */
-export const rm0 = (n: number) => `RM ${Math.round(n).toLocaleString('en-US')}`;
+export const rm0 = (n: number) => (masked ? 'RM ••••' : `RM ${Math.round(n).toLocaleString('en-US')}`);
 /** RM with sen: "RM 497.73". */
-export const rm2 = (n: number) => `RM ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const rm2 = (n: number) => (masked ? 'RM ••••' : `RM ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 export const int = (n: number) => Math.round(n).toLocaleString('en-US');
 
 /** ISO week number, for the receipt's "No.". */

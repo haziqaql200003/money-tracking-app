@@ -15,6 +15,8 @@ export const msAi: Record<keyof typeof enAi, string> = {
   'ai.thinking': 'WaKira sedang menyemak rekod anda...',
   'ai.thinkingServer': "Soalan ini perlukan pelayan AI, mungkin ambil beberapa saat...",
   'ai.checked': 'Dikira dalam telefon anda daripada rekod anda',
+  'ai.fromServerChecked': 'Angka dikira dalam telefon anda daripada rekod anda; ayat oleh pelayan AI',
+  'ai.fromServer': 'Ditulis oleh pelayan AI. Semak sebarang angka dengan rekod anda.',
   'ai.clear': 'Padam perbualan',
   'ai.clearTitle': 'Padam perbualan ini?',
   'ai.clearMsg': 'Perbualan dibuang daripada telefon ini. Rekod yang sudah disimpan kekal.',

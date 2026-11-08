@@ -4,13 +4,15 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 
 import { annualSlides } from '@/components/story/annual-wrapped';
-import { monthName, rm0, rm2, weekNo, dateText, type StoryCtx } from '@/components/story/story-common';
+import { monthName, rm0, rm2, setStoryMask, weekNo, dateText, type StoryCtx } from '@/components/story/story-common';
 import { monthlySlides } from '@/components/story/monthly-poster';
 import { StoryPlayer } from '@/components/story/story-player';
 import { weeklySlides } from '@/components/story/weekly-receipt';
 import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories } from '@/context/CategoriesContext';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { Alert } from '@/services/dialog';
 import { useDebts } from '@/context/DebtsContext';
 import { usePlan } from '@/context/PlanContext';
 import { useSettings } from '@/context/SettingsContext';
@@ -45,6 +47,15 @@ function yearOpen(todayKey: string) {
 /** Builds the numbers for one story and plays it. */
 export function ReportStory({ story, visible, onClose }: { story: StoryRef | null; visible: boolean; onClose: () => void }) {
   const { t, tp } = useT();
+  // Private view shows everything; the shareable view hides amounts and record names. It starts hidden when the
+  // app is hiding amounts, so a story never shows more than the rest of the app.
+  const { hideAmounts } = usePrivacy();
+  const [masked, setMasked] = useState(hideAmounts);
+  const [maskFor, setMaskFor] = useState<StoryRef | null>(null);
+  if (story !== maskFor) {
+    setMaskFor(story);
+    setMasked(hideAmounts);
+  }
   const { transactions } = useTransactions();
   const { getCategory, expenseCategories } = useCategories();
   const { goals, goalEntries } = usePlan();
@@ -87,7 +98,9 @@ export function ReportStory({ story, visible, onClose }: { story: StoryRef | nul
     savingsTarget,
     monthlyBudget: expenseCategories.reduce((sum, c) => sum + c.monthlyLimit, 0),
   };
+  setStoryMask(masked);
   const slides = story.kind === 'week' ? weeklySlides(report, ctx) : story.kind === 'month' ? monthlySlides(report, ctx) : annualSlides(report, ctx, built.prevYear);
+  setStoryMask(false);
   const title =
     story.kind === 'week'
       ? t('rpt.title.week', { n: weekNo(report.period.from) })
@@ -95,17 +108,38 @@ export function ReportStory({ story, visible, onClose }: { story: StoryRef | nul
         ? t('rpt.title.month', { month: `${monthName(report.period.key)} ${report.period.key.slice(0, 4)}` })
         : t('rpt.title.year', { year: report.period.key });
 
-  const share = () => {
-    const message =
-      story.kind === 'week'
+  // Sharing never includes account names or record details. The person picks whether amounts go with it.
+  const message = (withAmounts: boolean) =>
+    story.kind === 'week'
+      ? withAmounts
         ? t('rpt.shareWeek', { spend: rm2(report.spend), records: report.records, grade: report.grade })
-        : story.kind === 'month'
+        : t('rpt.shareWeekPrivate', { records: report.records, grade: report.grade })
+      : story.kind === 'month'
+        ? withAmounts
           ? t('rpt.shareMonth', { month: monthName(report.period.key), spend: rm0(report.spend), rate: report.rate ?? 0 })
-          : t('rpt.shareYear', { year: report.period.key, records: report.records, saved: rm0(report.net) });
-    void shareText(message);
+          : t('rpt.shareMonthPrivate', { month: monthName(report.period.key), rate: report.rate ?? 0 })
+        : withAmounts
+          ? t('rpt.shareYear', { year: report.period.key, records: report.records, saved: rm0(report.net) })
+          : t('rpt.shareYearPrivate', { year: report.period.key, records: report.records });
+  const share = () => {
+    Alert.alert(t('rpt.shareAsk.title'), t('rpt.shareAsk.body'), [
+      { text: t('rpt.shareAsk.private'), onPress: () => void shareText(message(false)) },
+      { text: t('rpt.shareAsk.full'), onPress: () => void shareText(message(true)) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
   };
 
-  return <StoryPlayer visible={visible} onClose={onClose} title={title} slides={slides} onShare={share} />;
+  return (
+    <StoryPlayer
+      visible={visible}
+      onClose={onClose}
+      title={title}
+      slides={slides}
+      onShare={share}
+      masked={masked}
+      onToggleMask={() => setMasked((m) => !m)}
+    />
+  );
 }
 
 /** Records in a period, to decide whether its story is open yet. */

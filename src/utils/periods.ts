@@ -28,17 +28,33 @@ const dateOf = (key: string) => {
  */
 export function periodsFor(todayKey: string, months: number, grain: Grain): Period[] {
   const keys = monthKeysEnding(todayKey, months);
-  if (grain === 'month') return keys.map((k) => ({ key: k, ...cycleRange(k) }));
-  const from = cycleRange(keys[0]).from;
-  const to = cycleRange(keys[keys.length - 1]).to;
+  return periodsForRange({ from: cycleRange(keys[0]).from, to: todayKey }, keys, grain, true);
+}
+
+/**
+ * The bars for any window. `keys` are the financial months it touches (see utils/faham-period.ts).
+ * A `live` window (one that runs up to today) keeps its last bar open to the end of the running month, so the chart
+ * shows the month's full width; a window in the past is cut exactly at its own first and last day.
+ */
+export function periodsForRange(w: { from: string; to: string }, keys: string[], grain: Grain, live: boolean): Period[] {
+  if (keys.length === 0) return [];
+  const end = live ? cycleRange(keys[keys.length - 1]).to : w.to;
+  if (grain === 'month') {
+    return keys.map((k) => {
+      const r = cycleRange(k);
+      return { key: k, from: r.from < w.from ? w.from : r.from, to: r.to > end ? end : r.to };
+    });
+  }
+  const from = w.from;
+  const to = end;
   const out: Period[] = [];
   if (grain === 'day') {
     for (let d = from; d <= to; d = addDays(d, 1)) out.push({ key: d, from: d, to: d });
     return out;
   }
   for (let start = from; start <= to; start = addDays(start, 7)) {
-    const end = addDays(start, 6);
-    out.push({ key: start, from: start, to: end < to ? end : to });
+    const stop = addDays(start, 6);
+    out.push({ key: start, from: start, to: stop < to ? stop : to });
   }
   const last = out[out.length - 1];
   if (out.length > 1 && dateOf(last.to).getTime() - dateOf(last.from).getTime() < 3 * 86400000) {

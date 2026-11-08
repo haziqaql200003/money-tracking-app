@@ -13,6 +13,8 @@ export const enAi = {
   'ai.thinking': 'WaKira is checking your records...',
   'ai.thinkingServer': "This one needs the AI server, it can take a few seconds...",
   'ai.checked': 'Worked out on your phone from your records',
+  'ai.fromServerChecked': 'Figures worked out on your phone from your records; wording by the AI server',
+  'ai.fromServer': 'Written by the AI server. Check any figure against your records.',
   'ai.clear': 'Clear chat',
   'ai.clearTitle': 'Clear this chat?',
   'ai.clearMsg': 'The conversation is removed from this phone. Records you saved stay.',

@@ -27,6 +27,16 @@ export const FONT_FACES = {
   800: 'Manrope_800ExtraBold',
 } as const;
 
+/**
+ * Display faces used only by the story reports: Space Grotesk for the monthly story's big numbers,
+ * DM Serif Display for the songket annual wrap. A Text that sets one of these as fontFamily keeps it.
+ */
+export const STORY_FACES = {
+  grotesk: 'SpaceGrotesk_700Bold',
+  serif: 'DMSerifDisplay_400Regular',
+} as const;
+const STORY_FACE_SET = new Set<string>(Object.values(STORY_FACES));
+
 /** The font files, loaded once in app/_layout.tsx. */
 export const FONT_FILES = {
   Manrope_400Regular: require('../../../assets/fonts/Manrope_400Regular.ttf'),
@@ -34,6 +44,8 @@ export const FONT_FILES = {
   Manrope_600SemiBold: require('../../../assets/fonts/Manrope_600SemiBold.ttf'),
   Manrope_700Bold: require('../../../assets/fonts/Manrope_700Bold.ttf'),
   Manrope_800ExtraBold: require('../../../assets/fonts/Manrope_800ExtraBold.ttf'),
+  SpaceGrotesk_700Bold: require('../../../assets/fonts/SpaceGrotesk_700Bold.ttf'),
+  DMSerifDisplay_400Regular: require('../../../assets/fonts/DMSerifDisplay_400Regular.ttf'),
 };
 
 /** The Manrope face for a fontWeight. Weights below 400 use Regular, 900 uses ExtraBold. */
@@ -55,7 +67,10 @@ const InText = createContext(false);
 function adapt(style: StyleProp<TextStyle>, scale: number, nested: boolean): TextStyle {
   const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle;
   const out: { -readonly [K in keyof TextStyle]?: TextStyle[K] } = {};
-  if (!nested || flat.fontWeight != null || flat.fontFamily != null) {
+  if (flat.fontFamily != null && STORY_FACE_SET.has(flat.fontFamily)) {
+    out.fontFamily = flat.fontFamily;
+    out.fontWeight = 'normal';
+  } else if (!nested || flat.fontWeight != null || flat.fontFamily != null) {
     out.fontFamily = faceFor(flat.fontWeight);
     out.fontWeight = 'normal';
   }

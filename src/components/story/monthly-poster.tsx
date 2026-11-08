@@ -1,326 +1,425 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Text as SvgText } from 'react-native-svg';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-import { FONT_FACES, Text } from '@/components/ui/text';
-
-import { CountUp, GrowBar, Pop, Rise } from '@/components/story/story-kit';
-import { dateText, dayName, int, monthName, rm0, type StoryCtx } from '@/components/story/story-common';
+import { STORY_FACES, Text } from '@/components/ui/text';
+import { CountUp, Drift, Grow, Pop, ProgressRing, Rise } from '@/components/story/story-kit';
+import { dateText, int, monthName, rm0, type StoryCtx } from '@/components/story/story-common';
 import type { StorySlide } from '@/components/story/story-player';
-import { weekdayShort } from '@/i18n/format';
-import { addDays } from '@/utils/cycle';
 import type { Report } from '@/utils/report-data';
 
-const INK = '#1A1400';
-const POSTERS = ['#FFD43B', '#63E6BE', '#FF8787', '#74C0FC', '#FFA94D', '#B197FC', '#F1F3F5'];
+const INK = '#17161A';
+const GROTESK = STORY_FACES.grotesk;
+/** One soft colour per slide, chosen by what the slide is about, so a skipped slide never shifts the colours. */
+const FIELD = {
+  intro: '#FFD8B0',
+  kept: '#CDEFD9',
+  spent: '#CDEFD9',
+  flow: '#CFE1FF',
+  where: '#E8D6FA',
+  change: '#FFF1B8',
+  plan: '#FFD6DE',
+  sum: '#F3EEE6',
+} as const;
+type Field = keyof typeof FIELD;
+const SHADES = [INK, '#4A4750', '#7D7A84', 'rgba(23,22,26,0.25)'];
 
-/** Concept F: every slide is a poster with one giant outlined number behind it. */
+/**
+ * Monthly story (3.8), "colour field": one soft colour per slide, very large numbers, little else.
+ * A month is a payday cycle (utils/cycle.ts), so the copy says "cycle" where it compares.
+ */
 export function monthlySlides(r: Report, c: StoryCtx): StorySlide[] {
   const { t, tp } = c;
   const month = monthName(r.period.key);
-  const pages: { key: string; big: string; body: ReactNode }[] = [];
   const target = c.savingsTarget;
+  const pages: { key: Field; body: ReactNode }[] = [];
 
+  // 1. Intro
+  const digits = String(Number(r.period.key.slice(5, 7)));
   pages.push({
     key: 'intro',
-    big: r.period.key.slice(5, 7),
     body: (
       <View style={s.fill}>
-        <Rise>
-          <Text style={s.lead}>{t('rpt.m.intro1')}</Text>
-        </Rise>
-        <Rise delay={150}>
-          <Text style={s.title}>{t('rpt.m.introTitle', { month })}</Text>
-        </Rise>
-        <Rise delay={400}>
-          <Text style={s.body}>{t('rpt.m.introBody', { records: r.records, days: r.daysCounted })}</Text>
-        </Rise>
-        <Rise delay={1000}>
-          <View style={s.pill}>
-            <Text style={s.pillText}>{t('rpt.tapToStart')}</Text>
-          </View>
-        </Rise>
+        <View style={s.digits}>
+          {digits.split('').map((d, j) => (
+            <Animated.Text key={j} entering={FadeInUp.delay(250 + j * 140).duration(900).springify().damping(14)} style={s.digit} allowFontScaling={false}>
+              {d}
+            </Animated.Text>
+          ))}
+        </View>
+        <View style={s.bottom}>
+          <Rise delay={700}>
+            <Text style={s.h3}>{t('rpt.m.introTitle', { month })}</Text>
+          </Rise>
+          <Rise delay={900}>
+            <Text style={s.body}>{t('rpt.m.introBody', { from: dateText(r.period.from), to: dateText(r.period.to) })}</Text>
+            <Text style={s.body}>{tp('rpt.m.records', r.records)}</Text>
+          </Rise>
+          <Rise delay={1400}>
+            <Text style={s.hint}>{t('rpt.tapToStart')}</Text>
+          </Rise>
+        </View>
       </View>
     ),
   });
 
+  // 2. Kept (or spent, without income)
   if (r.rate !== null) {
+    const rate = Math.max(0, r.rate);
+    const scale = Math.max(30, target + 10, rate + 5);
+    const pts = Math.abs((r.rate ?? 0) - target);
     const pass = r.rate >= target;
-    const outPct = r.income > 0 ? Math.round((r.spend / r.income) * 100) : 0;
     pages.push({
-      key: 'saved',
-      big: `${Math.max(r.rate, 0)}%`,
+      key: 'kept',
       body: (
         <View style={s.fill}>
-          <Rise>
-            <Text style={s.lead}>{t('rpt.m.savedHead')}</Text>
+          <Rise delay={200}>
+            <Text style={s.lede}>{t('rpt.m.keptHead')}</Text>
           </Rise>
-          <CountUp value={r.rate} format={(n) => `${Math.round(n)}%`} delay={200} style={s.hero} />
-          <Rise delay={400}>
-            <Text style={s.body}>
-              {t('rpt.m.savedBody', { target })} <Text style={s.strong}>{pass ? t('rpt.m.pass') : t('rpt.m.notYet')}</Text>
-            </Text>
+          <CountUp value={rate} format={(n) => `${Math.round(n)}%`} delay={400} style={[s.big, s.hero]} />
+          <Rise delay={600}>
+            <Text style={s.lede}>{t('rpt.m.keptUnit')}</Text>
           </Rise>
-          <Rise delay={700} style={s.card}>
-            <View style={s.row}>
-              <Text style={s.label}>{t('rpt.m.in')}</Text>
-              <Text style={s.label}>{rm0(r.income)}</Text>
+          <View style={s.meter}>
+            <View style={s.track}>
+              <Grow delay={900} style={[s.trackFill, { width: `${(rate / scale) * 100}%` }]} />
             </View>
-            <GrowBar pct={100} color={INK} track="rgba(26,20,0,0.12)" delay={800} height={12} />
-            <View style={[s.row, s.mt]}>
-              <Text style={s.label}>{t('rpt.m.out')}</Text>
-              <Text style={s.label}>{rm0(r.spend)}</Text>
-            </View>
-            <GrowBar pct={outPct} color="#E03131" track="rgba(26,20,0,0.12)" delay={1000} height={12} />
-          </Rise>
+            <Rise delay={1600} style={[s.mark, { left: `${(target / scale) * 100}%` }]}>
+              <View style={s.markLine} />
+              <Text style={s.markLabel}>{t('rpt.m.target', { target })}</Text>
+            </Rise>
+          </View>
+          <View style={s.bottom}>
+            <Rise delay={1800}>
+              <Text style={s.body}>{r.net < 0 ? t('rpt.m.keptNeg', { amount: rm0(-r.net) }) : pass ? t('rpt.m.keptPass', { amount: rm0(r.net), pts }) : t('rpt.m.keptBelow', { amount: rm0(r.net), pts })}</Text>
+            </Rise>
+            <Pop delay={2200} style={s.pill}>
+              <Text style={s.pillText}>{pass ? t('rpt.m.pass') : t('rpt.m.notYet')}</Text>
+            </Pop>
+          </View>
         </View>
       ),
     });
   } else {
     pages.push({
       key: 'spent',
-      big: rm0(r.spend).replace('RM ', ''),
       body: (
         <View style={s.fill}>
-          <Rise>
-            <Text style={s.lead}>{t('rpt.m.spentHead')}</Text>
+          <Rise delay={200}>
+            <Text style={s.lede}>{t('rpt.m.spentHead')}</Text>
           </Rise>
-          <CountUp value={r.spend} format={rm0} delay={200} style={s.hero} />
+          <CountUp value={r.spend} format={rm0} delay={400} style={[s.big, s.mid]} />
+          <Rise delay={800}>
+            <Text style={s.body}>{t('rpt.m.spentBody')}</Text>
+          </Rise>
         </View>
       ),
     });
   }
 
-  if (r.budgets.length > 0) {
-    const ok = r.budgets.filter((b) => b.pct <= 100).length;
+  // 3. Money in and out
+  if (r.income > 0) {
+    const top = Math.max(r.income, r.spend, 1);
     pages.push({
-      key: 'budgets',
-      big: `${ok}/${r.budgets.length}`,
+      key: 'flow',
       body: (
         <View style={s.fill}>
-          <Rise>
-            <Text style={s.lead}>{t('rpt.m.budgetHead')}</Text>
+          <Rise delay={200}>
+            <Text style={s.lede}>{t('rpt.m.flowHead')}</Text>
           </Rise>
-          <Rise delay={150}>
-            <Text style={s.title2}>{t('rpt.m.budgetTitle', { ok, n: r.budgets.length })}</Text>
-          </Rise>
-          {r.budgets.slice(0, 6).map((b, j) => {
-            const over = b.pct > 100;
-            return (
-              <Rise key={b.categoryId} delay={400 + j * 120} style={s.budget}>
-                <View style={s.row}>
-                  <Text style={[s.label, s.flex]} numberOfLines={1}>
-                    {c.catName(b.categoryId)}
-                  </Text>
-                  <Text style={[s.chip, over ? s.chipBad : s.chipOk]}>{`${b.pct}%`}</Text>
-                </View>
-                <GrowBar pct={b.pct} color={over ? '#E03131' : INK} track="rgba(26,20,0,0.12)" delay={600 + j * 120} height={8} />
-              </Rise>
-            );
-          })}
+          <CountUp value={Math.abs(r.net)} format={(n) => `${r.net < 0 ? '−' : '+'}${rm0(n)}`} delay={400} style={[s.big, s.mid]} />
+          <View style={s.flows}>
+            <Rise delay={600} style={s.gap8}>
+              <View style={s.row}>
+                <Text style={s.label}>{t('rpt.m.in')}</Text>
+                <Text style={s.label}>{rm0(r.income)}</Text>
+              </View>
+              <Grow delay={700} style={[s.flowBar, { width: `${(r.income / top) * 100}%` }]} />
+            </Rise>
+            <Rise delay={900} style={s.gap8}>
+              <View style={s.row}>
+                <Text style={s.label}>{t('rpt.m.out')}</Text>
+                <Text style={s.label}>{rm0(r.spend)}</Text>
+              </View>
+              <Grow delay={1000} style={[s.flowBar, s.flowOut, { width: `${Math.max(2, (r.spend / top) * 100)}%` }]} />
+            </Rise>
+          </View>
+          {r.incomeBy.length > 0 ? (
+            <Rise delay={1600}>
+              <Text style={s.body}>{r.incomeBy.slice(0, 2).map((x) => `${c.catName(x.id)} ${rm0(x.amount)}`).join(' · ')}</Text>
+            </Rise>
+          ) : null}
+          {r.moved > 0 ? (
+            <Rise delay={2000} style={s.bottom}>
+              <Text style={s.note}>{t('rpt.m.moved', { amount: rm0(r.moved) })}</Text>
+            </Rise>
+          ) : null}
         </View>
       ),
     });
   }
 
-  if (r.biggestRise || r.biggestFall) {
-    const lead = r.biggestRise ?? r.biggestFall!;
+  // 4. Where it went
+  const top = r.categories[0];
+  if (top && r.spend > 0) {
+    const shown = r.categories.slice(0, 3);
+    const rest = Math.max(0, r.spend - shown.reduce((x, y) => x + y.amount, 0));
+    const rows = [...shown.map((x) => ({ name: c.catName(x.id), amount: x.amount })), ...(rest > 0.5 ? [{ name: t('rpt.m.rest'), amount: rest }] : [])];
+    pages.push({
+      key: 'where',
+      body: (
+        <View style={s.fill}>
+          <Rise delay={200}>
+            <Text style={s.lede}>{t('rpt.m.whereHead')}</Text>
+          </Rise>
+          <Rise delay={350}>
+            <Text style={s.h3} numberOfLines={2}>
+              {c.catName(top.id)}
+            </Text>
+          </Rise>
+          <CountUp value={top.amount} format={rm0} delay={600} style={[s.big, s.mid]} />
+          <View style={s.stack}>
+            {rows.map((x, j) => (
+              <Grow key={x.name} delay={900 + j * 160} style={{ flex: Math.max(0.02, x.amount / r.spend), height: '100%', backgroundColor: SHADES[Math.min(j, 3)] }} />
+            ))}
+          </View>
+          <View style={s.bottom}>
+            {rows.map((x, j) => (
+              <Rise key={x.name} delay={1300 + j * 160} style={[s.listRow, j === 0 && s.listFirst]}>
+                <View style={[s.key, { backgroundColor: SHADES[Math.min(j, 3)] }]} />
+                <Text style={[s.rowText, s.flex]} numberOfLines={1}>
+                  {x.name}
+                </Text>
+                <Text style={s.rowText}>{`${rm0(x.amount)} · ${Math.round((x.amount / r.spend) * 100)}%`}</Text>
+              </Rise>
+            ))}
+          </View>
+        </View>
+      ),
+    });
+  }
+
+  // 5. Biggest change (a fall is told first: it is the good news)
+  const main = r.biggestFall ?? r.biggestRise;
+  if (main) {
+    const other = main === r.biggestFall ? r.biggestRise : r.biggestFall;
+    const down = main.pct < 0;
     pages.push({
       key: 'change',
-      big: `${lead.pct > 0 ? '+' : ''}${lead.pct}%`,
       body: (
         <View style={s.fill}>
-          <Rise>
-            <Text style={s.lead}>{t('rpt.m.changeHead')}</Text>
+          <Rise delay={200}>
+            <Text style={s.lede}>{t('rpt.m.changeHead')}</Text>
           </Rise>
-          {[r.biggestRise, r.biggestFall].map((x, j) =>
-            x ? (
-              <Pop key={x.id} delay={250 + j * 350} style={s.card}>
-                <Text style={s.label}>{c.catName(x.id)}</Text>
-                <Text style={[s.change, { color: x.pct > 0 ? '#C92A2A' : '#087F5B' }]}>{`${x.pct > 0 ? '+' : ''}${x.pct}%`}</Text>
-                <Text style={s.body}>{t('rpt.m.changeUp', { now: rm0(x.now), before: rm0(x.before) })}</Text>
-              </Pop>
-            ) : null,
-          )}
+          <Animated.View entering={(down ? FadeInDown : FadeInUp).delay(400).duration(900).springify().damping(10)} style={s.arrow}>
+            <Ionicons name={down ? 'arrow-down' : 'arrow-up'} size={84} color={INK} />
+          </Animated.View>
+          <Rise delay={700}>
+            <Text style={s.h3}>{c.catName(main.id)}</Text>
+          </Rise>
+          <CountUp value={Math.abs(main.pct)} format={(n) => `${down ? '−' : '+'}${Math.round(n)}%`} delay={850} style={[s.big, s.hero]} />
+          <Rise delay={1200}>
+            <Text style={s.body}>{t('rpt.m.changeBody', { now: rm0(main.now), before: rm0(main.before) })}</Text>
+          </Rise>
+          {other ? (
+            <Rise delay={1700} style={[s.bottom, s.otherRow]}>
+              <Text style={[s.rowText, s.flex]}>{other.pct < 0 ? t('rpt.m.alsoDown', { name: c.catName(other.id) }) : t('rpt.m.alsoUp', { name: c.catName(other.id) })}</Text>
+              <Text style={[s.rowText, s.bold]}>{`${other.now - other.before >= 0 ? '+' : '−'}${rm0(Math.abs(other.now - other.before))}`}</Text>
+            </Rise>
+          ) : null}
         </View>
       ),
     });
   }
 
-  // Calendar: Monday-first grid of the month
-  const lead = (new Date(Number(r.period.from.slice(0, 4)), Number(r.period.from.slice(5, 7)) - 1, Number(r.period.from.slice(8, 10))).getDay() + 6) % 7;
-  const max = Math.max(1, ...r.daily);
-  pages.push({
-    key: 'map',
-    big: int(r.noSpendDays),
-    body: (
-      <View style={s.fill}>
-        <Rise>
-          <Text style={s.lead}>{t('rpt.m.mapHead')}</Text>
-        </Rise>
-        <Rise delay={150} style={s.card}>
-          <View style={s.grid}>
-            {Array.from({ length: 7 }, (_, d) => (
-              <Text key={`h${d}`} style={s.dow}>
-                {weekdayShort(d).slice(0, 1)}
-              </Text>
-            ))}
-            {Array.from({ length: lead }, (_, j) => (
-              <View key={`e${j}`} style={s.cell} />
-            ))}
-            {r.daily.map((v, j) => {
-              const future = j >= r.daysCounted;
-              const lvl = future ? -1 : v === 0 ? 0 : Math.min(4, 1 + Math.floor((v / max) * 4));
-              const bg = ['rgba(26,20,0,0.06)', 'rgba(26,20,0,0.18)', 'rgba(26,20,0,0.35)', 'rgba(224,49,49,0.55)', '#E03131'][Math.max(0, lvl)];
-              return (
-                <Pop key={j} delay={300 + j * 25} style={[s.cell, { backgroundColor: future ? 'transparent' : bg }, lvl === 0 && s.cellFree]}>
-                  <Text style={[s.cellText, lvl >= 3 && { color: '#FFFFFF' }]}>{Number(addDays(r.period.from, j).slice(8, 10))}</Text>
+  // 6. Budgets and goals
+  const okBudgets = r.budgets.filter((b) => b.pct <= 100).length;
+  if (r.budgets.length > 0 || r.goals.length > 0) {
+    pages.push({
+      key: 'plan',
+      body: (
+        <View style={s.fill}>
+          {r.budgets.length > 0 ? (
+            <>
+              <Rise delay={200}>
+                <Text style={s.lede}>{t('rpt.m.budgetHead')}</Text>
+              </Rise>
+              <Rise delay={350}>
+                <Text style={[s.big, s.mid]} allowFontScaling={false}>
+                  {t('rpt.m.budgetBig', { ok: okBudgets, n: r.budgets.length })}
+                </Text>
+              </Rise>
+              <View style={s.budgets}>
+                {r.budgets.slice(0, 5).map((b, j) => {
+                  const over = b.pct > 100;
+                  return (
+                    <Rise key={b.categoryId} delay={600 + j * 130} style={s.budget}>
+                      <Text style={[s.budgetName]} numberOfLines={1}>
+                        {c.catName(b.categoryId)}
+                      </Text>
+                      <View style={s.budgetTrack}>
+                        <Grow delay={700 + j * 130} style={[s.budgetFill, { width: `${Math.min(100, b.pct)}%`, backgroundColor: over ? '#C2255C' : INK }]} />
+                      </View>
+                      <Text style={[s.budgetPct, over && s.over]}>{`${b.pct}%`}</Text>
+                    </Rise>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <Rise delay={200}>
+              <Text style={s.lede}>{t('rpt.m.goalsHead')}</Text>
+            </Rise>
+          )}
+          {r.goals.length > 0 ? (
+            <View style={[s.goals, r.budgets.length > 0 && s.bottom]}>
+              {r.goals.slice(0, 2).map((g, j) => (
+                <Pop key={g.id} delay={1500 + j * 200} style={s.goal}>
+                  <View>
+                    <ProgressRing pct={g.percent} color={INK} track="rgba(23,22,26,0.12)" delay={1700 + j * 200} />
+                    <View style={s.ringLabel}>
+                      <Text style={s.ringPct} allowFontScaling={false}>{`${g.percent}%`}</Text>
+                    </View>
+                  </View>
+                  <Text style={s.goalName} numberOfLines={1}>
+                    {g.name}
+                  </Text>
+                  <Text style={s.goalMeta}>{t('rpt.m.goalAdded', { amount: rm0(g.inPeriod) })}</Text>
                 </Pop>
-              );
-            })}
-          </View>
-        </Rise>
-        <Rise delay={1200} style={s.pairRow}>
-          {r.priciestDay ? (
-            <View style={[s.card, s.flex]}>
-              <Text style={s.small}>{t('rpt.m.priciest')}</Text>
-              <Text style={s.label}>{`${dayName(r.priciestDay.date).slice(0, 3)} ${dateText(r.priciestDay.date).split(' ').slice(0, 2).join(' ')} · ${rm0(r.priciestDay.amount)}`}</Text>
+              ))}
             </View>
           ) : null}
-          <View style={[s.card, s.flex]}>
-            <Text style={s.small}>{t('rpt.m.noSpend')}</Text>
-            <Text style={s.label}>{tp('rpt.m.days', r.noSpendDays)}</Text>
-          </View>
-        </Rise>
-      </View>
-    ),
-  });
-
-  if (r.goals.length > 0) {
-    pages.push({
-      key: 'goals',
-      big: `${r.goals[0].percent}%`,
-      body: (
-        <View style={s.fill}>
-          <Rise>
-            <Text style={s.lead}>{t('rpt.m.goalsHead')}</Text>
-          </Rise>
-          {r.goals.map((g, j) => (
-            <Rise key={g.id} delay={250 + j * 300} style={s.card}>
-              <View style={s.row}>
-                <Text style={[s.goal, s.flex]} numberOfLines={1}>
-                  {g.name}
-                </Text>
-                <CountUp value={g.percent} format={(n) => `${Math.round(n)}%`} delay={400 + j * 300} style={s.goal} />
-              </View>
-              <GrowBar pct={g.percent} color={INK} track="rgba(26,20,0,0.12)" delay={500 + j * 300} height={14} />
-              <Text style={s.small}>{t('rpt.m.goalMeta', { amount: rm0(g.inPeriod), saved: rm0(g.saved), target: rm0(g.target) })}</Text>
-            </Rise>
-          ))}
         </View>
       ),
     });
   }
 
+  // 7. Summary
   const over = r.budgets.find((b) => b.pct > 100);
   const tip = over
-    ? t('rpt.m.tipBudget', { name: c.catName(over.categoryId), amount: rm0(Math.round((over.limit * 0.9 + over.spent * 0.1) / 10) * 10) })
+    ? t('rpt.m.tipBudget', { name: c.catName(over.categoryId), amount: rm0(over.limit) })
     : r.records < 30
       ? t('rpt.m.tipRecord')
       : t('rpt.m.tipKeep');
-  const okBudgets = r.budgets.filter((b) => b.pct <= 100).length;
-  const tiles: [string, string][] = [
-    [t('rpt.m.sumIn'), rm0(r.income)],
-    [t('rpt.m.sumOut'), rm0(r.spend)],
-    [t('rpt.m.sumSaved'), r.rate === null ? '—' : `${r.rate}%`],
-    [t('rpt.m.sumBudget'), r.budgets.length ? `${okBudgets} / ${r.budgets.length}` : '—'],
-    [t('rpt.m.sumRecords'), int(r.records)],
-    [t('rpt.m.sumNoSpend'), int(r.noSpendDays)],
+  // The best thing about the cycle, from the strongest evidence available (nothing is invented when nothing stands out).
+  const win =
+    r.rate !== null && r.rate >= target
+      ? t('rpt.m.winTarget', { rate: r.rate, target })
+      : r.biggestFall
+        ? t('rpt.m.winCut', { name: c.catName(r.biggestFall.id), amount: rm0(r.biggestFall.before - r.biggestFall.now) })
+        : r.budgets.length > 0 && okBudgets === r.budgets.length
+          ? t('rpt.m.winBudgets')
+          : r.noSpendDays >= 5
+            ? t('rpt.m.winNoSpend', { n: r.noSpendDays })
+            : r.longestStreak >= 7
+              ? t('rpt.m.winStreak', { n: r.longestStreak })
+              : null;
+  const tiles: [string, string, string][] = [
+    [t('rpt.m.sumIn'), rm0(r.income), FIELD.intro],
+    [t('rpt.m.sumOut'), rm0(r.spend), FIELD.flow],
+    [t('rpt.m.sumSaved'), r.rate === null ? '—' : `${r.rate}%`, FIELD.kept],
+    r.budgets.length ? [t('rpt.m.sumBudget'), `${okBudgets} / ${r.budgets.length}`, FIELD.where] : [t('rpt.m.sumRecords'), int(r.records), FIELD.where],
   ];
   pages.push({
     key: 'sum',
-    big: r.period.key.slice(0, 4),
     body: (
-      <View style={s.sumWrap}>
-        <Pop style={s.sumCard}>
-          <View style={s.row}>
-            <Text style={s.sumTitle}>{`${month} ${r.period.key.slice(0, 4)}`}</Text>
-            <Text style={s.tag}>{t('rpt.m.sumTag')}</Text>
-          </View>
-          <View style={s.tiles}>
-            {tiles.map(([label, value], j) => (
-              <Pop key={label} delay={250 + j * 80} style={s.tile}>
-                <Text style={s.small}>{label}</Text>
-                <Text style={s.tileValue}>{value}</Text>
-              </Pop>
-            ))}
-          </View>
-          <View style={s.tip}>
-            <Text style={s.body}>
-              <Text style={s.strong}>{t('rpt.m.tipLabel')}</Text> {tip}
+      <View style={s.fill}>
+        <Rise delay={150}>
+          <Text style={[s.h3, s.sumTitle]}>{t('rpt.m.sumTitle', { month })}</Text>
+        </Rise>
+        <View style={s.tiles}>
+          {tiles.map(([name, value, bg], j) => (
+            <Pop key={name} delay={400 + j * 120} style={[s.tile, { backgroundColor: bg }]}>
+              <Text style={s.tileLabel}>{name}</Text>
+              <Text style={s.tileValue} numberOfLines={1} adjustsFontSizeToFit allowFontScaling={false}>
+                {value}
+              </Text>
+            </Pop>
+          ))}
+        </View>
+        {win ? (
+          <Rise delay={1100}>
+            <Text style={s.line}>
+              <Text style={s.bold}>{t('rpt.m.winLabel')}</Text> {win}
             </Text>
-          </View>
-        </Pop>
+          </Rise>
+        ) : null}
+        <Rise delay={1300}>
+          <Text style={s.line}>
+            <Text style={s.bold}>{t('rpt.m.tipLabel')}</Text> {tip}
+          </Text>
+        </Rise>
       </View>
     ),
   });
 
   return pages.map((p, j) => ({
     key: p.key,
-    bg: POSTERS[j % POSTERS.length],
+    bg: FIELD[p.key],
     fg: INK,
+    track: 'rgba(23,22,26,0.18)',
+    button: { bg: INK, fg: '#FFFFFF', border: INK },
     final: j === pages.length - 1,
-    backdrop: <Outline text={p.big} />,
+    backdrop: p.key === 'sum' ? null : <Drift style={s.blob} dx={-40} dy={30} duration={9000} />,
     content: p.body,
   }));
 }
 
-/** The poster's giant number, drawn only as an outline so the text on top stays readable. */
-function Outline({ text }: { text: string }) {
-  const size = text.length <= 2 ? 300 : text.length <= 4 ? 210 : 150;
-  return (
-    <Svg width="100%" height="100%">
-      <SvgText x={-12} y={size + 60} fontSize={size} fontFamily={FONT_FACES[800]} fill="none" stroke="rgba(26,20,0,0.22)" strokeWidth={2} letterSpacing={-8}>
-        {text}
-      </SvgText>
-    </Svg>
-  );
-}
-
 const s = StyleSheet.create({
-  fill: { flex: 1, justifyContent: 'center', gap: 14 },
+  fill: { flex: 1, paddingTop: 12, gap: 6 },
+  bottom: { marginTop: 'auto', gap: 10 },
   flex: { flex: 1 },
-  lead: { fontSize: 20, fontWeight: '800', color: INK },
-  title: { fontSize: 58, lineHeight: 60, fontWeight: '900', letterSpacing: -2, color: INK },
-  title2: { fontSize: 40, lineHeight: 44, fontWeight: '900', letterSpacing: -1, color: INK },
-  hero: { fontSize: 92, lineHeight: 96, fontWeight: '900', letterSpacing: -3, color: INK },
-  body: { fontSize: 17, lineHeight: 25, color: INK },
-  strong: { fontWeight: '800' },
-  pill: { alignSelf: 'flex-start', backgroundColor: INK, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 999 },
-  pillText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
-  card: { backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 22, padding: 16, gap: 8 },
-  budget: { backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, gap: 7 },
+  bold: { fontWeight: '800' },
+  gap8: { gap: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  mt: { marginTop: 8 },
-  label: { fontSize: 15, fontWeight: '800', color: INK },
-  small: { fontSize: 12, color: INK, opacity: 0.75 },
-  chip: { fontSize: 12, fontWeight: '800', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
-  chipOk: { backgroundColor: 'rgba(26,20,0,0.12)', color: INK },
-  chipBad: { backgroundColor: '#E03131', color: '#FFFFFF' },
-  change: { fontSize: 56, lineHeight: 60, fontWeight: '900' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 6 },
-  dow: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, fontWeight: '800', color: INK, opacity: 0.6 },
-  cell: { width: `${100 / 7 - 1.6}%`, marginHorizontal: '0.8%', aspectRatio: 1, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  cellFree: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: 'rgba(26,20,0,0.5)' },
-  cellText: { fontSize: 11, fontWeight: '800', color: INK },
-  pairRow: { flexDirection: 'row', gap: 10 },
-  goal: { fontSize: 22, fontWeight: '900', color: INK },
-  sumWrap: { flex: 1, justifyContent: 'center' },
-  sumCard: { backgroundColor: '#FFFFFF', borderRadius: 30, padding: 20, gap: 14, borderWidth: 3, borderColor: INK },
-  sumTitle: { fontSize: 26, fontWeight: '900', color: INK, letterSpacing: -0.5 },
-  tag: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', backgroundColor: INK, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, overflow: 'hidden' },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: { width: '47.5%', backgroundColor: '#FFF3BF', borderRadius: 16, padding: 12, gap: 3 },
-  tileValue: { fontSize: 17, fontWeight: '900', color: INK },
-  tip: { backgroundColor: '#FFF3BF', borderRadius: 16, padding: 14 },
+  blob: { position: 'absolute', width: 380, height: 380, borderRadius: 190, right: -150, top: -100, backgroundColor: 'rgba(255,255,255,0.38)' },
+  digits: { flexDirection: 'row', marginTop: 20 },
+  digit: { fontFamily: GROTESK, fontSize: 200, lineHeight: 190, letterSpacing: -12, color: INK },
+  h3: { fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1.4, color: INK },
+  lede: { fontSize: 22, lineHeight: 28, fontWeight: '700', color: INK, letterSpacing: -0.3 },
+  body: { fontSize: 16, lineHeight: 23, color: INK },
+  hint: { fontSize: 12, color: INK, marginTop: 20 },
+  note: { fontSize: 13, lineHeight: 19, color: 'rgba(23,22,26,0.7)' },
+  big: { fontFamily: GROTESK, color: INK, fontVariant: ['tabular-nums'] },
+  hero: { fontSize: 128, lineHeight: 130, letterSpacing: -6 },
+  mid: { fontSize: 62, lineHeight: 68, letterSpacing: -3 },
+  meter: { marginTop: 40, height: 50 },
+  track: { height: 16, borderRadius: 16, backgroundColor: 'rgba(23,22,26,0.12)', overflow: 'hidden' },
+  trackFill: { height: 16, borderRadius: 16, backgroundColor: INK },
+  mark: { position: 'absolute', top: -6, alignItems: 'center', width: 90, marginLeft: -45 },
+  markLine: { width: 2, height: 28, backgroundColor: INK },
+  markLabel: { fontSize: 12, fontWeight: '700', color: INK, marginTop: 4 },
+  pill: { alignSelf: 'flex-start', backgroundColor: INK, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  flows: { marginTop: 28, gap: 18 },
+  label: { fontSize: 15, fontWeight: '700', color: INK },
+  flowBar: { height: 44, borderRadius: 14, backgroundColor: INK },
+  flowOut: { backgroundColor: 'transparent', borderWidth: 2.5, borderColor: INK },
+  stack: { flexDirection: 'row', height: 22, borderRadius: 22, overflow: 'hidden', gap: 3, marginTop: 24 },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(23,22,26,0.22)' },
+  listFirst: { borderTopWidth: 1.5, borderTopColor: INK },
+  key: { width: 10, height: 10, borderRadius: 3 },
+  rowText: { fontSize: 15, color: INK },
+  arrow: { marginTop: 12, marginLeft: -10 },
+  otherRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1.5, borderTopColor: INK, paddingTop: 12 },
+  budgets: { marginTop: 10 },
+  budget: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  budgetName: { width: 96, fontSize: 13.5, color: INK },
+  budgetTrack: { flex: 1, height: 10, borderRadius: 10, backgroundColor: 'rgba(23,22,26,0.12)', overflow: 'hidden' },
+  budgetFill: { height: 10, borderRadius: 10 },
+  budgetPct: { width: 46, textAlign: 'right', fontSize: 13.5, fontWeight: '800', color: INK, fontVariant: ['tabular-nums'] },
+  over: { color: '#A51D4E' },
+  goals: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  goal: { flex: 1, backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 20, padding: 14, alignItems: 'center', gap: 6 },
+  ringLabel: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  ringPct: { fontFamily: GROTESK, fontSize: 19, color: INK },
+  goalName: { fontSize: 13, fontWeight: '800', color: INK },
+  goalMeta: { fontSize: 12, color: INK, textAlign: 'center' },
+  sumTitle: { fontSize: 32, lineHeight: 36 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14, marginBottom: 10 },
+  tile: { width: '48%', flexGrow: 1, borderRadius: 20, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16 },
+  tileLabel: { fontSize: 12, fontWeight: '700', color: INK },
+  tileValue: { fontFamily: GROTESK, fontSize: 23, color: INK, marginTop: 6 },
+  line: { fontSize: 14.5, lineHeight: 21, color: INK, marginTop: 6 },
 });

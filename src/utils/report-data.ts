@@ -3,6 +3,7 @@ import { addDays, cycleOf, cycleRange, daysBetween, shiftCycle } from '@/utils/c
 import type { Debt } from '@/utils/debts';
 import { goalProgress, type GoalEntry, type SavingsGoal } from '@/utils/goals';
 import { isAdjustmentEntry } from '@/utils/saved';
+import { buildLedger } from '@/utils/ledger';
 
 /**
  * Numbers behind the story reports (weekly receipt, monthly poster, yearly wrap).
@@ -27,6 +28,8 @@ export type Report = {
   income: number;
   spend: number;
   net: number;
+  /** Money moved out to savings, card payments or loan payments in the period; not part of `spend`. */
+  moved: number;
   /** Saved as % of income, null without income. */
   rate: number | null;
   records: number;
@@ -131,17 +134,23 @@ function streaks(days: Set<string>, from: string, to: string) {
 }
 
 export function buildReport(inp: Input): Report {
-  const { kind, key, todayKey, transactions, categoryOf, subName } = inp;
+  const { kind, key, todayKey, categoryOf, subName } = inp;
+  // Same ledger as Faham (utils/ledger.ts): corrections and moved money out, refunds as negative spending.
+  const ledger = buildLedger(inp.transactions);
+  const transactions = ledger.entries;
   const p = periodOf(kind, key, todayKey);
   const pv = previous(p);
   const all = transactions.filter((t) => inRange(t.date, p.from, p.end));
   const real = all.filter((t) => !isAdjustmentEntry(t));
   const debits = all.filter((t) => t.type === 'debit');
-  const realDebits = real.filter((t) => t.type === 'debit');
+  // Purchases only (refunds are negative entries): biggest, places, habits.
+  const realDebits = real.filter((t) => t.type === 'debit' && t.amount > 0);
 
   const income = r2(all.filter((t) => t.type === 'credit').reduce((s, t) => s + t.amount, 0));
   const spend = r2(debits.reduce((s, t) => s + t.amount, 0));
   const net = r2(income - spend);
+  // Money moved to savings, card payments and loan payments: shown as a note, never counted as spending.
+  const moved = r2(ledger.moved.filter((t) => t.type === 'debit' && inRange(t.date, p.from, p.end)).reduce((sum, t) => sum + Math.abs(t.amount), 0));
   const rate = income > 0 ? Math.round((net / income) * 100) : null;
 
   const before = transactions.filter((t) => inRange(t.date, pv.from, pv.to));
@@ -398,6 +407,7 @@ export function buildReport(inp: Input): Report {
     income,
     spend,
     net,
+    moved,
     rate,
     records: real.length,
     activeDays: recordDays.size,
