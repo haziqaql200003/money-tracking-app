@@ -9,6 +9,7 @@ import { AnimatedSplashOverlay } from '@/components/ui/animated-icon';
 import { AppLockScreen } from '@/components/security/app-lock-screen';
 import { CrashScreen } from '@/components/shell/crash-screen';
 import { DialogHost } from '@/components/shell/dialog-host';
+import { StorageGuard } from '@/components/shell/storage-guard';
 import { FONT_FILES } from '@/components/ui/text';
 import { AddRecordProvider } from '@/context/AddRecordContext';
 import { AppThemeProvider } from '@/context/AppThemeContext';
@@ -105,6 +106,7 @@ export default function RootLayout() {
                         <UndoProvider>
                           <RootNavigator />
                           <AppLockScreen />
+                          <StorageGuard />
                           <DialogHost />
                         </UndoProvider>
                        </AppThemeProvider>

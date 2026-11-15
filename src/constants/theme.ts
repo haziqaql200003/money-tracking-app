@@ -27,6 +27,9 @@ export const Colors = {
     border: '#E6E9F1', // hairline outline around cards on the light background
     accentSoft: '#E6EAF7',
     onAccent: '#FFFFFF',
+    // Faham hero card: a surface white text reads well on in both themes, and the quieter white for its labels.
+    hero: '#26357F',
+    onHeroSoft: 'rgba(255,255,255,0.8)',
     warning: '#A66A00', // kunyit, dark enough for text on light
     info: '#1F6FA8',
     gold: '#B8891E', // songket thread
@@ -52,6 +55,9 @@ export const Colors = {
     border: '#1F2840',
     accentSoft: '#1D2749',
     onAccent: '#FFFFFF',
+    // The bright dark-mode accent is too light for small white text, so the hero card uses a deeper indigo.
+    hero: '#2C3B93',
+    onHeroSoft: 'rgba(255,255,255,0.82)',
     warning: '#E5B04A',
     info: '#62AEE3',
     gold: '#D9B45A',

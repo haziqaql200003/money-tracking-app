@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { AnalyseForecast } from '@/components/analyse/analyse-forecast';
 import { DebtCard, EmergencyCard, InflationCard, PaydayCard, RecurringCard } from '@/components/analyse/advanced-cards';
@@ -9,7 +10,11 @@ import { useAdvanced } from '@/hooks/use-advanced';
 import { RecordsSheet, type RecordsQuery } from '@/components/analyse/records-sheet';
 import { Button } from '@/components/ui/button';
 import { CategoryIcon } from '@/components/ui/category-icon';
-import { HeatMatrix } from '@/components/charts/heat-matrix';
+import { IncomeSpendingCombo } from '@/components/charts/income-spending-combo';
+import { BarChart } from '@/components/analyse/ui/bar-chart';
+import { fadeIn, useMotionAllowed } from '@/components/analyse/ui/motion';
+import { SectionTabs } from '@/components/analyse/ui/section-tabs';
+import { TrendTable } from '@/components/analyse/ui/trend-table';
 import { ScrubBars } from '@/components/charts/scrub-bars';
 import { LineChart } from '@/components/analyse/line-chart';
 import { ThemedText } from '@/components/ui/themed-text';
@@ -24,9 +29,9 @@ import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { accountName, categoryName as categoryLabel, subcategoryName } from '@/i18n/data';
-import { weekdayShort } from '@/i18n/format';
+import { monthShort, weekdayLong, weekdayShort } from '@/i18n/format';
 import { upcomingBills, upcomingOccurrences, billsTotal } from '@/utils/bills';
-import { formatMoney } from '@/utils/currency';
+import { formatCompact, formatMoney } from '@/utils/currency';
 import { cycleRangeLabel, dayLabel, monthLabel } from '@/utils/dates';
 import {
   balanceTrend,
@@ -45,20 +50,28 @@ import {
   topSubcategories,
   unusualExpenses,
 } from '@/utils/deep-insights';
-import type { FahamPeriod } from '@/utils/faham-period';
-import { monthlyTotals } from '@/utils/insights';
+import { outlookRange } from '@/utils/deep-trends';
+import { grainForPeriod, type FahamPeriod } from '@/utils/faham-period';
+import { biggestExpense, monthlyTotals, topTitles, weekdayPattern } from '@/utils/insights';
+import { periodsForRange, periodTotals, type PeriodTotals } from '@/utils/periods';
 import { looksLikeSavings } from '@/utils/saved';
 import { p1 } from '@/utils/percent';
 
 const MASK = 'RM ••••';
 
-type Props = { period: FahamPeriod; todayKey: string };
+export const DEEP_SECTIONS = ['cashflow', 'spending', 'savings', 'forecast', 'accounts'] as const;
+export type DeepSection = (typeof DEEP_SECTIONS)[number];
 
-const DEEP_SECTIONS = ['cashflow', 'spending', 'savings', 'forecast', 'accounts'] as const;
-type DeepSection = (typeof DEEP_SECTIONS)[number];
+type Props = { period: FahamPeriod; todayKey: string; section: DeepSection };
+
+/** The five sections of Terperinci as underline tabs. analyse.tsx pins this bar to the top while scrolling. */
+export function DeepSectionBar({ value, onChange }: { value: DeepSection; onChange: (s: DeepSection) => void }) {
+  const { t } = useT();
+  return <SectionTabs items={DEEP_SECTIONS.map((k) => ({ key: k, label: t(`plan.deep.sec.${k}` as TKey) }))} value={value} onChange={onChange} />;
+}
 
 /** The "Deep dive" tab of Faham: forecast, calendar, income, records, budgets, unusual spending and more. */
-export function AnalyseDeep({ period, todayKey }: Props) {
+export function AnalyseDeep({ period, todayKey, section: sec }: Props) {
   const { months } = period;
   const colors = useTheme();
   const { t, tp } = useT();
@@ -72,9 +85,9 @@ export function AnalyseDeep({ period, todayKey }: Props) {
   const [calendarKey, setCalendarKey] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [pickedCategory, setPickedCategory] = useState<string | null>(null);
-  const [sec, setSec] = useState<DeepSection>('cashflow');
   const [drill, setDrill] = useState<RecordsQuery | null>(null);
   const adv = useAdvanced(todayKey);
+  const motion = useMotionAllowed();
   const router = useRouter();
 
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
@@ -98,6 +111,10 @@ export function AnalyseDeep({ period, todayKey }: Props) {
     return {
       w,
       outlook: outlookNow,
+      range: outlookRange(transactions, todayKey, outlookNow),
+      weekdays: weekdayPattern(transactions, w),
+      biggest: biggestExpense(transactions, w),
+      titles: topTitles(transactions, w, 5),
       cycle: cycleBalance({ transactions: raw, startingTotal, todayKey, upcoming: scheduled, dailyEveryday: outlookNow.dailyEveryday, debt: { hiddenIds, transfers } }),
       matrix: categoryMatrix(transactions, topIds, keys, todayKey),
       sizes: spendingSizes(transactions, w),
@@ -144,6 +161,13 @@ export function AnalyseDeep({ period, todayKey }: Props) {
   const chosenCategory = pickedCategory && d.topCats.includes(pickedCategory) ? pickedCategory : d.topCats[0];
   const categorySeries = useMemo(() => (chosenCategory ? categoryByMonth(transactions, chosenCategory, keys) : []), [transactions, chosenCategory, keys]);
 
+  // Income vs spending, by week for a month-long period and by month otherwise (moved here from Ringkasan in 3.8.1).
+  const grain = grainForPeriod(period);
+  const periods = useMemo(
+    () => periodTotals(transactions, periodsForRange(period.window, period.keys, grain, period.live), todayKey),
+    [transactions, period, grain, todayKey],
+  );
+
   const hasAnything = d.rec.expenseCount > 0 || d.income.total > 0;
   if (!hasAnything) {
     return (
@@ -158,6 +182,21 @@ export function AnalyseDeep({ period, todayKey }: Props) {
   }
 
   const muted = { color: colors.textSecondary };
+  const compactMoney = (n: number) => (hideAmounts ? '••' : formatCompact(n));
+
+  /* Weekday pattern (from Ringkasan in 3.8.1) */
+  const maxWeekday = Math.max(0, ...d.weekdays.map((x) => x.average));
+  const priciestDay = maxWeekday > 0 ? d.weekdays.find((x) => x.average === maxWeekday)?.day : undefined;
+  const weekdayAvg = d.weekdays.length ? d.weekdays.reduce((s, x) => s + x.average, 0) / d.weekdays.length : 0;
+
+  /* Combo chart labels */
+  const dm = (k: string) => `${Number(k.slice(8, 10))} ${monthShort(Number(k.slice(5, 7)) - 1)}`;
+  const dmShort = (k: string) => `${Number(k.slice(8, 10))}/${Number(k.slice(5, 7))}`;
+  const weekTitle = (x: PeriodTotals) => (x.from === x.to ? dm(x.from) : `${dm(x.from)} – ${dm(x.to)}`);
+
+  /* Month table: the running month is shown but not judged; months before the first record are left out of averages. */
+  const partialLast = keys[keys.length - 1] === cycleInfo(todayKey).key;
+  const firstIndex = Math.max(0, d.months.findIndex((m) => m.income > 0 || m.spending > 0));
 
   const outlook = d.outlook;
   const outlookVisible = outlook.spentSoFar > 0 || outlook.billsAhead > 0;
@@ -214,13 +253,8 @@ export function AnalyseDeep({ period, todayKey }: Props) {
   const hair = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider };
 
   return (
-    <>
-      {/* Five sections behind one row of chips, so no screen scrolls through everything at once */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.secRow} style={styles.secScroll}>
-        {DEEP_SECTIONS.map((k) => (
-          <Chip key={k} size="sm" label={t(`plan.deep.sec.${k}` as TKey)} active={sec === k} onPress={() => setSec(k)} />
-        ))}
-      </ScrollView>
+    <Animated.View key={sec} entering={fadeIn(motion)}>
+      {/* The section bar itself is pinned by analyse.tsx (DeepSectionBar); each section says what it holds */}
       <ThemedText type="small" style={[muted, styles.secNote]}>{t(`plan.deep.sec.${sec}Note` as TKey)}</ThemedText>
 
       {sec === 'forecast' ? (
@@ -230,12 +264,23 @@ export function AnalyseDeep({ period, todayKey }: Props) {
         <>
           {section(t('plan.deep.outlook.title'))}
           <View style={card}>
-            <ThemedText type="small" style={muted}>
-              {t('plan.deep.outlook.label', { month: monthLabel(outlook.monthKey, 'long') })}
-            </ThemedText>
+            <View style={styles.line}>
+              <ThemedText type="small" style={[muted, styles.flex]}>
+                {t('plan.deep.outlook.label', { month: monthLabel(outlook.monthKey, 'long') })}
+              </ThemedText>
+              <View style={[styles.estimate, { backgroundColor: colors.backgroundSelected }]}>
+                <Ionicons name="sparkles-outline" size={12} color={colors.textSecondary} />
+                <ThemedText type="small" style={[muted, styles.estimateText]}>{t('plan.deep.estimate')}</ThemedText>
+              </View>
+            </View>
             <ThemedText style={styles.big} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
               {money(outlook.projected)}
             </ThemedText>
+            {d.range ? (
+              <ThemedText type="small" style={muted}>
+                {t('plan.deep.outlook.range', { low: money(d.range.low), high: money(d.range.high), n: d.range.cyclesUsed })}
+              </ThemedText>
+            ) : null}
             <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
               <View style={[styles.fill, { width: `${Math.min(100, (outlook.spentSoFar / barMax) * 100)}%`, backgroundColor: colors.accent }]} />
             </View>
@@ -282,6 +327,23 @@ export function AnalyseDeep({ period, todayKey }: Props) {
 
       {sec === 'cashflow' ? (
       <>
+      {/* When the money moved: income and spending by week or month */}
+      {periods.length > 0 ? (
+        <>
+          {section(grain === 'week' ? t('plan.analyse.chart.week') : t('plan.analyse.incomeVsSpending'))}
+          <View style={card}>
+            <IncomeSpendingCombo
+              key={`${period.id}-${grain}`}
+              data={periods}
+              hideAmounts={hideAmounts}
+              showRate={grain === 'month'}
+              labelOf={grain === 'week' ? (x, i) => (period.preset === '1M' || period.preset === 'cycle' ? t('plan.analyse.weekN', { n: i + 1 }) : dmShort((x as PeriodTotals).from)) : undefined}
+              titleOf={grain === 'week' ? (x) => weekTitle(x as PeriodTotals) : undefined}
+            />
+          </View>
+        </>
+      ) : null}
+
       {/* Cycle balance, day by day */}
       {d.cycle.points.length > 1 ? (
         <>
@@ -459,6 +521,28 @@ export function AnalyseDeep({ period, todayKey }: Props) {
 
       {sec === 'spending' ? (
       <>
+      {/* Which weekdays cost the most */}
+      {maxWeekday > 0 ? (
+        <>
+          {section(t('plan.analyse.avgByWeekday'))}
+          <View style={card}>
+            <BarChart
+              items={d.weekdays.map((x) => ({ key: String(x.day), label: weekdayShort(x.day), title: weekdayLong(x.day), value: x.average }))}
+              color={colors.accent}
+              highlight={priciestDay !== undefined ? [d.weekdays.findIndex((x) => x.day === priciestDay)] : undefined}
+              refLine={{ value: weekdayAvg, label: t('plan.deep.weekday.avg', { amount: money(weekdayAvg) }) }}
+              height={96}
+              format={money}
+            />
+            {priciestDay !== undefined ? (
+              <ThemedText type="small" style={[styles.gap, muted]}>
+                {t('plan.analyse.priciestDay', { day: weekdayLong(priciestDay), amount: money(maxWeekday) })}
+              </ThemedText>
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
       {/* How big expenses are */}
       {d.sizes.some((b) => b.count > 0) ? (
         <>
@@ -575,16 +659,18 @@ export function AnalyseDeep({ period, todayKey }: Props) {
         <>
           {section(t('plan.deep.heat.title'))}
           <View style={card}>
-            <HeatMatrix
+            <TrendTable
               columns={keys.map((k) => monthLabel(k, 'short'))}
-              hide={hideAmounts}
-              format={money}
+              partialLast={partialLast}
+              firstIndex={firstIndex}
+              format={compactMoney}
+              onPressRow={(id) => setDrill({ categoryId: id, window: d.w })}
               rows={d.matrix.map((r) => {
                 const c = getCategory(r.categoryId);
-                return { id: r.categoryId, label: catName(r.categoryId), icon: c?.icon ?? 'help-circle', color: c?.color ?? '#8E8E93', values: r.values, rose: r.rose };
+                return { id: r.categoryId, label: catName(r.categoryId), icon: c?.icon ?? 'help-circle', color: c?.color ?? '#8E8E93', values: r.values };
               })}
             />
-            <ThemedText type="small" style={[styles.gap, muted]}>{t('plan.deep.heat.note')}</ThemedText>
+            <ThemedText type="small" style={[styles.gap, muted]}>{t('plan.deep.table.note')}</ThemedText>
             {risers.length > 0 ? <ThemedText type="small" style={{ color: colors.negative, fontWeight: '700' }}>{t('plan.deep.heat.rose', { names: risers.join(', ') })}</ThemedText> : null}
             {fallers.length > 0 ? <ThemedText type="small" style={{ color: colors.positive, fontWeight: '700' }}>{t('plan.deep.heat.fell', { names: fallers.join(', ') })}</ThemedText> : null}
             {risers.length === 0 && fallers.length === 0 ? <ThemedText type="small" style={muted}>{t('plan.deep.heat.steady')}</ThemedText> : null}
@@ -606,14 +692,17 @@ export function AnalyseDeep({ period, todayKey }: Props) {
                 <Chip key={id} label={catName(id)} active={id === chosenCategory} onPress={() => setPickedCategory(id)} />
               ))}
             </ScrollView>
-            <ScrubBars
+            <BarChart
+              key={chosenCategory}
               items={categorySeries.map((p) => ({ key: p.key, label: monthLabel(p.key, 'short'), title: monthLabel(p.key, 'long'), value: p.total }))}
               color={getCategory(chosenCategory)?.color ?? colors.accent}
-              hide={hideAmounts}
+              refLine={{ value: catAvg, label: t('plan.deep.category.avg', { amount: money(catAvg) }) }}
               format={money}
-              extra={(item) => (catAvg > 0 ? t('plan.deep.category.vsAvg', { pct: `${item.value >= catAvg ? '+' : ''}${p1(((item.value - catAvg) / catAvg) * 100)}` }) : null)}
+              extra={(i) => {
+                const v = categorySeries[i]?.total ?? 0;
+                return catAvg > 0 ? t('plan.deep.category.vsAvg', { pct: `${v >= catAvg ? '+' : ''}${p1(((v - catAvg) / catAvg) * 100)}` }) : null;
+              }}
             />
-            <ThemedText type="small" style={muted}>{t('plan.deep.category.avg', { amount: money(catAvg) })}</ThemedText>
           </View>
         </>
       ) : null}
@@ -658,6 +747,40 @@ export function AnalyseDeep({ period, todayKey }: Props) {
 
       {sec === 'spending' ? (
       <>
+      {/* Biggest single expense and the things most spent on (from Ringkasan in 3.8.1) */}
+      {d.biggest ? (
+        <Pressable
+          onPress={() => d.biggest && setDrill({ categoryId: d.biggest.categoryId, window: d.w })}
+          style={({ pressed }) => [card, styles.biggest, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+        >
+          <CategoryIcon icon={getCategory(d.biggest.categoryId)?.icon ?? 'help-circle'} color={getCategory(d.biggest.categoryId)?.color ?? '#8E8E93'} size={42} />
+          <View style={styles.flex}>
+            <ThemedText type="small" style={muted}>{t('plan.analyse.biggest')}</ThemedText>
+            <ThemedText numberOfLines={1} style={{ fontWeight: '600' }}>{d.biggest.title || catName(d.biggest.categoryId)}</ThemedText>
+            <ThemedText type="small" style={muted}>{dayLabel(d.biggest.date)}</ThemedText>
+          </View>
+          <ThemedText style={{ color: colors.negative, fontWeight: '700', ...tabularNums }}>{money(d.biggest.amount)}</ThemedText>
+        </Pressable>
+      ) : null}
+      {d.titles.length > 0 ? (
+        <>
+          {section(t('plan.analyse.mostSpent'))}
+          <View style={list}>
+            {d.titles.map((row, i) => (
+              <View key={row.title} style={[styles.row, i > 0 && hair]}>
+                <ThemedText type="smallBold" style={[styles.rank, muted]}>{i + 1}</ThemedText>
+                <View style={styles.flex}>
+                  <ThemedText numberOfLines={1}>{row.title}</ThemedText>
+                  <ThemedText type="small" style={muted}>{tp('plan.analyse.times', row.count)}</ThemedText>
+                </View>
+                <ThemedText style={{ fontWeight: '700', ...tabularNums }}>{money(row.total)}</ThemedText>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+
       {/* 6. Records */}
       {d.rec.expenseCount > 0 ? (
         <>
@@ -869,22 +992,23 @@ export function AnalyseDeep({ period, todayKey }: Props) {
       ) : null}
 
       <RecordsSheet query={drill} entries={transactions} onClose={() => setDrill(null)} />
-    </>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  secScroll: { marginHorizontal: -Spacing.one, marginBottom: Spacing.two },
-  secRow: { gap: Spacing.two, paddingHorizontal: Spacing.one },
   secNote: { marginBottom: Spacing.two, paddingHorizontal: Spacing.one },
   monthHead: { paddingBottom: Spacing.one },
   monthCol: { width: 44 },
   numCol: { flex: 1, textAlign: 'right', ...tabularNums },
+  estimate: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  estimateText: { fontSize: FontSize.micro, fontWeight: '700' },
+  biggest: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16 },
+  rank: { width: 18, textAlign: 'center' },
   links: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.three },
   flex: { flex: 1 },
   center: { alignItems: 'center', gap: Spacing.two },
   trio: { flexDirection: 'row', gap: 12, marginTop: Spacing.two },
-  group: { fontSize: FontSize.heading, lineHeight: 30, marginTop: Spacing.four, marginBottom: Spacing.one },
   card: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.three, gap: 6 },
   cardTitle: { fontSize: FontSize.body, fontWeight: '700' },
   big: { fontSize: FontSize.display, lineHeight: 42, fontWeight: '700' },
@@ -914,11 +1038,6 @@ const styles = StyleSheet.create({
   tileValue: { fontSize: FontSize.heading, fontWeight: '700' },
 
   chipRow: { gap: 8, paddingVertical: 4, paddingRight: 8 },
-  bars: { flexDirection: 'row', alignItems: 'flex-end', marginTop: Spacing.two, marginBottom: Spacing.two },
-  barCol: { flex: 1, alignItems: 'center', gap: 4 },
-  barSlot: { height: 90, justifyContent: 'flex-end', alignItems: 'center', width: '100%' },
-  barValue: { fontSize: FontSize.micro, height: 14 },
-  barLabel: { fontSize: FontSize.micro },
 
   rhythmRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rhythmLabel: { width: 84 },

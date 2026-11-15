@@ -14,9 +14,34 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.8.0';
+export const CURRENT_VERSION = '3.8.1';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.8.1',
+    date: '2026-11-10',
+    title: 'Analyse, easier to read', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Faham, lebih mudah dibaca',
+    highlights: [
+      { text: 'Overview leads with how much you kept, with a small trend line and the things worth knowing', ms: 'Ringkasan bermula dengan berapa banyak anda simpan, dengan garis trend kecil dan perkara yang patut diketahui' }, // i18n-ignore: bilingual data
+      { text: 'Insights start with your three things to do, and each one opens to show its numbers', ms: 'Insight bermula dengan tiga perkara untuk dibuat, dan setiap satu dibuka untuk menunjukkan angkanya' }, // i18n-ignore: bilingual data
+      { text: 'Step through payday months with the arrows or a swipe on the period', ms: 'Langkau bulan gaji dengan anak panah atau leret pada tempoh' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Pick one payday month from a year grid, or step to the month before and after with the arrows. The running month says "so far".', ms: 'Pilih satu bulan gaji dari grid tahun, atau langkau ke bulan sebelum dan selepas dengan anak panah. Bulan semasa ditanda "setakat ini".' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Overview: a kept-this-period card with In, Out and your health score, the changes worth a look, where your money goes, and where it came from.', ms: 'Ringkasan: kad simpanan tempoh ini dengan Masuk, Keluar dan skor kesihatan, perubahan yang patut dilihat, ke mana wang pergi, dan dari mana ia datang.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Deep dive keeps its section tabs pinned at the top while you scroll.', ms: 'Terperinci mengekalkan tab bahagian di atas semasa anda menatal.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'A month table that colours each category against its own usual month, with a legend, so rises and drops stand out. Tap a row for its records.', ms: 'Jadual bulanan yang mewarnakan setiap kategori berbanding bulan biasanya sendiri, dengan petunjuk, supaya kenaikan dan penurunan jelas. Ketik satu baris untuk rekodnya.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'The month-end forecast shows a likely range from your quietest and busiest recent months, marked as an estimate.', ms: 'Ramalan hujung bulan menunjukkan julat yang mungkin daripada bulan paling tenang dan paling sibuk baru-baru ini, ditanda sebagai anggaran.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Savings show a target line from your savings target, and each goal has a progress bar.', ms: 'Simpanan menunjukkan garis sasaran daripada sasaran simpanan anda, dan setiap matlamat ada bar kemajuan.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'All insights on one page with filters by level, a History tab, and the hidden ones. Each insight shows its numbers, how it was worked out and what to do.', ms: 'Semua insight dalam satu halaman dengan penapis ikut tahap, tab Sejarah, dan yang disembunyikan. Setiap insight menunjukkan angkanya, cara kiraan dan apa yang perlu dibuat.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'What if… opens full screen, sums up the result in one sentence, and can turn a spending cut into a budget after you confirm.', ms: 'Bagaimana jika… dibuka skrin penuh, merumuskan hasil dalam satu ayat, dan boleh menjadikan potongan belanja sebagai bajet selepas anda sahkan.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Records open grouped by day, refunds are marked, income categories list their records, and there is a link to Transactions.', ms: 'Rekod dibuka ikut hari, bayaran balik ditanda, kategori pendapatan menyenaraikan rekodnya, dan ada pautan ke Transaksi.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Weekday spending, your biggest expense and what you spend on most moved to Deep dive > Spending.', ms: 'Belanja ikut hari, perbelanjaan terbesar dan apa yang paling banyak dibelanja dipindah ke Terperinci > Belanja.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Softer motion: amounts count up and new content fades in. All of it stops when Reduce Motion is on.', ms: 'Gerakan lebih lembut: jumlah dikira naik dan kandungan baharu muncul perlahan. Semuanya berhenti apabila Kurangkan Gerakan dihidupkan.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'In dark mode, small text on the Overview card and pale chart bars are easier to read.', ms: 'Dalam mod gelap, teks kecil pada kad Ringkasan dan bar carta yang pudar lebih mudah dibaca.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.8.0',
     date: '2026-11-08',

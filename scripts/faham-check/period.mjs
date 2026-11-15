@@ -1,7 +1,7 @@
 /** Faham integration checks: the period model (presets, YTD, custom, bars). Run: npm run faham:test */
 import assert from 'node:assert/strict';
 const cyc = await import('@/utils/cycle');
-const { resolvePeriod, normaliseRange, grainForPeriod, rangeLabel } = await import('@/utils/faham-period');
+const { resolvePeriod, normaliseRange, grainForPeriod, rangeLabel, stepCycle } = await import('@/utils/faham-period');
 const { periodsForRange, periodsFor } = await import('@/utils/periods');
 const { setLanguage } = await import('@/i18n').catch(() => ({}));
 if (setLanguage) setLanguage('en');
@@ -58,4 +58,26 @@ assert.ok(p.days <= 5 * 366);
 
 assert.equal(rangeLabel({ from: '2026-10-01', to: '2026-11-08' }), '1 Oct – 8 Nov 2026');
 assert.equal(rangeLabel({ from: '2025-12-15', to: '2026-01-08' }), '15 Dec 2025 – 8 Jan 2026');
+// 3.8.1: one past payday month ('cycle'), and stepping with the pill's arrows.
+{
+  const oct = resolvePeriod('cycle', today, null, '2026-10');
+  assert.deepEqual(oct.window, { from: '2026-10-01', to: '2026-10-31' }, 'a past cycle is the whole cycle');
+  assert.deepEqual(oct.previous, { from: '2026-09-01', to: '2026-09-30' }, 'compared with the whole cycle before');
+  assert.equal(oct.cycleKey, '2026-10');
+  assert.equal(oct.live, false);
+  const now = resolvePeriod('cycle', today, null, '2026-11');
+  assert.equal(now.preset, '1M', 'the running cycle is the same as 1M');
+  assert.equal(resolvePeriod('1M', today).cycleKey, '2026-11');
+  assert.equal(resolvePeriod('6M', today).cycleKey, null, 'longer periods do not step');
+  assert.deepEqual(stepCycle(resolvePeriod('1M', today), -1, today), { preset: 'cycle', cycleKey: '2026-10' });
+  assert.equal(stepCycle(resolvePeriod('1M', today), 1, today), null, 'cannot step past the running month');
+  assert.deepEqual(stepCycle(oct, 1, today), { preset: '1M' }, 'stepping into the running month gives 1M');
+  assert.deepEqual(stepCycle(resolvePeriod('cycle', today, null, '2026-01'), -1, today), { preset: 'cycle', cycleKey: '2025-12' }, 'steps across a new year');
+  // Payday on the 25th: the October cycle runs 25 Sep - 24 Oct.
+  cyc.setPaydayRule({ day: 25, eom: false, adjust: false, country: 'MY', state: null, history: [], from: null });
+  const oct25 = resolvePeriod('cycle', today, null, '2026-10');
+  assert.equal(oct25.window.from < oct25.window.to, true);
+  assert.equal(resolvePeriod('cycle', today, null, '2026-09').window.to < oct25.window.from, true, 'cycles do not overlap');
+  cyc.setPaydayRule({ day: 1, eom: false, adjust: false, country: 'MY', state: null, history: [], from: null });
+}
 console.log('period model OK');

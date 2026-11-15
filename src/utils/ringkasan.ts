@@ -1,5 +1,5 @@
 import type { Transaction, Transfer } from '@/context/TransactionsContext';
-import { addDays } from '@/utils/cycle';
+import { addDays, daysBetween } from '@/utils/cycle';
 import { fixedVsEveryday } from '@/utils/deep-insights';
 import type { FahamPeriod } from '@/utils/faham-period';
 import { savingFlows } from '@/utils/forecast';
@@ -143,4 +143,39 @@ export function highlights(entries: Transaction[], period: FahamPeriod, snap: Sn
   if (up) out.push(up);
   if (down) out.push(down);
   return out.sort((x, y) => Math.abs(y.diff) - Math.abs(x.diff)).slice(0, limit);
+}
+
+/* ---------------- 3.8.1: the hero line and money in ---------------- */
+
+/** At most this many points on the hero line; longer periods are sampled evenly (the last day is always kept). */
+export const KEPT_LINE_POINTS = 120;
+
+/**
+ * Money kept so far, day by day through the window: running income minus spending (refunds lower spending).
+ * Starts after the first day's records and ends on the window's last day, so its last point equals the period's net.
+ */
+export function keptByDay(entries: Transaction[], w: Window): number[] {
+  const days = daysBetween(w.from, w.to) + 1;
+  if (days <= 0) return [];
+  const daily = new Array<number>(days).fill(0);
+  for (const x of entries) {
+    if (!inside(x.date, w)) continue;
+    daily[daysBetween(w.from, x.date)] += x.type === 'credit' ? x.amount : -x.amount;
+  }
+  const run: number[] = [];
+  let total = 0;
+  for (const d of daily) {
+    total += d;
+    run.push(round2(total));
+  }
+  if (run.length <= KEPT_LINE_POINTS) return run;
+  const step = (run.length - 1) / (KEPT_LINE_POINTS - 1);
+  return Array.from({ length: KEPT_LINE_POINTS }, (_, i) => run[Math.round(i * step)]);
+}
+
+/** Income in the window by category, biggest first. */
+export function incomeSources(entries: Transaction[], w: Window): { categoryId: string; amount: number }[] {
+  const by = new Map<string, number>();
+  for (const x of entries) if (x.type === 'credit' && inside(x.date, w)) by.set(x.categoryId, (by.get(x.categoryId) ?? 0) + x.amount);
+  return [...by.entries()].map(([categoryId, amount]) => ({ categoryId, amount: round2(amount) })).filter((r) => r.amount > 0).sort((a, b) => b.amount - a.amount);
 }

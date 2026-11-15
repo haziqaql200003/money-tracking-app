@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 
-import { loadJSON, saveJSON, userKey } from '@/services/storage';
+import { isRecoveryKey, loadJSON, loadJSONOrThrow, readJSON, saveJSON, userKey } from '@/services/storage';
 import { CLOUD_ENABLED, supabase } from '@/services/supabase';
 import {
   adoptAll,
@@ -19,6 +19,8 @@ import {
   type ReconcileResult,
   type RemoteStore,
 } from '@/services/sync-core';
+
+const isMergeBase = (key: string) => key.endsWith('.base');
 
 /* ---------------- status (shown in Settings) ---------------- */
 
@@ -64,11 +66,17 @@ const withTimeout = <T,>(p: PromiseLike<T>, ms = PULL_TIMEOUT_MS): Promise<T> =>
 
 const metaKey = (key: string) => `__sync:${key}`;
 
+/**
+ * The phone's side of the sync rules. A value or its bookkeeping that cannot be read THROWS (StorageReadError)
+ * instead of reading as "nothing here": the rules would otherwise adopt the cloud's copy over data that is still
+ * on the phone, or treat unsent edits as already sent. Only the merge base may read as null, because the rules
+ * are built for a missing base (then nothing counts as deleted).
+ */
 function localStore(userId: string): LocalStore {
   return {
-    read: (key) => loadJSON<unknown>(userKey(userId, key)),
+    read: (key) => (isMergeBase(key) ? loadJSON<unknown>(userKey(userId, key)) : loadJSONOrThrow<unknown>(userKey(userId, key))),
     write: (key, value) => saveJSON(userKey(userId, key), value),
-    readMeta: (key) => loadJSON<Meta>(userKey(userId, metaKey(key))),
+    readMeta: (key) => loadJSONOrThrow<Meta>(userKey(userId, metaKey(key))),
     writeMeta: (key, meta) => saveJSON(userKey(userId, metaKey(key)), meta),
   };
 }
@@ -123,11 +131,20 @@ export function noteLoaded(userId: string, key: string, value: unknown) {
   lastSerialized.set(idOf(userId, key), JSON.stringify(value));
 }
 
-/** Load a key: phone first, then agree with the cloud. Never throws. */
+/**
+ * Load a key: phone first, then agree with the cloud. `value` is null only when nothing is stored anywhere.
+ * Throws StorageReadError when the phone's own copy cannot be read; nothing has been changed in that case.
+ */
 export async function loadKey<T>(userId: string, key: string): Promise<{ value: T | null; source: ReconcileResult['source'] }> {
-  if (!CLOUD_ENABLED) return { value: await loadJSON<T>(userKey(userId, key)), source: 'local' };
+  if (!CLOUD_ENABLED) return { value: await loadJSONOrThrow<T>(userKey(userId, key)), source: 'local' };
   setStatus({ state: 'syncing' });
-  const res = await reconcile(localStore(userId), remoteStore(userId), key);
+  let res: ReconcileResult;
+  try {
+    res = await reconcile(localStore(userId), remoteStore(userId), key);
+  } catch (error) {
+    setStatus({ state: 'idle' });
+    throw error;
+  }
   setStatus(res.source === 'offline' ? { state: 'offline' } : { state: 'idle', lastSyncedAt: new Date().toISOString() });
   return { value: res.value as T | null, source: res.source };
 }
@@ -160,12 +177,21 @@ export async function saveKey(userId: string, key: string, value: unknown) {
 
 async function pushKey(userId: string, key: string) {
   setStatus({ state: 'syncing' });
-  const r = await pushIfDirty(localStore(userId), remoteStore(userId), key);
+  const r = await pushSafely(userId, key);
   await refreshPending(userId);
   if (r === 'failed') setStatus({ state: 'offline' });
   else setStatus({ state: 'idle', lastSyncedAt: new Date().toISOString() });
   // Another device had saved meanwhile and the two were combined: show the combined copy.
   if (r === 'merged') await reloadKey(userId, key);
+}
+
+/** pushIfDirty, except that a phone copy that cannot be read counts as "not sent" (it stays waiting) instead of throwing. */
+async function pushSafely(userId: string, key: string): Promise<Awaited<ReturnType<typeof pushIfDirty>>> {
+  try {
+    return await pushIfDirty(localStore(userId), remoteStore(userId), key);
+  } catch {
+    return 'failed';
+  }
 }
 
 async function refreshPending(userId: string) {
@@ -178,8 +204,10 @@ async function dirtyKeys(userId: string): Promise<string[]> {
   const all = await AsyncStorage.getAllKeys();
   const out: string[] = [];
   for (const k of all.filter((x) => x.startsWith(prefix))) {
+    const name = k.slice(prefix.length);
+    if (isRecoveryKey(name)) continue; // damaged copies kept aside are never synced
     const meta = await loadJSON<Meta>(k);
-    if (meta?.dirty) out.push(k.slice(prefix.length));
+    if (meta?.dirty) out.push(name);
   }
   return out;
 }
@@ -197,7 +225,7 @@ export async function flushAll(userId: string): Promise<boolean> {
   setStatus({ state: 'syncing' });
   let ok = true;
   for (const key of keys) {
-    const r = await pushIfDirty(localStore(userId), remoteStore(userId), key);
+    const r = await pushSafely(userId, key);
     if (r === 'failed') ok = false;
     if (r === 'merged') await reloadKey(userId, key);
   }
@@ -215,27 +243,41 @@ export async function listBackups(userId: string): Promise<string[]> {
   return all.filter((k) => k.startsWith(prefix) && k.endsWith('.bak')).map((k) => k.slice(prefix.length, -4));
 }
 
-/** Put the kept-aside copies back as the current data (and send them to the cloud). */
+/**
+ * Put the kept-aside copies back as the current data (and send them to the cloud).
+ * A copy that cannot be read right now is left where it is: it is only removed once it has been put back.
+ */
 export async function restoreBackups(userId: string): Promise<number> {
   const keys = await listBackups(userId);
+  let restored = 0;
   for (const key of keys) {
     const bak = userKey(userId, backupKeyOf(key));
-    const value = await loadJSON<unknown>(bak);
-    if (value !== null) await saveKey(userId, key, value);
+    const res = await readJSON<unknown>(bak);
+    if (res.status === 'failed') continue;
+    if (res.status === 'ok' && res.value !== null) await saveKey(userId, key, res.value);
     await AsyncStorage.removeItem(bak);
+    restored++;
   }
   await reloadAll(userId);
   await flushAll(userId);
-  return keys.length;
+  return restored;
 }
 
-/** First sign-in on a phone: download everything the cloud holds. Throws when it cannot be reached. */
+/** First sign-in on a phone: download everything the cloud holds. Throws when the cloud cannot be reached. */
 export async function initialPull(userId: string): Promise<{ count: number }> {
   if (!supabase) return { count: 0 };
   const { data, error } = await withTimeout(supabase.from('user_data').select('key, value, updated_at').eq('user_id', userId), 15000);
   if (error) throw error;
   const rows = (data ?? []).map((r) => ({ key: r.key as string, value: r.value as unknown, updatedAt: r.updated_at as string }));
-  await adoptAll(localStore(userId), rows);
+  const local = localStore(userId);
+  for (const row of rows) {
+    try {
+      await adoptAll(local, [row]);
+    } catch {
+      // This phone already holds something for this key that cannot be read: leave it exactly as it is. Signing in
+      // still works, and the warning with Try again appears when the app opens that data.
+    }
+  }
   setStatus({ lastSyncedAt: new Date().toISOString() });
   return { count: rows.length };
 }

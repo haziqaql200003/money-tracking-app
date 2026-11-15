@@ -23,6 +23,7 @@ import { toCsv } from '@/utils/csv';
 import { Alert } from '@/services/dialog';
 import { datedName, pickTextFile, shareTextFile } from '@/services/share-file';
 import { collectBackup, parseBackup, restoreBackup, summarize } from '@/services/backup';
+import { StorageReadError } from '@/services/storage';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { toDateKey } from '@/utils/dates';
 
@@ -85,7 +86,14 @@ export default function DataPrivacyScreen() {
 
   async function backupAll() {
     if (!user) return;
-    const backup = await collectBackup(user.id, CURRENT_VERSION);
+    let backup;
+    try {
+      backup = await collectBackup(user.id, CURRENT_VERSION);
+    } catch {
+      // Some records could not be read: no file is better than a backup that quietly leaves them out.
+      Alert.alert(t('common.storageTitle'), t('common.storageBackupFail'));
+      return;
+    }
     await shareTextFile(datedName('wakira-backup', toDateKey(new Date()), 'wakira.json'), JSON.stringify(backup, null, 1), 'application/json'); // i18n-ignore: file name
   }
 
@@ -110,7 +118,14 @@ export default function DataPrivacyScreen() {
           text: t('more.data.restoreGo'),
           style: 'destructive',
           onPress: () => {
-            void restoreBackup(user.id, parsed.backup).then((n) => Alert.alert(t('more.data.restoreDoneTitle'), t('more.data.restoreDoneBody', { count: n })));
+            void restoreBackup(user.id, parsed.backup).then(
+              (n) => Alert.alert(t('more.data.restoreDoneTitle'), t('more.data.restoreDoneBody', { count: n })),
+              (e) => {
+                // What is on the device could not be read, so it could not be kept aside: nothing was replaced.
+                if (e instanceof StorageReadError) Alert.alert(t('common.storageTitle'), t('common.storageRestoreFail'));
+                else throw e;
+              },
+            );
           },
         },
       ],

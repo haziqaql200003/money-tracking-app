@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LineChart, type Readout } from '@/components/analyse/line-chart';
+import { BarChart } from '@/components/analyse/ui/bar-chart';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Chip } from '@/components/ui/chip';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { usePlan } from '@/context/PlanContext';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
@@ -51,6 +53,7 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
   const { entries: transactions } = useLedger();
   const { goals, goalEntries } = usePlan();
   const { hideAmounts } = usePrivacy();
+  const { savingsTarget } = useSettings();
 
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
   const compact = (n: number) => (hideAmounts ? '••' : formatCompact(n));
@@ -94,6 +97,7 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
       flowsAll,
       outlook,
       saving,
+      income,
       spent,
       earned,
       savedNow,
@@ -116,7 +120,7 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
           const left = (new Date(g.deadline).getTime() - new Date(todayKey).getTime()) / (30.4375 * 86400000);
           need = Math.round((remaining / Math.max(1, left)) * 100) / 100;
         }
-        return { g, p, need, thisMonth: goalMonthSaved(goalEntries, g.id, monthKey) };
+        return { g, p, need, saved: goalSaved(goalEntries, g.id), thisMonth: goalMonthSaved(goalEntries, g.id, monthKey) };
       }),
     [goals, goalEntries, todayKey, monthKey],
   );
@@ -252,7 +256,12 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
   const keys = nextKeys(todayKey, HORIZON);
   const rough = d.monthsUsed < 3;
   const hasHistory = d.monthsUsed > 0 || d.saving.some((v) => v !== 0);
-  const maxSaving = Math.max(1, ...d.saving.map((v) => Math.abs(v)));
+  // Savings target line: the pengguna's target share (Profile) of their usual income over the same months.
+  const shownSaving = d.saving.slice(-6);
+  const shownIncome = d.income.slice(-6).filter((v) => v > 0);
+  const avgIncome = shownIncome.length ? shownIncome.reduce((a, v) => a + v, 0) / shownIncome.length : 0;
+  const targetAmount = savingsTarget > 0 ? Math.round(((avgIncome * savingsTarget) / 100) * 100) / 100 : 0;
+  const metTarget = targetAmount > 0 ? shownSaving.filter((v) => v >= targetAmount).length : 0;
 
   const bandRow = (label: string, bands: Band[], tone?: string) => (
     <View style={styles.block}>
@@ -317,18 +326,20 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
         {d.saving.every((v) => v === 0) ? (
           <ThemedText type="small" style={muted}>{t('fc.sav.none')}</ThemedText>
         ) : (
-          d.saving.slice(-6).map((v, i, arr) => {
-            const key = d.past[d.past.length - arr.length + i];
-            return (
-              <View key={key} style={styles.bandRow}>
-                <ThemedText type="small" style={[muted, styles.monthCol]}>{monthLabel(key, 'short')}</ThemedText>
-                <View style={[styles.barTrack, { backgroundColor: colors.backgroundSelected }]}>
-                  <View style={{ width: `${Math.max(2, (Math.abs(v) / maxSaving) * 100)}%`, height: 8, borderRadius: Radius.pill, backgroundColor: v < 0 ? colors.negative : colors.accent }} />
-                </View>
-                <ThemedText type="small" style={styles.amountCol}>{money(v)}</ThemedText>
-              </View>
-            );
-          })
+          <>
+            <BarChart
+              items={shownSaving.map((v, i) => {
+                const key = d.past[d.past.length - shownSaving.length + i];
+                return { key, label: monthLabel(key, 'short'), title: monthLabel(key, 'long'), value: v, color: v < 0 ? colors.negative : undefined };
+              })}
+              color={colors.accent}
+              refLine={targetAmount > 0 ? { value: targetAmount, label: t('plan.deep.sav.target', { pct: savingsTarget, amount: money(targetAmount) }), color: colors.positive } : undefined}
+              format={money}
+            />
+            {targetAmount > 0 ? (
+              <ThemedText type="small" style={muted}>{t('plan.deep.sav.met', { n: metTarget, of: shownSaving.length })}</ThemedText>
+            ) : null}
+          </>
         )}
       </View>
 
@@ -452,12 +463,24 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
         {goalRows.length === 0 ? (
           <ThemedText type="small" style={muted}>{t('fc.goals.none')}</ThemedText>
         ) : (
-          goalRows.map(({ g, p, need }) => (
+          goalRows.map(({ g, p, need, saved }) => {
+            const pct = g.target > 0 ? Math.min(100, (saved / g.target) * 100) : 0;
+            return (
             <View key={g.id} style={styles.block}>
               <View style={styles.bandRow}>
                 <Ionicons name="flag-outline" size={16} color={colors.accent} />
                 <ThemedText type="smallBold" style={styles.flex}>{g.name}</ThemedText>
+                <ThemedText type="smallBold" style={{ color: pct >= 100 ? colors.positive : colors.text }}>{p1(pct)}%</ThemedText>
               </View>
+              <View
+                style={[styles.progress, { backgroundColor: colors.backgroundSelected }]}
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityValue={{ min: 0, max: 100, now: Math.round(pct) }}
+              >
+                <View style={{ width: `${Math.max(pct > 0 ? 2 : 0, pct)}%`, height: 8, borderRadius: Radius.pill, backgroundColor: pct >= 100 ? colors.positive : colors.accent }} />
+              </View>
+              <ThemedText type="small" style={muted}>{t('plan.deep.sav.progress', { saved: money(saved), target: money(g.target) })}</ThemedText>
               <ThemedText type="small" style={muted}>
                 {p.finishDate ? t('fc.goals.finish', { date: monthLabel(p.finishDate.slice(0, 7), 'short') + ' ' + p.finishDate.slice(0, 4) }) : t('fc.goals.noPace')}
                 {p.daysVsDeadline !== null
@@ -466,7 +489,8 @@ export function AnalyseForecast({ months, todayKey, part }: Props) {
               </ThemedText>
               {need !== null ? <ThemedText type="small" style={muted}>{t('fc.goals.need', { amount: money(need) })}</ThemedText> : null}
             </View>
-          ))
+            );
+          })
         )}
       </View>
       </>
@@ -483,8 +507,7 @@ const styles = StyleSheet.create({
   block: { gap: 4, marginBottom: 6 },
   bandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   monthCol: { width: 44 },
-  amountCol: { minWidth: 70, textAlign: 'right' },
-  barTrack: { flex: 1, height: 8, borderRadius: Radius.pill },
+  progress: { height: 8, borderRadius: Radius.pill, overflow: 'hidden', marginVertical: 2 },
   gap: { marginTop: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },

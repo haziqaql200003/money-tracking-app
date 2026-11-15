@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const cyc = await import('@/utils/cycle');
 const { buildLedger } = await import('@/utils/ledger');
 const { resolvePeriod } = await import('@/utils/faham-period');
-const { snapshot, allocation, highlights } = await import('@/utils/ringkasan');
+const { snapshot, allocation, highlights, keptByDay, incomeSources, KEPT_LINE_POINTS } = await import('@/utils/ringkasan');
 cyc.setPaydayRule({ day: 1, eom: false, adjust: false, country: 'MY', state: null, history: [], from: null });
 
 let id = 0;
@@ -60,4 +60,18 @@ const a3 = allocation({ entries: noInc.entries, moved: noInc.moved, transfers: [
 assert.equal(a3.income, 0);
 assert.ok(a3.left < 0);
 assert.equal(snapshot(noInc.entries, p).now.savingsRate, null);
+// 3.8.1: the hero line ends on the period's net, and money in is grouped by category.
+{
+  const w = { from: '2026-10-01', to: '2026-10-31' };
+  const entries = L.entries;
+  const line = keptByDay(entries, w);
+  assert.equal(line.length, 31);
+  assert.equal(line[line.length - 1], snapshot(entries, resolvePeriod('custom', today, w)).now.net, 'last point = net for the period');
+  assert.equal(line[0], 4000, 'salary on the 1st');
+  const long = keptByDay(entries, { from: '2025-01-01', to: '2026-10-31' });
+  assert.equal(long.length, KEPT_LINE_POINTS, 'long periods are sampled');
+  assert.equal(long[long.length - 1], keptByDay(entries, { from: '2025-01-01', to: '2026-10-31' }).at(-1));
+  const inc = incomeSources(entries, w);
+  assert.deepEqual(inc.map((r) => r.categoryId), ['income'], 'a refund is not income');
+}
 console.log('ringkasan OK');

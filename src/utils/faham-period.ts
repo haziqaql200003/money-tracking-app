@@ -8,14 +8,16 @@ import type { Grain } from '@/utils/periods';
  *
  *   1M / 3M / 6M / 12M  the last n financial months (payday cycles), the running one up to today.
  *   YTD                 every financial month named in this year, up to today.
+ *   cycle               one past financial month, picked from the period sheet or with the pill's arrows.
  *   custom              any from..to the user picks (to is never after today).
  *
  * `previous` is the like-for-like window used for every "vs before" figure:
  *   presets  the same days n cycles earlier (see previousWindow), so 1 Oct-8 Nov compares with 1 Sep-8 Oct
  *   YTD      the same stretch 12 cycles earlier (this year so far vs last year so far)
+ *   cycle    the whole cycle before it
  *   custom   the same number of days immediately before `from`
  */
-export type PeriodPreset = '1M' | '3M' | '6M' | '12M' | 'YTD' | 'custom';
+export type PeriodPreset = '1M' | '3M' | '6M' | '12M' | 'YTD' | 'cycle' | 'custom';
 export const PERIOD_PRESETS: readonly PeriodPreset[] = ['1M', '3M', '6M', '12M', 'YTD', 'custom'];
 const PRESET_MONTHS: Partial<Record<PeriodPreset, number>> = { '1M': 1, '3M': 3, '6M': 6, '12M': 12 };
 
@@ -36,6 +38,8 @@ export type FahamPeriod = {
   live: boolean;
   /** A stable string for React keys and memo dependencies. */
   id: string;
+  /** The financial month shown when the period is exactly one cycle (1M or cycle); null for longer periods. */
+  cycleKey: string | null;
 };
 
 function keysBetween(from: string, to: string): string[] {
@@ -55,12 +59,18 @@ export function normaliseRange(r: Window, todayKey: string): Window {
   return { from, to };
 }
 
-export function resolvePeriod(preset: PeriodPreset, todayKey: string, custom?: Window | null): FahamPeriod {
+export function resolvePeriod(preset: PeriodPreset, todayKey: string, custom?: Window | null, cycleKey?: string | null): FahamPeriod {
+  // A "cycle" that is the running one (or later) is the same as 1M.
+  if (preset === 'cycle' && (!cycleKey || cycleKey >= cycleOf(todayKey))) preset = '1M';
   let window: Window;
   let previous: Window;
   let keys: string[];
   const n = PRESET_MONTHS[preset];
-  if (n) {
+  if (preset === 'cycle' && cycleKey) {
+    window = cycleRange(cycleKey);
+    previous = cycleRange(shiftCycle(cycleKey, -1));
+    keys = [cycleKey];
+  } else if (n) {
     window = currentWindow(todayKey, n);
     previous = previousWindow(window, n);
     keys = monthKeysEnding(todayKey, n);
@@ -86,7 +96,23 @@ export function resolvePeriod(preset: PeriodPreset, todayKey: string, custom?: W
     days,
     live: window.to === todayKey,
     id: `${preset}:${window.from}:${window.to}`,
+    cycleKey: preset === '1M' || preset === 'cycle' ? keys[keys.length - 1] ?? cycleOf(todayKey) : null,
   };
+}
+
+/** What the period pill and sheet store: a preset, plus the cycle or the dates when they need one. */
+export type PeriodChoice = { preset: PeriodPreset; cycleKey?: string | null; custom?: Window | null };
+
+/**
+ * The period one cycle earlier (dir -1) or later (+1), for the pill's arrows and swipe.
+ * Only single-cycle periods move; stepping past the running cycle stays on it. Returns null when it cannot move.
+ */
+export function stepCycle(p: FahamPeriod, dir: -1 | 1, todayKey: string): PeriodChoice | null {
+  if (!p.cycleKey) return null;
+  const now = cycleOf(todayKey);
+  const next = shiftCycle(p.cycleKey, dir);
+  if (next > now) return null;
+  return next === now ? { preset: '1M' } : { preset: 'cycle', cycleKey: next };
 }
 
 /** Bars by week for a month or less, by financial month for anything longer. */
