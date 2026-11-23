@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { flushAll, reloadAll, saveKey } from '@/services/cloud-sync';
-import { isRecoveryKey, loadJSONOrThrow, readJSON, saveJSON, setAsideUserKey, StorageReadError, userKey, type ReadResult } from '@/services/storage';
+import { isRecoveryKey, loadJSONOrThrow, readJSON, saveJSONOrThrow, setAsideUserKey, StorageReadError, StorageWriteError, userKey, type ReadResult } from '@/services/storage';
 import { backupKeyOf } from '@/services/sync-core';
 
 /**
@@ -78,6 +78,7 @@ export function summarize(b: WakiraBackup): BackupSummary {
  * brings back), then every part of the backup is saved as if it had just been edited, so it also goes to the cloud.
  * Everything on the device is looked at BEFORE anything is replaced: a part whose stored text is damaged is kept
  * aside as it is, and if a part cannot be read at all this throws StorageReadError with nothing replaced.
+ * Throws StorageWriteError when the phone has no room for it (see the steps below).
  */
 export async function restoreBackup(userId: string, b: WakiraBackup): Promise<number> {
   const entries = Object.entries(b.keys);
@@ -99,12 +100,24 @@ export async function restoreBackup(userId: string, b: WakiraBackup): Promise<nu
         throw new StorageReadError(userKey(userId, key), 'read');
       }
     } else if (current?.status === 'ok' && current.value !== null) {
-      await saveJSON(userKey(userId, backupKeyOf(key)), current.value);
+      // No room to keep the current data aside => StorageWriteError, still with nothing replaced.
+      await saveJSONOrThrow(userKey(userId, backupKeyOf(key)), current.value);
     }
   }
-  // 3. Replace.
-  for (const [key, value] of entries) await saveKey(userId, key, value);
+  // 3. Replace. A part that cannot be saved is reported after the others were tried (`partial`); the data it
+  //    would have replaced is still the current data, and the kept-aside copies are untouched.
+  let failed: StorageWriteError | null = null;
+  let saved = 0;
+  for (const [key, value] of entries) {
+    const res = await saveKey(userId, key, value);
+    if (res.ok) saved++;
+    else failed ??= new StorageWriteError(userKey(userId, key), res.reason);
+  }
   await reloadAll(userId);
   await flushAll(userId);
-  return entries.length;
+  if (failed) {
+    failed.partial = saved > 0;
+    throw failed;
+  }
+  return saved;
 }

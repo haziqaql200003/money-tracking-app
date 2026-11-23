@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 
 import { loadKey, noteLoaded, registerReloader, saveKey } from '@/services/cloud-sync';
 import { loadJSONOrThrow, userKey } from '@/services/storage';
-import { clearReadIssue, noteBlockedEdit, reportReadIssue } from '@/services/storage-health';
+import { clearReadIssue, clearSaveIssue, noteBlockedEdit, reportReadIssue, reportSaveIssue } from '@/services/storage-health';
 import { CLOUD_ENABLED } from '@/services/supabase';
 
 /**
@@ -20,6 +20,8 @@ import { CLOUD_ENABLED } from '@/services/supabase';
  * - Nothing stored  => the default is shown and `hydrated` becomes true (first install).
  * - Could not read  => `hydrated` stays false, nothing is saved, and changes are refused, so the stored value is
  *   never replaced by an empty one. The failure is listed in services/storage-health (warning + Try again).
+ * - Could not save  => the change stays on screen, the dataset is listed as "not saved yet" in
+ *   services/storage-health (notice + Try again), and the next change or a retry saves it again.
  */
 export function usePersistedState<T>(
   key: string,
@@ -31,6 +33,8 @@ export function usePersistedState<T>(
   const [hydrated, setHydrated] = useState(false);
   // Raised by "Try again": reads the stored value once more.
   const [attempt, setAttempt] = useState(0);
+  // Raised by "Try again" after a failed save: saves the current value once more.
+  const [saveAttempt, setSaveAttempt] = useState(0);
   // Set while the stored value cannot be read; a change made then would not be saved, so it is refused.
   const unreadable = useRef<{ userId: string; key: string } | null>(null);
   // Whose data (or defaults) the value currently holds, so one user's data is never left on screen for another.
@@ -110,8 +114,23 @@ export function usePersistedState<T>(
   }, [userId, key, scope, attempt]);
 
   useEffect(() => {
-    if (hydrated && userId) void saveKey(userId, key, value);
-  }, [value, hydrated, userId, key]);
+    if (!hydrated || !userId) return;
+    let superseded = false;
+    void saveKey(userId, key, value).then((res) => {
+      if (superseded) return; // a newer value is being saved; that save decides
+      if (res.ok) clearSaveIssue(userId, key);
+      else reportSaveIssue(userId, key, res.reason, () => setSaveAttempt((n) => n + 1));
+    });
+    return () => {
+      superseded = true;
+    };
+  }, [value, hydrated, userId, key, saveAttempt]);
+
+  // Leaving (sign-out, another user, screen gone): its "not saved yet" notice goes with it.
+  useEffect(() => {
+    if (!userId) return;
+    return () => clearSaveIssue(userId, key);
+  }, [userId, key]);
 
   const set = useCallback<Dispatch<SetStateAction<T>>>((next) => {
     const blocked = unreadable.current;

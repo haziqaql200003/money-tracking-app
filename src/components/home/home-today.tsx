@@ -9,6 +9,7 @@ import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useCategories } from '@/context/CategoriesContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { spentByCategory } from '@/utils/budget';
@@ -16,7 +17,7 @@ import { formatMoney } from '@/utils/currency';
 import { cycleOf, daysToPayday, shiftCycle } from '@/utils/cycle';
 import { toDateKey } from '@/utils/dates';
 import { formatPct, pctChange } from '@/utils/insights';
-import { isAdjustmentEntry, isLinkedEntry, looksLikeSavings } from '@/utils/saved';
+import { isLinkedEntry, looksLikeSavings } from '@/utils/saved';
 
 const MASK = 'RM ••••'; // i18n-ignore
 
@@ -45,7 +46,9 @@ export function SafeToSpend() {
   const dark = useColorScheme() === 'dark';
   const router = useRouter();
   const { hideAmounts } = usePrivacy();
-  const { selectableAccounts, accountBalance, transactions } = useTransactions();
+  const { selectableAccounts, accountBalance } = useTransactions();
+  // Spent today the way Faham counts it: purchases minus refunds; corrections and money moved are not spending.
+  const { entries } = useLedger();
 
   const today = toDateKey(new Date());
   const days = daysToPayday(today);
@@ -56,8 +59,8 @@ export function SafeToSpend() {
     const spendable = selectableAccounts.filter((a) => !looksLikeSavings(a));
     const ids = new Set(spendable.map((a) => a.id));
     const balance = spendable.reduce((s, a) => s + accountBalance(a.id), 0);
-    const spent = transactions
-      .filter((x) => x.type === 'debit' && x.date === today && ids.has(x.accountId) && !isLinkedEntry(x) && !isAdjustmentEntry(x))
+    const spent = entries
+      .filter((x) => x.type === 'debit' && x.date === today && ids.has(x.accountId) && !isLinkedEntry(x))
       .reduce((s, x) => s + x.amount, 0);
     // Bills on payday itself are paid from the new salary, so only the ones before it are set aside.
     const due = items.filter((i) => i.type === 'debit' && i.daysUntil < daysLeft).reduce((s, i) => s + i.amount, 0);
@@ -113,26 +116,27 @@ function SpendTile({ accountId }: { accountId?: string }) {
   const colors = useTheme();
   const router = useRouter();
   const { hideAmounts } = usePrivacy();
-  const { transactions } = useTransactions();
+  // Same rules as Analyse: refunds lower spending, corrections and money moved are left out.
+  const { entries } = useLedger();
 
   const values = useMemo(() => {
     const now = cycleOf(toDateKey(new Date()));
     const keys = Array.from({ length: CYCLES }, (_, i) => shiftCycle(now, i - (CYCLES - 1)));
     const sums = new Map(keys.map((k) => [k, 0]));
-    for (const x of transactions) {
+    for (const x of entries) {
       if (x.type !== 'debit' || isLinkedEntry(x) || (accountId && x.accountId !== accountId)) continue;
       const k = cycleOf(x.date);
       if (sums.has(k)) sums.set(k, (sums.get(k) ?? 0) + x.amount);
     }
     return keys.map((k) => sums.get(k) ?? 0);
-  }, [transactions, accountId]);
+  }, [entries, accountId]);
 
   const now = values[values.length - 1];
   const change = pctChange(now, values[values.length - 2]);
   const max = Math.max(1, ...values);
   const W = 120;
   const H = 36;
-  const line = values.map((v, i) => `${i ? 'L' : 'M'}${((i / (values.length - 1)) * W).toFixed(1)} ${(H - 3 - (v / max) * (H - 6)).toFixed(1)}`).join(' ');
+  const line = values.map((v, i) => `${i ? 'L' : 'M'}${((i / (values.length - 1)) * W).toFixed(1)} ${(H - 3 - (Math.max(0, v) / max) * (H - 6)).toFixed(1)}`).join(' ');
 
   return (
     <Pressable

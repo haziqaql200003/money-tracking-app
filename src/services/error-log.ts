@@ -64,7 +64,7 @@ type ErrorUtilsLike = { getGlobalHandler(): GlobalHandler; setGlobalHandler(h: G
 export function installErrorLog() {
   if (installed) return;
   installed = true;
-  // Storage failures (3.8.1): which key and why, never the stored text and never the user id.
+  // Storage read and save failures (3.8.1): which key and why, never the stored text and never the user id.
   setStorageErrorReporter((e) => void recordError(new Error(`storage ${e.op} failed (${e.reason}): ${safeKeyName(e.key)} ${e.detail}`.trim())));
   if (Platform.OS === 'web') {
     if (typeof window === 'undefined') return;

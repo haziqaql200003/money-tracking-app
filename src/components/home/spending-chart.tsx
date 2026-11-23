@@ -126,7 +126,8 @@ export function SpendingChart({
   // Points sit in the middle of their column, so they line up with the labels underneath.
   const coords = data.map((point, i) => ({
     x: colWidth * (i + 0.5),
-    y: PADDING_TOP + dataHeight * (1 - point.value / max),
+    // A day whose refunds were larger than its purchases has negative spending: it sits on the zero line.
+    y: PADDING_TOP + dataHeight * (1 - Math.max(0, point.value) / max),
     point,
     i,
   }));

@@ -17,6 +17,7 @@ import type { Transaction } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { AdjustmentsModal } from '@/components/transactions/adjustments-modal';
 import { adjustmentAccountId, isAdjustmentEntry } from '@/utils/saved';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
 import { useT, type TKey } from '@/i18n';
@@ -64,6 +65,8 @@ export function RecentTransactions({ accountId, accountName }: Props) {
   const router = useRouter();
   const { hideAmounts } = usePrivacy();
   const { transactions } = useTransactions();
+  // The "spent this month" line counts like Analyse; the list itself still shows every record.
+  const { entries } = useLedger();
   const { openAddRecord } = useAddRecord();
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -78,18 +81,16 @@ export function RecentTransactions({ accountId, accountName }: Props) {
     [transactions, accountId],
   );
 
-  // Summary line (not affected by the chip filter).
+  // Summary line (not affected by the chip filter): how many records this month, and spending as Analyse counts it
+  // (refunds lower it; balance corrections and card, loan or savings payments are not spending).
   const summary = useMemo(() => {
     const monthKey = cycleOf(toKey(new Date()));
-    let count = 0;
-    let spent = 0;
-    accountTxns.forEach((t) => {
-      if (cycleOf(t.date) !== monthKey) return;
-      count += 1;
-      if (t.type === 'debit') spent += t.amount;
-    });
+    const count = accountTxns.filter((t) => cycleOf(t.date) === monthKey).length;
+    const spent = entries
+      .filter((t) => t.type === 'debit' && cycleOf(t.date) === monthKey && (!accountId || t.accountId === accountId))
+      .reduce((sum, t) => sum + t.amount, 0);
     return { count, spent };
-  }, [accountTxns]);
+  }, [accountTxns, entries, accountId]);
 
   const sections = useMemo(() => {
     const visible = accountTxns.filter((t) => filter === 'all' || t.type === filter).slice(0, MAX_ROWS);

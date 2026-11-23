@@ -6,7 +6,7 @@
  */
 import { useSyncExternalStore } from 'react';
 
-import { setAsideIfCorrupt, StorageReadError, userKey, RECOVERY_PREFIX, type ReadFailure } from '@/services/storage';
+import { setAsideIfCorrupt, StorageReadError, userKey, RECOVERY_PREFIX, type ReadFailure, type WriteFailure } from '@/services/storage';
 
 export type StorageIssue = {
   userId: string;
@@ -16,21 +16,48 @@ export type StorageIssue = {
   storageKey: string;
   reason: ReadFailure;
 };
+/** A dataset whose latest change is on screen but could not be saved to this phone. */
+export type SaveIssue = { userId: string; key: string; reason: WriteFailure };
 export type StorageHealth = {
   issues: StorageIssue[];
   /** Goes up every time a change to an unreadable dataset was refused. */
   blockedEdits: number;
+  /** Datasets with a change that is not saved yet. */
+  unsaved: SaveIssue[];
 };
 
 const idOf = (userId: string, key: string) => `${userId}\u0000${key}`;
 const issues = new Map<string, StorageIssue>();
 const retriers = new Map<string, () => void>();
-let health: StorageHealth = { issues: [], blockedEdits: 0 };
+const unsaved = new Map<string, SaveIssue>();
+const savers = new Map<string, () => void>();
+let health: StorageHealth = { issues: [], blockedEdits: 0, unsaved: [] };
 const listeners = new Set<() => void>();
 
 function publish(blocked = false) {
-  health = { issues: [...issues.values()], blockedEdits: health.blockedEdits + (blocked ? 1 : 0) };
+  health = { issues: [...issues.values()], blockedEdits: health.blockedEdits + (blocked ? 1 : 0), unsaved: [...unsaved.values()] };
   listeners.forEach((l) => l());
+}
+
+/** The latest change to a dataset could not be saved. `retry` makes its owner save it again. */
+export function reportSaveIssue(userId: string, key: string, reason: WriteFailure, retry: () => void) {
+  const id = idOf(userId, key);
+  savers.set(id, retry);
+  if (unsaved.get(id)?.reason === reason) return;
+  unsaved.set(id, { userId, key, reason });
+  publish();
+}
+
+/** The dataset is saved again (or its owner went away). */
+export function clearSaveIssue(userId: string, key: string) {
+  const id = idOf(userId, key);
+  savers.delete(id);
+  if (unsaved.delete(id)) publish();
+}
+
+/** Try saving every unsaved dataset of this user again. */
+export function retrySaves(userId: string) {
+  for (const [id, retry] of [...savers.entries()]) if (id.startsWith(`${userId}\u0000`)) retry();
 }
 
 /** A dataset could not be read. `retry` makes its owner read it again. */

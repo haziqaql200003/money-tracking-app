@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassSegmented } from '@/components/glass/glass-segmented';
@@ -23,9 +23,16 @@ import { toCsv } from '@/utils/csv';
 import { Alert } from '@/services/dialog';
 import { datedName, pickTextFile, shareTextFile } from '@/services/share-file';
 import { collectBackup, parseBackup, restoreBackup, summarize } from '@/services/backup';
-import { StorageReadError } from '@/services/storage';
+import { listSetAside, measureStorage, readSetAside, storageLimits, StorageReadError, StorageWriteError, usageLevel, type StorageUsage } from '@/services/storage';
+import { retrySaves, useStorageHealth } from '@/services/storage-health';
 import { CURRENT_VERSION } from '@/constants/changelog';
 import { toDateKey } from '@/utils/dates';
+
+/** 1,536,000 -> "1.5 MB"; small values in KB. */
+function sizeText(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; // i18n-ignore: unit
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`; // i18n-ignore: unit
+}
 
 /** Everything about where your data lives and how to take it with you or remove it. */
 type DataTab = 'backup' | 'import' | 'privacy';
@@ -41,6 +48,37 @@ export default function DataPrivacyScreen() {
   const { resetPlan } = usePlan();
   const { user, cloud, syncNow } = useAuth();
   const sync = useSyncStatus();
+  const health = useStorageHealth();
+  const notSaved = user ? health.unsaved.filter((i) => i.userId === user.id) : [];
+
+  // How much of this phone's storage WaKira is using (measured when the screen opens and after a backup/restore).
+  const userId = user?.id ?? null;
+  const [usage, setUsage] = useState<StorageUsage | 'unknown' | null>(null);
+  const [damagedCopies, setDamagedCopies] = useState<string[]>([]);
+  const measure = useCallback(async () => {
+    try {
+      setUsage(await measureStorage(userId));
+      setDamagedCopies(userId ? await listSetAside(userId) : []);
+    } catch {
+      setUsage('unknown');
+    }
+  }, [userId]);
+  useEffect(() => {
+    void measure();
+  }, [measure, notSaved.length]);
+
+  const limit = storageLimits(Platform.OS).total;
+  const level = usage && usage !== 'unknown' ? usageLevel(usage, Platform.OS) : 'ok';
+  const usageValue = !usage ? '' : usage === 'unknown' ? t('more.data.storageUnknown') : limit ? t('more.data.storageUsedOf', { used: sizeText(usage.total), limit: sizeText(limit) }) : sizeText(usage.total);
+  const usageSub = usage && usage !== 'unknown' ? t('more.data.storageBreakdown', { records: sizeText(usage.records), copies: sizeText(usage.copies) }) : undefined;
+  const usageFooter = level === 'critical' ? t('more.data.storageCritical') : level === 'warn' ? t('more.data.storageWarn') : limit ? t('more.data.storageOk', { limit: sizeText(limit) }) : t('more.data.storageNoLimit');
+
+  /** Hands the damaged copies kept aside to the pengguna as one text file. Nothing is deleted. */
+  async function shareDamaged() {
+    if (!user) return;
+    const parts = (await readSetAside(user.id)).map((c) => `===== ${c.name} =====\n${c.raw}`); // i18n-ignore: technical file
+    if (parts.length > 0) await shareTextFile(datedName('wakira-damaged-copies', toDateKey(new Date()), 'txt'), parts.join('\n\n'), 'text/plain'); // i18n-ignore: file name
+  }
 
   const syncText = (() => {
     if (sync.state === 'syncing') return t('more.settings.syncSyncing');
@@ -118,11 +156,13 @@ export default function DataPrivacyScreen() {
           text: t('more.data.restoreGo'),
           style: 'destructive',
           onPress: () => {
-            void restoreBackup(user.id, parsed.backup).then(
+            void restoreBackup(user.id, parsed.backup).finally(() => void measure()).then(
               (n) => Alert.alert(t('more.data.restoreDoneTitle'), t('more.data.restoreDoneBody', { count: n })),
               (e) => {
                 // What is on the device could not be read, so it could not be kept aside: nothing was replaced.
                 if (e instanceof StorageReadError) Alert.alert(t('common.storageTitle'), t('common.storageRestoreFail'));
+                // No room: either nothing was replaced, or some parts were and the rest kept their current data.
+                else if (e instanceof StorageWriteError) Alert.alert(t('common.saveFailTitle'), t(e.partial ? 'more.data.restorePartial' : 'more.data.restoreNoSpace'));
                 else throw e;
               },
             );
@@ -231,6 +271,16 @@ export default function DataPrivacyScreen() {
           <Section title={t('more.data.backupTitle')} footer={t('more.data.backupFooter')}>
             <Row first icon="archive-outline" label={t('more.data.backup')} subtitle={t('more.data.backupSub')} onPress={() => void backupAll()} />
             <Row icon="refresh-outline" label={t('more.data.restoreFile')} subtitle={t('more.data.restoreFileSub')} onPress={() => void restoreFromFile()} />
+          </Section>
+
+          <Section title={t('more.data.storageTitle')} footer={usageFooter}>
+            <Row first icon="server-outline" label={t('more.data.storageUsed')} subtitle={usageSub} value={usageValue} badge={level !== 'ok'} tint={level === 'critical' ? colors.negative : undefined} />
+            {notSaved.length > 0 ? (
+              <Row icon="alert-circle-outline" label={t('more.data.storageUnsaved')} subtitle={t('more.data.storageUnsavedSub')} danger badge onPress={() => user && retrySaves(user.id)} />
+            ) : null}
+            {damagedCopies.length > 0 ? (
+              <Row icon="bandage-outline" label={t('more.data.storageDamaged')} subtitle={t('more.data.storageDamagedSub')} value={String(damagedCopies.length)} onPress={() => void shareDamaged()} />
+            ) : null}
           </Section>
           </>
           ) : null}

@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 
-import { isRecoveryKey, loadJSON, loadJSONOrThrow, readJSON, saveJSON, userKey } from '@/services/storage';
+import { isRecoveryKey, loadJSON, loadJSONOrThrow, readJSON, saveJSONOrThrow, StorageWriteError, userKey, type WriteFailure } from '@/services/storage';
 import { CLOUD_ENABLED, supabase } from '@/services/supabase';
 import {
   adoptAll,
@@ -71,13 +71,15 @@ const metaKey = (key: string) => `__sync:${key}`;
  * instead of reading as "nothing here": the rules would otherwise adopt the cloud's copy over data that is still
  * on the phone, or treat unsent edits as already sent. Only the merge base may read as null, because the rules
  * are built for a missing base (then nothing counts as deleted).
+ * A save that fails THROWS too (StorageWriteError): the rules must not record "the phone and the cloud agree"
+ * or "this edit is waiting to be sent" for a value that never reached storage.
  */
 function localStore(userId: string): LocalStore {
   return {
     read: (key) => (isMergeBase(key) ? loadJSON<unknown>(userKey(userId, key)) : loadJSONOrThrow<unknown>(userKey(userId, key))),
-    write: (key, value) => saveJSON(userKey(userId, key), value),
+    write: (key, value) => saveJSONOrThrow(userKey(userId, key), value),
     readMeta: (key) => loadJSONOrThrow<Meta>(userKey(userId, metaKey(key))),
-    writeMeta: (key, meta) => saveJSON(userKey(userId, metaKey(key)), meta),
+    writeMeta: (key, meta) => saveJSONOrThrow(userKey(userId, metaKey(key)), meta),
   };
 }
 
@@ -143,6 +145,9 @@ export async function loadKey<T>(userId: string, key: string): Promise<{ value: 
     res = await reconcile(localStore(userId), remoteStore(userId), key);
   } catch (error) {
     setStatus({ state: 'idle' });
+    // The phone could not store what the sync decided (for example storage is full). What the phone holds is
+    // still good, so the app carries on with it, exactly as when the cloud cannot be reached.
+    if (error instanceof StorageWriteError) return { value: await loadJSONOrThrow<T>(userKey(userId, key)), source: 'offline' };
     throw error;
   }
   setStatus(res.source === 'offline' ? { state: 'offline' } : { state: 'idle', lastSyncedAt: new Date().toISOString() });
@@ -152,18 +157,31 @@ export async function loadKey<T>(userId: string, key: string): Promise<{ value: 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const PUSH_DELAY_MS = 1500;
 
-/** The user changed a key. Store it now; send it to the cloud shortly after (debounced). */
-export async function saveKey(userId: string, key: string, value: unknown) {
+export type SaveResult = { ok: true } | { ok: false; reason: WriteFailure };
+const SAVED: SaveResult = { ok: true };
+
+/**
+ * The user changed a key. Store it now; send it to the cloud shortly after (debounced).
+ * Never throws. `ok: false` means the change did NOT reach this phone's storage (it only exists on screen);
+ * calling again with the same value tries again.
+ */
+export async function saveKey(userId: string, key: string, value: unknown): Promise<SaveResult> {
   const id = idOf(userId, key);
   const json = JSON.stringify(value);
-  if (lastSerialized.get(id) === json) return;
+  if (lastSerialized.get(id) === json) return SAVED;
   lastSerialized.set(id, json);
 
-  if (!CLOUD_ENABLED) {
-    await saveJSON(userKey(userId, key), value);
-    return;
+  try {
+    if (!CLOUD_ENABLED) {
+      await saveJSONOrThrow(userKey(userId, key), value);
+      return SAVED;
+    }
+    await markEdited(localStore(userId), key, value, new Date().toISOString());
+  } catch (error) {
+    // Not stored: forget it as "the value last written", so the next attempt really writes.
+    if (lastSerialized.get(id) === json) lastSerialized.delete(id);
+    return { ok: false, reason: error instanceof StorageWriteError ? error.reason : 'other' };
   }
-  await markEdited(localStore(userId), key, value, new Date().toISOString());
   void refreshPending(userId);
   clearTimeout(timers.get(id));
   timers.set(
@@ -173,6 +191,7 @@ export async function saveKey(userId: string, key: string, value: unknown) {
       void pushKey(userId, key);
     }, PUSH_DELAY_MS),
   );
+  return SAVED;
 }
 
 async function pushKey(userId: string, key: string) {
@@ -245,7 +264,7 @@ export async function listBackups(userId: string): Promise<string[]> {
 
 /**
  * Put the kept-aside copies back as the current data (and send them to the cloud).
- * A copy that cannot be read right now is left where it is: it is only removed once it has been put back.
+ * A copy that cannot be read or put back right now is left where it is: it is only removed once it has been put back.
  */
 export async function restoreBackups(userId: string): Promise<number> {
   const keys = await listBackups(userId);
@@ -254,7 +273,7 @@ export async function restoreBackups(userId: string): Promise<number> {
     const bak = userKey(userId, backupKeyOf(key));
     const res = await readJSON<unknown>(bak);
     if (res.status === 'failed') continue;
-    if (res.status === 'ok' && res.value !== null) await saveKey(userId, key, res.value);
+    if (res.status === 'ok' && res.value !== null && !(await saveKey(userId, key, res.value)).ok) continue; // not put back: keep the copy
     await AsyncStorage.removeItem(bak);
     restored++;
   }

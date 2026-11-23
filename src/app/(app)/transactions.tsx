@@ -30,6 +30,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import type { Transaction, TransactionType, Transfer } from '@/context/TransactionsContext';
 import { adjustmentAccountId, debtEntries, goalEntriesOnly, isAdjustmentEntry, isDebtEntry, isEditableTransferEntry, isLinkedEntry, savedEntries, savedTransferId } from '@/utils/saved';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { categoryName, accountName } from '@/i18n/data';
@@ -37,6 +38,7 @@ import { cycleOf } from '@/utils/cycle';
 import { cycleRangeLabel, dayLabel, monthKeyFromOffset, monthLabel } from '@/utils/dates';
 import { formatMoney } from '@/utils/currency';
 import { MIN_COMPARE_BASE } from '@/utils/insights';
+import { isSpendItem } from '@/utils/ledger';
 import { Alert } from '@/services/dialog';
 import { shareTextFile } from '@/services/share-file';
 
@@ -61,6 +63,10 @@ export default function TransactionsScreen() {
   const desktop = useIsDesktop();
   const { openAddRecord } = useAddRecord();
   const { getCategory } = useCategories();
+  // The month's income and spending figures follow Faham (utils/ledger.ts), so they match Analyse: refunds lower
+  // spending, and balance corrections and card, loan, BNPL, savings or investment payments are not spending.
+  // The list below still shows every record as it was entered.
+  const { entries: flows } = useLedger();
 
   const [monthOffset, setMonthOffset] = useState(0);
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -118,27 +124,34 @@ export default function TransactionsScreen() {
   );
   const savedTotal = [...monthSaved, ...monthGoal].reduce((sum, e) => sum + e.amount, 0);
 
+  const flowsInAccount = useMemo(() => flows.filter((t) => !accountId || t.accountId === accountId), [flows, accountId]);
   const stats = useMemo(() => {
     let income = 0;
     let spending = 0;
+    let purchases = 0;
     const byCategory = new Map<string, number>();
-    monthTxns.forEach((t) => {
+    flowsInAccount.forEach((t) => {
+      if (cycleOf(t.date) !== monthKey) return;
       if (t.type === 'credit') {
         income += t.amount;
-      } else {
-        spending += t.amount;
+        return;
+      }
+      spending += t.amount; // a refund is a negative amount here
+      // Category slices are purchases only (a refund has no expense category of its own), as in Analyse.
+      if (isSpendItem(t)) {
+        purchases += t.amount;
         byCategory.set(t.categoryId, (byCategory.get(t.categoryId) ?? 0) + t.amount);
       }
     });
-    const prevSpending = inAccount
+    const prevSpending = flowsInAccount
       .filter((t) => t.type === 'debit' && cycleOf(t.date) === prevKey)
       .reduce((sum, t) => sum + t.amount, 0);
     const slices = Array.from(byCategory.entries())
-      .map(([id, value]) => ({ categoryId: id, value, percent: spending > 0 ? (value / spending) * 100 : 0 }))
+      .map(([id, value]) => ({ categoryId: id, value, percent: purchases > 0 ? (value / purchases) * 100 : 0 }))
       .sort((a, b) => b.value - a.value);
     const deltaPercent = prevSpending >= MIN_COMPARE_BASE ? ((spending - prevSpending) / prevSpending) * 100 : null;
     return { income, spending, slices, deltaPercent };
-  }, [monthTxns, inAccount, prevKey]);
+  }, [flowsInAccount, monthKey, prevKey]);
 
   // The list is further narrowed by type, category and search.
   const q = query.trim().toLowerCase();
@@ -188,7 +201,7 @@ export default function TransactionsScreen() {
   ];
   const accountShares: AccountShare[] = useMemo(() => {
     const spent = new Map<string, number>();
-    transactions.forEach((x) => {
+    flows.forEach((x) => {
       if (x.type === 'debit' && cycleOf(x.date) === monthKey) spent.set(x.accountId, (spent.get(x.accountId) ?? 0) + x.amount);
     });
     const total = Array.from(spent.values()).reduce((sum, v) => sum + v, 0);
@@ -196,7 +209,7 @@ export default function TransactionsScreen() {
       .filter((a) => (spent.get(a.id) ?? 0) > 0)
       .map((a) => ({ id: a.id, label: accountName(a), value: spent.get(a.id) ?? 0, percent: total > 0 ? ((spent.get(a.id) ?? 0) / total) * 100 : 0 }))
       .sort((a, b) => b.value - a.value);
-  }, [transactions, selectableAccounts, monthKey]);
+  }, [flows, selectableAccounts, monthKey]);
 
   function goToMonth(offset: number) {
     setMonthOffset(offset);

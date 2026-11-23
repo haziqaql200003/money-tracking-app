@@ -7,6 +7,7 @@ import { findBrand } from '@/constants/brands';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { cycleOf } from '@/utils/cycle';
+import { isSpendItem, ledgerEntries } from '@/utils/ledger';
 import { monthShort, weekdayShort } from '@/i18n/format';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import { adjustmentEntries, isAdjustmentEntry, savedEntries } from '@/utils/saved';
@@ -555,6 +556,10 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   // Balance adjustments are income or spending but never count against a category budget.
   const budgetEntries = useMemo(() => [...transactions.filter((t) => !isAdjustmentEntry(t)), ...savedEntries(transfers)], [transactions, transfers]);
   const balance = selectableAccounts.reduce((sum, a) => sum + accountBalance(a.id), 0);
+  // Income and spending totals and the spending charts read the records the way Faham does (utils/ledger.ts):
+  // balance corrections and money moved (card, loan, BNPL, savings, investment payments) are left out, and refunds
+  // are negative spending. Balances above keep using the raw records.
+  const flows = useMemo(() => ledgerEntries(transactions), [transactions]);
 
   function spentThisMonth(categoryId: string) {
     const nowKey = cycleOf(toDateKey(new Date()));
@@ -565,12 +570,12 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   function totalIncomeThisMonth() {
     const nowKey = cycleOf(toDateKey(new Date()));
-    return transactions.filter((t) => t.type === 'credit' && cycleOf(t.date) === nowKey).reduce((sum, t) => sum + t.amount, 0);
+    return flows.filter((t) => t.type === 'credit' && cycleOf(t.date) === nowKey).reduce((sum, t) => sum + t.amount, 0);
   }
 
   function totalSpendingThisMonth() {
     const nowKey = cycleOf(toDateKey(new Date()));
-    return transactions.filter((t) => t.type === 'debit' && cycleOf(t.date) === nowKey).reduce((sum, t) => sum + t.amount, 0);
+    return flows.filter((t) => t.type === 'debit' && cycleOf(t.date) === nowKey).reduce((sum, t) => sum + t.amount, 0);
   }
 
   // Most recent transactions first, for the Home screen's short list.
@@ -583,7 +588,8 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
   function categoryBreakdownThisMonth() {
     const nowKey = cycleOf(toDateKey(new Date()));
-    const monthTxns = transactions.filter((t) => t.type === 'debit' && cycleOf(t.date) === nowKey);
+    // Purchases only: a refund has no expense category of its own (same rule as Analyse's category rows).
+    const monthTxns = flows.filter((t) => isSpendItem(t) && cycleOf(t.date) === nowKey);
 
     const totals = new Map<string, number>();
     monthTxns.forEach((t) => {
@@ -609,7 +615,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const key = toDateKey(d);
-      const value = transactions
+      const value = flows
         .filter((t) => t.type === 'debit' && t.date === key && (!accountId || t.accountId === accountId))
         .reduce((sum, t) => sum + t.amount, 0);
       points.push({ key, label: weekdayShort(i), value, isToday: key === todayKey, isFuture: key > todayKey });
@@ -629,7 +635,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       isFuture: i > nowMonth,
     }));
 
-    transactions.forEach((t) => {
+    flows.forEach((t) => {
       if (accountId && t.accountId !== accountId) return;
       const k = cycleOf(t.date);
       if (t.type === 'debit' && Number(k.slice(0, 4)) === year) {
@@ -649,7 +655,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     return Array.from(years)
       .sort((a, b) => a - b)
       .map((year) => {
-        const value = transactions
+        const value = flows
           .filter(
             (t) =>
               t.type === 'debit' &&

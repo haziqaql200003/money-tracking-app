@@ -175,16 +175,20 @@ export function buildReport(inp: Input): Report {
   if (priciestDay && priciestDay.amount === 0) priciestDay = null;
   const { best: longestStreak, current: currentStreak } = streaks(recordDays, p.from, p.end);
 
-  // Categories now and before
+  // Categories now and before: purchases only. A refund has no expense category of its own (it sits under Other
+  // Income), so as a row it showed up as a negative "spending" category and pushed the others past 100%.
+  // Same rule as Analyse's category rows (utils/insights.ts categoryTrends).
+  const purchases = r2(realDebits.reduce((s, t) => s + t.amount, 0));
   const byCat = new Map<string, { amount: number; count: number }>();
   for (const t of debits) {
+    if (t.amount <= 0) continue;
     const c = byCat.get(t.categoryId) ?? { amount: 0, count: 0 };
     c.amount += t.amount;
     c.count++;
     byCat.set(t.categoryId, c);
   }
   const categories = [...byCat.entries()]
-    .map(([id, v]) => ({ id, amount: r2(v.amount), count: v.count, share: spend > 0 ? v.amount / spend : 0 }))
+    .map(([id, v]) => ({ id, amount: r2(v.amount), count: v.count, share: purchases > 0 ? v.amount / purchases : 0 }))
     .sort((a, b) => b.amount - a.amount);
   const inc = new Map<string, { amount: number; count: number }>();
   for (const t of real) {
@@ -198,7 +202,7 @@ export function buildReport(inp: Input): Report {
     .map(([id, v]) => ({ id, amount: r2(v.amount), count: v.count, share: income > 0 ? v.amount / income : 0 }))
     .sort((a, b) => b.amount - a.amount);
   const prevCat = new Map<string, number>();
-  for (const t of before) if (t.type === 'debit') prevCat.set(t.categoryId, (prevCat.get(t.categoryId) ?? 0) + t.amount);
+  for (const t of before) if (t.type === 'debit' && t.amount > 0) prevCat.set(t.categoryId, (prevCat.get(t.categoryId) ?? 0) + t.amount);
   let biggestRise: Report['biggestRise'] = null;
   let biggestFall: Report['biggestFall'] = null;
   for (const c of categories) {

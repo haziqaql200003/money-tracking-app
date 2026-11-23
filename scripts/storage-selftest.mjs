@@ -14,10 +14,14 @@ import { createRoot } from 'react-dom/client';
 import AsyncStorage, { disk, failing, resetStorage, writes } from '@react-native-async-storage/async-storage';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 import { collectBackup, restoreBackup } from '@/services/backup';
-import { flushAll, initialPull, reloadAll, restoreBackups } from '@/services/cloud-sync';
+import { flushAll, initialPull, reloadAll, restoreBackups, saveKey } from '@/services/cloud-sync';
 import {
   listSetAside,
   loadJSON,
+  measureStorage,
+  saveJSON,
+  StorageWriteError,
+  usageLevel,
   loadJSONOrThrow,
   readJSON,
   setAsideIfCorrupt,
@@ -25,7 +29,7 @@ import {
   StorageReadError,
   userKey,
 } from '@/services/storage';
-import { getStorageHealth, retryStorage, startFresh } from '@/services/storage-health';
+import { getStorageHealth, retrySaves, retryStorage, startFresh } from '@/services/storage-health';
 import { setFakeCloud } from '@/services/supabase';
 
 /* ---------- a minimal stand-in for the screen, so React runs the hook's effects for real ---------- */
@@ -473,6 +477,147 @@ await test('"Restore older copy": a kept-aside copy that cannot be read is not d
   assert.equal(await restoreBackups(uid), 1);
   assert.deepEqual(JSON.parse(disk.get(dataKey(uid))), TX);
   assert.equal(disk.has(bak), false);
+});
+
+/* ================= H2: a save that fails is never passed off as saved ================= */
+
+const unsavedOf = (uid) => getStorageHealth().unsaved.filter((i) => i.userId === uid);
+const FULL_ERROR = (k) => k.endsWith(':transactions'); // the fake's write error says "storage is full"
+
+await test('saveJSON no longer hides a failed write: it returns false and reports it, without the value', async () => {
+  failing.set.add('flag');
+  assert.equal(await saveJSON('flag', { note: 'SECRET-PAYEE' }), false);
+  assert.equal(await saveJSON('other', true), true);
+  assert.deepEqual(reports.map((r) => [r.op, r.key, r.reason]), [['write', 'flag', 'full']]);
+  assert.ok(!JSON.stringify(reports).includes('SECRET'));
+});
+
+await test('H2: a change that cannot be saved stays on screen, is listed as not saved, and the app keeps working', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), JSON.stringify(TX));
+  const h = await mount({ k: 'transactions', initial: [], uid });
+  failing.set.add(FULL_ERROR);
+  await h.edit((prev) => [NEW, ...prev]);
+  assert.deepEqual(h.seen.value, [NEW, ...TX], 'the change is still on screen');
+  assert.equal(h.seen.hydrated, true, 'the app stays usable');
+  assert.deepEqual(unsavedOf(uid).map((i) => [i.key, i.reason]), [['transactions', 'full']]);
+  assert.equal(disk.get(dataKey(uid)), JSON.stringify(TX), 'what was saved before is unchanged');
+  // a further change while storage is still full: still listed once, still nothing lost on screen
+  await h.edit((prev) => prev.filter((t) => t.id !== 't2'));
+  assert.equal(unsavedOf(uid).length, 1);
+  assert.equal(disk.get(dataKey(uid)), JSON.stringify(TX));
+  await h.unmount();
+  assert.equal(unsavedOf(uid).length, 0);
+});
+
+await test('H2: Try again after room is freed saves the change and clears the notice', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), JSON.stringify(TX));
+  const h = await mount({ k: 'transactions', initial: [], uid });
+  failing.set.add(FULL_ERROR);
+  await h.edit((prev) => [NEW, ...prev]);
+  assert.equal(unsavedOf(uid).length, 1);
+  await React.act(async () => retrySaves(uid)); // still full
+  await settle();
+  assert.equal(unsavedOf(uid).length, 1);
+  failing.set.clear();
+  await React.act(async () => retrySaves(uid));
+  await settle();
+  assert.equal(unsavedOf(uid).length, 0);
+  assert.deepEqual(JSON.parse(disk.get(dataKey(uid))), [NEW, ...TX]);
+  await h.unmount();
+});
+
+await test('H2: the next change after a failed save is written in full (nothing is skipped as "already saved")', async () => {
+  const uid = newUser();
+  const h = await mount({ k: 'transactions', initial: [], uid });
+  failing.set.add(FULL_ERROR);
+  await h.edit([NEW]);
+  failing.set.clear();
+  await h.edit([NEW, TX[0]]);
+  assert.deepEqual(JSON.parse(disk.get(dataKey(uid))), [NEW, TX[0]]);
+  assert.equal(unsavedOf(uid).length, 0);
+  await h.unmount();
+});
+
+await test('H2 cloud: an edit that did not reach storage is not marked as waiting to be sent', async () => {
+  const uid = newUser();
+  setFakeCloud(new Map());
+  failing.set.add(FULL_ERROR);
+  assert.deepEqual(await saveKey(uid, 'transactions', [NEW]), { ok: false, reason: 'full' });
+  assert.equal(disk.has(dataKey(uid, '__sync:transactions')), false);
+  failing.set.clear();
+  assert.deepEqual(await saveKey(uid, 'transactions', [NEW]), { ok: true }, 'the same value is written on the next attempt');
+  assert.deepEqual(JSON.parse(disk.get(dataKey(uid))), [NEW]);
+  assert.equal(JSON.parse(disk.get(dataKey(uid, '__sync:transactions'))).dirty, true);
+});
+
+await test('H2 cloud: when the phone cannot store the cloud copy, it keeps its own copy and still opens', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), JSON.stringify(TX));
+  disk.set(dataKey(uid, '__sync:transactions'), JSON.stringify({ base: 'older', dirty: false, editedAt: 'older' }));
+  setFakeCloud(cloudWith([{ id: 'newer-cloud-copy' }]));
+  failing.set.add(FULL_ERROR);
+  const h = await mount({ k: 'transactions', initial: [], uid });
+  assert.equal(h.seen.hydrated, true);
+  assert.deepEqual(h.seen.value, TX);
+  assert.equal(issuesOf(uid).length, 0, 'not reported as unreadable');
+  assert.equal(JSON.parse(disk.get(dataKey(uid, '__sync:transactions'))).base, 'older', 'not recorded as agreed');
+  await h.unmount();
+});
+
+await test('H2 restore from file: no room to keep the current data aside => nothing is replaced', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), JSON.stringify(TX));
+  failing.set.add((k) => k.endsWith('.bak'));
+  const backup = { app: 'WaKira', format: 1, appVersion: '3.8.0', exportedAt: '', keys: { transactions: [NEW] } };
+  await assert.rejects(restoreBackup(uid, backup), (e) => e instanceof StorageWriteError && e.partial === false);
+  assert.equal(disk.get(dataKey(uid)), JSON.stringify(TX));
+});
+
+await test('H2 restore from file: a part that cannot be saved is reported, and keeps its current data', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), JSON.stringify(TX));
+  failing.set.add((k) => k === dataKey(uid));
+  const backup = { app: 'WaKira', format: 1, appVersion: '3.8.0', exportedAt: '', keys: { accounts: [{ id: 'fromFile' }], transactions: [NEW] } };
+  await assert.rejects(restoreBackup(uid, backup), (e) => e instanceof StorageWriteError && e.partial === true);
+  assert.equal(disk.get(dataKey(uid)), JSON.stringify(TX));
+  assert.deepEqual(JSON.parse(disk.get(dataKey(uid, 'accounts'))), [{ id: 'fromFile' }]);
+});
+
+await test('H2 "Restore older copy": a copy that cannot be put back is kept', async () => {
+  const uid = newUser();
+  const bak = dataKey(uid, 'transactions.bak');
+  disk.set(bak, JSON.stringify(TX));
+  failing.set.add((k) => k === dataKey(uid));
+  assert.equal(await restoreBackups(uid), 0);
+  assert.equal(disk.get(bak), JSON.stringify(TX));
+});
+
+await test('H2: storage use is measured by kind, and the warning levels follow the phone limits', async () => {
+  const uid = newUser();
+  disk.set(dataKey(uid), 'x'.repeat(1000));
+  disk.set(dataKey(uid, 'transactions.base'), 'x'.repeat(400));
+  disk.set(dataKey(uid, '__sync:transactions'), 'x'.repeat(50));
+  disk.set(dataKey(uid, '__recovery:debts@1'), 'x'.repeat(200));
+  disk.set('app:language', '"ms"');
+  disk.set(dataKey(uid, 'locked'), 'x'.repeat(9999));
+  failing.get.add(dataKey(uid, 'locked'));
+  const u = await measureStorage(uid);
+  const k = (name) => dataKey(uid, name).length;
+  assert.equal(u.records, 1000 + k('transactions'));
+  assert.equal(u.copies, 400 + k('transactions.base') + 50 + k('__sync:transactions'));
+  assert.equal(u.damaged, 200 + k('__recovery:debts@1'));
+  assert.equal(u.total, u.records + u.copies + u.damaged + 'app:language'.length + 4);
+  assert.equal(u.unreadable, 1);
+  assert.equal(writes.length, 0, 'measuring never writes');
+  const MB = 1024 * 1024;
+  assert.equal(usageLevel({ total: 1 * MB, largest: 0.5 * MB }, 'android'), 'ok');
+  assert.equal(usageLevel({ total: 4.3 * MB, largest: 1 * MB }, 'android'), 'warn');
+  assert.equal(usageLevel({ total: 2 * MB, largest: 1.9 * MB }, 'android'), 'critical', 'one value near the 2 MB read limit');
+  assert.equal(usageLevel({ total: 5.5 * MB, largest: 1 * MB }, 'android'), 'critical');
+  assert.equal(usageLevel({ total: 4.6 * MB, largest: 4 * MB }, 'web'), 'critical');
+  assert.equal(usageLevel({ total: 500 * MB, largest: 100 * MB }, 'ios'), 'ok', 'no fixed limit on iPhone');
 });
 
 void AsyncStorage;

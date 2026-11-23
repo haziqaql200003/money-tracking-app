@@ -56,6 +56,11 @@ export const msCommon: Record<keyof typeof enCommon, string> = {
   'common.storageReadOnly': 'Selagi perkara ini belum selesai, perubahan baharu pada rekod tersebut tidak akan disimpan.',
   'common.storageRetry': 'Cuba lagi',
   'common.storageLater': 'Bukan sekarang',
+  // could not save (3.8.1)
+  'common.saveFailTitle': 'Perubahan tidak dapat disimpan',
+  'common.saveFailBody': 'Perubahan terbaharu anda masih ada pada skrin, tetapi belum disimpan dan akan hilang jika WaKira ditutup. Semua yang disimpan sebelum ini tidak berubah.',
+  'common.saveFailFull': 'Storan yang digunakan WaKira dalam telefon ini sudah penuh. Buka Lagi > Data & Privasi untuk melihat jumlah yang digunakan, buat sandaran, kemudian cuba lagi.',
+  'common.saveFailOther': 'Cuba lagi. Jika ia terus berlaku, buat sandaran dari Lagi > Data & Privasi.',
   'common.storageOptions': 'Pilihan lain',
   'common.storageUnsavedTitle': 'Perubahan tidak disimpan',
   'common.storageUnsavedBody': 'Perubahan terakhir anda tidak disimpan kerana rekod tersebut masih tidak dapat dibaca.',

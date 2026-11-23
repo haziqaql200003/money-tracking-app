@@ -16,6 +16,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useProfile } from '@/context/ProfileContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useTransactions } from '@/context/TransactionsContext';
+import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { useT, type TKey } from '@/i18n';
 import { categoryName } from '@/i18n/data';
@@ -44,7 +45,9 @@ export function HomeDesktop() {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
-  const { ready, selectableAccounts, transactions, accountBalance, budgetEntries } = useTransactions();
+  const { ready, selectableAccounts, accountBalance, budgetEntries } = useTransactions();
+  // Income and spending as Faham counts them, so these tiles match Analyse for the same month.
+  const { entries } = useLedger();
   const { expenseCategories } = useCategories();
   const { debts } = useDebts();
   const { warnPercent, calendarMonths } = useSettings();
@@ -59,13 +62,13 @@ export function HomeDesktop() {
   const money = (n: number) => (hideAmounts ? MASK : formatMoney(n));
 
   const spendable = selectableAccounts.filter((a) => !looksLikeSavings(a));
-  const spendableIds = new Set(spendable.map((a) => a.id));
   const spendableBalance = spendable.reduce((s, a) => s + accountBalance(a.id), 0);
   const nowCycle = cycleOf(today);
   let income = 0;
   let spending = 0;
-  for (const x of transactions) {
-    if (!spendableIds.has(x.accountId) || cycleOf(x.date) !== nowCycle) continue;
+  // Every account, like the phone Home's "Spent this month" tile and Analyse (spending from savings still counts).
+  for (const x of entries) {
+    if (cycleOf(x.date) !== nowCycle) continue;
     if (x.type === 'credit') income += x.amount;
     else spending += x.amount;
   }

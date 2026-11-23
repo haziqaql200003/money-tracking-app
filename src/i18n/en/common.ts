@@ -55,6 +55,11 @@ export const enCommon = {
   'common.storageReadOnly': 'Until this is fixed, new changes to those records will not be saved.',
   'common.storageRetry': 'Try again',
   'common.storageLater': 'Not now',
+  // could not save (3.8.1)
+  'common.saveFailTitle': 'Couldn\'t save your changes',
+  'common.saveFailBody': 'Your latest changes are still on screen, but they are not saved yet and will be lost if WaKira is closed. Everything saved before is unchanged.',
+  'common.saveFailFull': 'The storage WaKira uses on this phone is full. Open More > Data & Privacy to see how much is used, make a backup, then try again.',
+  'common.saveFailOther': 'Try again. If it keeps happening, make a backup from More > Data & Privacy.',
   'common.storageOptions': 'Other options',
   'common.storageUnsavedTitle': 'Change not saved',
   'common.storageUnsavedBody': 'Your last change was not saved because those records still cannot be read.',

@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
@@ -44,15 +44,33 @@ function LockScope({ children }: { children: ReactNode }) {
   return <AppLockProvider key={user?.id ?? 'none'}>{children}</AppLockProvider>;
 }
 
+/** Pages a step may open on top of itself (the sign-up and consent steps link to the Privacy Notice). */
+const OPEN_PAGES = new Set(['privacy', 'auth-callback']);
+
 function RootNavigator() {
   const { user, isReady, migrationPending } = useAuth();
   const { lang } = useT();
-  if (!isReady) return null; // splash masih menutup skrin
+  const router = useRouter();
+  const segments = useSegments() as string[];
 
   const loggedIn = !!user;
   const onboarded = !!user?.hasOnboarded;
   // An account that began with Google / Apple has not seen the Privacy Notice yet.
   const needsConsent = loggedIn && !user?.consentAt;
+
+  // The one-time step a signed-in account still has to finish, if any.
+  const gate = !loggedIn ? null : needsConsent ? 'consent' : migrationPending ? 'migrate' : !onboarded ? 'onboarding' : null;
+  const here = segments[0] ?? '';
+  // On the web an address can be opened or reloaded at any time (e.g. "/" before the tutorial is finished). The router
+  // then shows the first page it is allowed to, which is the Privacy Notice. Send the pengguna to their step instead.
+  // A Privacy Notice opened from a step (Back leads to it) stays; one the router fell back to has nothing under it.
+  useEffect(() => {
+    if (!isReady || !gate || here === gate) return;
+    if (OPEN_PAGES.has(here) && router.canGoBack()) return;
+    router.replace(`/${gate}` as Href);
+  }, [isReady, gate, here, router]);
+
+  if (!isReady) return null; // splash masih menutup skrin
 
   return (
     // Remounting on a language change redraws every screen in the new language.
