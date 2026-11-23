@@ -13,10 +13,20 @@ import { Spacing, tabularNums } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { AddTransactionModal } from '@/components/transactions/add-transaction-modal';
-import type { Transaction } from '@/context/TransactionsContext';
+import type { Transaction, Transfer } from '@/context/TransactionsContext';
 import { useTransactions } from '@/context/TransactionsContext';
 import { AdjustmentsModal } from '@/components/transactions/adjustments-modal';
-import { adjustmentAccountId, isAdjustmentEntry } from '@/utils/saved';
+import { TransferModal } from '@/components/transactions/transfer-modal';
+import { Alert } from '@/services/dialog';
+import {
+  adjustmentAccountId,
+  allTransferEntries,
+  isAdjustmentEntry,
+  isDebtEntry,
+  isEditableTransferEntry,
+  isLinkedEntry,
+  savedTransferId,
+} from '@/utils/saved';
 import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/utils/currency';
@@ -64,7 +74,8 @@ export function RecentTransactions({ accountId, accountName }: Props) {
   const colors = useTheme();
   const router = useRouter();
   const { hideAmounts } = usePrivacy();
-  const { transactions } = useTransactions();
+  const { transactions, transfers, accounts } = useTransactions();
+  const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
   // The "spent this month" line counts like Analyse; the list itself still shows every record.
   const { entries } = useLedger();
   const { openAddRecord } = useAddRecord();
@@ -92,8 +103,20 @@ export function RecentTransactions({ accountId, accountName }: Props) {
     return { count, spent };
   }, [accountTxns, entries, accountId]);
 
+  // Transfers between your own accounts are listed under "All" (3.9.0), so money moved from Maybank to Ryt shows up
+  // on both sides. They never count in the day's net, income or spending.
+  const transferRows = useMemo(() => {
+    const hiddenIds = new Set(accounts.filter((a) => a.hidden).map((a) => a.id));
+    return allTransferEntries(
+      transfers.filter((tr) => !accountId || tr.fromAccountId === accountId || tr.toAccountId === accountId),
+      hiddenIds,
+    );
+  }, [transfers, accounts, accountId]);
+
   const sections = useMemo(() => {
-    const visible = accountTxns.filter((t) => filter === 'all' || t.type === filter).slice(0, MAX_ROWS);
+    const visible = (filter === 'all' ? [...accountTxns, ...transferRows] : accountTxns.filter((t) => t.type === filter))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+      .slice(0, MAX_ROWS);
     const groups = new Map<string, typeof visible>();
     visible.forEach((t) => {
       const list = groups.get(t.date) ?? [];
@@ -102,10 +125,18 @@ export function RecentTransactions({ accountId, accountName }: Props) {
     });
     return Array.from(groups.entries()).map(([date, items]) => ({
       date,
-      net: items.reduce((sum, t) => sum + (t.type === 'credit' ? t.amount : -t.amount), 0),
+      net: items.reduce((sum, t) => (isLinkedEntry(t) ? sum : sum + (t.type === 'credit' ? t.amount : -t.amount)), 0),
+      onlyTransfers: items.every(isLinkedEntry),
       items,
     }));
-  }, [accountTxns, filter]);
+  }, [accountTxns, transferRows, filter]);
+
+  function open(item: Transaction) {
+    if (isAdjustmentEntry(item)) return setAdjustmentsFor(adjustmentAccountId(item));
+    if (isEditableTransferEntry(item)) return setEditingTransfer(transfers.find((tr) => tr.id === savedTransferId(item)) ?? null);
+    if (isDebtEntry(item) || item.debtId || item.iouId) return Alert.alert(t('debt.blocked.title'), t('debt.blocked.body'));
+    setEditing(item);
+  }
 
   const heading = accountName ? t('home.recent.headingAccount', { name: accountName }) : t('home.recent.heading');
   const spentText = hideAmounts ? MASK : formatMoney(summary.spent);
@@ -149,6 +180,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
               <ThemedText type="small" style={{ color: colors.textSecondary, fontWeight: '600' }}>
                 {dayLabel(section.date, t)}
               </ThemedText>
+{section.onlyTransfers ? null : (
               <ThemedText
                 type="small"
                 style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600', ...tabularNums }}
@@ -157,6 +189,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
                   ? MASK
                   : formatMoney(section.net, { signed: true, type: section.net < 0 ? 'debit' : 'credit' })}
               </ThemedText>
+              )}
             </View>
             {section.items.map((item, i) => (
               <SwipeableTransactionRow
@@ -164,8 +197,9 @@ export function RecentTransactions({ accountId, accountName }: Props) {
                 item={item}
                 showAccount={!accountId}
                 hidden={hideAmounts}
-                onOpen={() => (isAdjustmentEntry(item) ? setAdjustmentsFor(adjustmentAccountId(item)) : setEditing(item))}
+                onOpen={() => open(item)}
                 position={rowPosition(i, section.items.length)}
+                viewAccountId={accountId ?? null}
               />
             ))}
           </View>
@@ -187,6 +221,7 @@ export function RecentTransactions({ accountId, accountName }: Props) {
         editingTransaction={editing}
       />
       <AdjustmentsModal visible={!!adjustmentsFor} onClose={() => setAdjustmentsFor(null)} accountId={adjustmentsFor} />
+      <TransferModal visible={!!editingTransfer} onClose={() => setEditingTransfer(null)} editing={editingTransfer} />
     </View>
   );
 }

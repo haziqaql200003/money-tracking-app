@@ -14,9 +14,31 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.9.0';
+export const CURRENT_VERSION = '3.9.1';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.9.1',
+    date: '2026-11-23',
+    title: 'Follow your transfers', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Jejak pindahan anda',
+    highlights: [
+      { text: 'Transfers between your own accounts now show on both sides: money out of Maybank, money into Ryt', ms: 'Pindahan antara akaun anda sendiri kini dipaparkan di kedua-dua belah: wang keluar dari Maybank, wang masuk ke Ryt' }, // i18n-ignore: bilingual data
+      { text: 'Pick an account in Transactions to see what moved in and out, kept apart from income and spending', ms: 'Pilih satu akaun dalam Transaksi untuk melihat apa yang masuk dan keluar, berasingan daripada pendapatan dan perbelanjaan' }, // i18n-ignore: bilingual data
+      { text: 'Less text cut short on phones: Coming up, page titles, Recurring and amounts', ms: 'Kurang teks terpotong di telefon: Akan datang, tajuk halaman, Berulang dan jumlah' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Every transfer is listed in Transactions and in the recent records on Home, including plain transfers with no budget, goal or debt attached. Tap one to edit it.', ms: 'Setiap pindahan disenaraikan dalam Transaksi dan dalam rekod terkini di Utama, termasuk pindahan biasa tanpa bajet, matlamat atau hutang. Ketik untuk mengeditnya.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'With one account picked, a transfer reads from that side: +RM 100 from Maybank when the money arrives, −RM 100 to Ryt when it leaves. With all accounts it shows Maybank → Ryt.', ms: 'Apabila satu akaun dipilih, pindahan dibaca dari pihak akaun itu: +RM 100 dari Maybank apabila wang masuk, −RM 100 ke Ryt apabila wang keluar. Untuk semua akaun ia menunjukkan Maybank → Ryt.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'A Between your own accounts line under the month’s In and Out shows what transfers moved in and out of the picked account. Tap it to list them.', ms: 'Baris Antara akaun anda sendiri di bawah Masuk dan Keluar bulan ini menunjukkan apa yang dipindah masuk dan keluar dari akaun yang dipilih. Ketik untuk menyenaraikannya.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Transfers still never count as income or spending, so charts and totals stay the same as Analyse. The day total above each group of records leaves them out too.', ms: 'Pindahan tetap tidak dikira sebagai pendapatan atau perbelanjaan, jadi carta dan jumlah kekal sama seperti Faham. Jumlah harian di atas setiap kumpulan rekod juga tidak mengiranya.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'On phones, Coming up on Home cut names and dates short ("G…", "In 7 …"). It now takes the full width, with Spent this month and Budget side by side under it.', ms: 'Di telefon, Akan datang di Utama memotong nama dan tarikh ("G…", "In 7 …"). Kini ia menggunakan lebar penuh, dengan Belanja bulan ini dan Bajet bersebelahan di bawahnya.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Long page titles such as Transactions and Accounts & assets get a little smaller instead of being cut when buttons sit beside them.', ms: 'Tajuk halaman yang panjang seperti Transaksi dan Akaun & aset dikecilkan sedikit dan tidak lagi terpotong apabila ada butang di sebelahnya.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Recurring shows when each item is next due on its own line, and long names, record details and transfer lines can use two lines instead of being cut.', ms: 'Berulang menunjukkan bila setiap item seterusnya pada baris sendiri, dan nama panjang, butiran rekod serta baris pindahan boleh menggunakan dua baris dan tidak lagi terpotong.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'On the web, amounts that fit their box in the phone app (such as Income in Transactions) were cut with "…". They now shrink to fit.', ms: 'Di web, jumlah yang muat dalam kotaknya di app telefon (seperti Pendapatan dalam Transaksi) terpotong dengan "…". Kini ia mengecil supaya muat.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'On the web, picking an account near the edge of the account row in Transactions slid the whole page sideways.', ms: 'Di web, memilih akaun di hujung baris akaun dalam Transaksi menggelongsorkan seluruh halaman ke tepi.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.9.0',
     date: '2026-11-23',

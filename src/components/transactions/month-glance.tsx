@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/ui/category-icon';
 import { ThemedText } from '@/components/ui/themed-text';
@@ -27,7 +27,7 @@ export type StripItem = { id: string | null; label: string; icon: IconName; bala
 export function AccountStrip({ items, selectedId, onSelect, hidden }: { items: StripItem[]; selectedId: string | null; onSelect: (id: string | null) => void; hidden: boolean }) {
   const colors = useTheme();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stripScroll} contentContainerStyle={styles.strip} keyboardShouldPersistTaps="handled">
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.stripScroll, Platform.OS === 'web' && styles.stripScrollWeb]} contentContainerStyle={[styles.strip, Platform.OS === 'web' && styles.stripWeb]} keyboardShouldPersistTaps="handled">
       {items.map((it) => {
         const on = selectedId === it.id;
         return (
@@ -273,6 +273,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   stripScroll: { marginHorizontal: -Spacing.four, flexGrow: 0, marginBottom: Spacing.three },
   strip: { paddingHorizontal: Spacing.four, gap: Spacing.three },
+  // Web: no bleed past the page edges. With it, picking an account half off the edge slid the whole list header
+  // sideways (the browser scrolls a focused button into view, even inside a clipped box) (3.9.1).
+  stripScrollWeb: { marginHorizontal: 0 },
+  stripWeb: { paddingHorizontal: 0 },
   stripItem: { width: 66, alignItems: 'center', gap: 2 },
   ring: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   circle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },

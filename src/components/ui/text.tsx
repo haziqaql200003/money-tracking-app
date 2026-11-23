@@ -1,5 +1,6 @@
-import { createContext, useContext, type ComponentRef, type Ref } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, type ComponentRef, type Ref } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
@@ -88,8 +89,73 @@ export function Text({ style, ref, ...rest }: TextProps & { ref?: Ref<Text> }) {
   const nested = useContext(InText);
   const appScale = useTextScale();
   const scale = rest.allowFontScaling === false ? 1 : appScale;
-  const element = <RNText ref={ref} {...rest} style={[style, adapt(style, scale, nested)]} />;
+  const adapted = adapt(style, scale, nested);
+  const fitRef = useWebFit(
+    Platform.OS === 'web' && !!rest.adjustsFontSizeToFit && rest.numberOfLines === 1,
+    rest.minimumFontScale ?? 0.5,
+    ref,
+    rest.children,
+  );
+  const element = <RNText ref={fitRef} {...rest} style={[style, adapted]} />;
   return nested ? element : <InText.Provider value={true}>{element}</InText.Provider>;
+}
+
+/** Passes the element on to a ref given by the caller (function or object ref). */
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (typeof ref === 'function') ref(value);
+  else if (ref) (ref as { current: T | null }).current = value;
+}
+
+/**
+ * Web only: adjustsFontSizeToFit is an iOS/Android feature, so on the web a fitted amount was cut with "…"
+ * ("+RM 3,000.…"). This shrinks the text until it fits its box, down to minimumFontScale (3.9.1).
+ * Works on the DOM node directly so it causes no extra render; re-checks when the text or the box size changes.
+ */
+function useWebFit(enabled: boolean, minScale: number, outerRef: Ref<Text> | undefined, children: unknown): Ref<Text> | undefined {
+  const node = useRef<HTMLElement | null>(null);
+  const base = useRef<number | null>(null);
+
+  const fit = useCallback(() => {
+    const el = node.current;
+    if (!el) return;
+    el.style.removeProperty('font-size');
+    el.style.removeProperty('line-height');
+    const cs = window.getComputedStyle(el);
+    const size = parseFloat(cs.fontSize);
+    const lh = parseFloat(cs.lineHeight);
+    if (!size || el.clientWidth === 0) return;
+    base.current = size;
+    if (el.scrollWidth <= el.clientWidth + 1) return;
+    const ratio = Math.max(minScale, (el.clientWidth / el.scrollWidth) * 0.98);
+    el.style.fontSize = `${size * ratio}px`;
+    if (lh) el.style.lineHeight = `${lh * ratio}px`;
+  }, [minScale]);
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    fit();
+    const el = node.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    // Watch the parent: the text's own width follows its font size, the parent's follows the screen.
+    const watched = el.parentElement ?? el;
+    let last = watched.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (watched.clientWidth === last) return;
+      last = watched.clientWidth;
+      fit();
+    });
+    ro.observe(watched);
+    return () => ro.disconnect();
+  }, [enabled, fit, children]);
+
+  const setRef = useCallback(
+    (el: Text | null) => {
+      node.current = el as unknown as HTMLElement | null;
+      assignRef(outerRef, el);
+    },
+    [outerRef],
+  );
+  return enabled ? setRef : outerRef;
 }
 
 export type TextInput = ComponentRef<typeof RNTextInput>;

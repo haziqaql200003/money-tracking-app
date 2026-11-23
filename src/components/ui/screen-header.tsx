@@ -1,6 +1,7 @@
 import { usePathname, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { FitTitle } from '@/components/ui/fit-title';
 import { Text } from '@/components/ui/text';
 
 import { useIsDesktop } from '@/components/desktop/use-desktop';
@@ -24,9 +25,13 @@ export function ScreenHeader({ title, right }: { title: string; right?: ReactNod
   return (
     <View style={[styles.row, desktop && styles.desktopRow]}>
       {showBack ? <IconButton icon="chevron-back" onPress={() => router.back()} label={t('common.back')} /> : null}
-      <Text style={[Type.title, styles.title, { color: colors.text }, desktop && !showBack && styles.desktopTitle]} numberOfLines={1} accessibilityRole="header">
-        {title}
-      </Text>
+      {desktop && !showBack ? (
+        <Text style={[Type.title, styles.title, { color: colors.text }, styles.desktopTitle]} numberOfLines={1} accessibilityRole="header">
+          {title}
+        </Text>
+      ) : (
+        <FitTitle title={title} fontSize={Type.title.fontSize} lineHeight={Type.title.lineHeight} style={[Type.title, { color: colors.text }]} />
+      )}
       <View style={styles.right}>{right}</View>
     </View>
   );

@@ -257,13 +257,17 @@ export function HomeUpcoming({ variant = 'row' }: { variant?: 'row' | 'list' | '
                 accessibilityLabel={`${i.title}, ${whenText(i)}, ${amountText(i)}`}
               >
                 <View style={[styles.tileBar, { backgroundColor: isLate ? colors.negative : i.type === 'credit' ? colors.positive : i.daysUntil <= 3 ? colors.warning : colors.divider }]} />
+                {/* Half a phone screen is narrow: the name gets its own line, the date and amount share the second
+                    (3.9.0; before, all three on one line cut names to "G…" and dates to "In 7 …"). */}
                 <View style={styles.listBody}>
                   <ThemedText style={styles.tileName} numberOfLines={1}>{i.title}</ThemedText>
-                  <ThemedText style={[styles.tileWhen, { color: dueColor(i) }]} numberOfLines={1}>{dueText(i.daysUntil)}</ThemedText>
+                  <View style={styles.tileLine}>
+                    <ThemedText style={[styles.tileWhen, styles.flexShrink, { color: dueColor(i) }]} numberOfLines={1}>{dueText(i.daysUntil)}</ThemedText>
+                    <ThemedText style={[styles.tileAmount, { color: i.type === 'credit' ? colors.positive : isLate ? colors.negative : colors.text }]} numberOfLines={1}>
+                      {amountText(i)}
+                    </ThemedText>
+                  </View>
                 </View>
-                <ThemedText style={[styles.tileAmount, { color: i.type === 'credit' ? colors.positive : isLate ? colors.negative : colors.text }]} numberOfLines={1}>
-                  {amountText(i)}
-                </ThemedText>
               </Pressable>
             );
           })}
@@ -376,6 +380,7 @@ const styles = StyleSheet.create({
   tileBar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   tileName: { fontSize: FontSize.caption, fontWeight: '800' },
   tileWhen: { fontSize: FontSize.micro, fontWeight: '700' },
-  tileAmount: { fontSize: FontSize.caption, fontWeight: '800', ...tabularNums },
+  tileAmount: { fontSize: FontSize.caption, fontWeight: '800', ...tabularNums, flexShrink: 0 },
+  tileLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 },
   tileMore: { marginTop: 'auto', paddingTop: 4 },
 });

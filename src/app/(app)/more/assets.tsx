@@ -563,10 +563,10 @@ export default function AssetsScreen() {
                           <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
                         </View>
                         <View style={styles.flex}>
-                          <ThemedText numberOfLines={1}>
+                          <ThemedText numberOfLines={2}>
                             {nameOfAccount(tr.fromAccountId)} → {nameOfAccount(tr.toAccountId)}
                           </ThemedText>
-                          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={2}>
                             {dayLabel(tr.date)}
                             {tr.note ? ` · ${tr.note}` : ''}
                             {tr.recurringId ? ` · ${t('home.row.recurring')}` : ''}

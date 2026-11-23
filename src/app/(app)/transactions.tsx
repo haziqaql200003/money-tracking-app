@@ -28,7 +28,7 @@ import { FontSize, Radius, Spacing, tabularNums } from '@/constants/theme';
 import { useAddRecord } from '@/context/AddRecordContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Transaction, TransactionType, Transfer } from '@/context/TransactionsContext';
-import { adjustmentAccountId, debtEntries, goalEntriesOnly, isAdjustmentEntry, isDebtEntry, isEditableTransferEntry, isLinkedEntry, savedEntries, savedTransferId } from '@/utils/saved';
+import { adjustmentAccountId, debtEntries, goalEntriesOnly, isAdjustmentEntry, isDebtEntry, isEditableTransferEntry, isLinkedEntry, plainTransferEntries, savedEntries, savedTransferId } from '@/utils/saved';
 import { useTransactions } from '@/context/TransactionsContext';
 import { useLedger } from '@/hooks/use-ledger';
 import { useTheme } from '@/hooks/use-theme';
@@ -122,7 +122,29 @@ export default function TransactionsScreen() {
       ),
     [transfers, monthKey, accountId],
   );
+  // Plain transfers between your own accounts (Maybank → Ryt): listed too, so the money can be followed (3.9.0).
+  const monthPlain = useMemo(
+    () =>
+      plainTransferEntries(
+        transfers.filter((tr) => cycleOf(tr.date) === monthKey && (!accountId || tr.fromAccountId === accountId || tr.toAccountId === accountId)),
+      ),
+    [transfers, monthKey, accountId],
+  );
   const savedTotal = [...monthSaved, ...monthGoal].reduce((sum, e) => sum + e.amount, 0);
+  // Money moved in and out of the selected account by transfers this month. Shown on its own line, never as income
+  // or spending (Faham): a transfer only moves your money from one of your accounts to another.
+  const hiddenIds = useMemo(() => new Set(accounts.filter((a) => a.hidden).map((a) => a.id)), [accounts]);
+  const transferFlow = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    if (!accountId) return { inflow, outflow };
+    transfers.forEach((tr) => {
+      if (cycleOf(tr.date) !== monthKey) return;
+      if (tr.toAccountId === accountId && !hiddenIds.has(tr.fromAccountId)) inflow += tr.amount;
+      if (tr.fromAccountId === accountId && !hiddenIds.has(tr.toAccountId)) outflow += tr.amount;
+    });
+    return { inflow, outflow };
+  }, [transfers, monthKey, accountId, hiddenIds]);
 
   const flowsInAccount = useMemo(() => flows.filter((t) => !accountId || t.accountId === accountId), [flows, accountId]);
   const stats = useMemo(() => {
@@ -155,7 +177,7 @@ export default function TransactionsScreen() {
 
   // The list is further narrowed by type, category and search.
   const q = query.trim().toLowerCase();
-  const linkedEntries = useMemo(() => [...monthSaved, ...monthGoal, ...monthDebt], [monthSaved, monthGoal, monthDebt]);
+  const linkedEntries = useMemo(() => [...monthPlain, ...monthSaved, ...monthGoal, ...monthDebt], [monthPlain, monthSaved, monthGoal, monthDebt]);
   const filtered = useMemo(
     () =>
       [...(type === 'transfer' ? [] : monthTxns), ...(type === 'all' || type === 'transfer' ? linkedEntries : [])]
@@ -179,6 +201,8 @@ export default function TransactionsScreen() {
     return Array.from(groups.entries()).map(([date, data]) => ({
       title: date,
       net: data.reduce((sum, t) => (isLinkedEntry(t) ? sum : sum + (t.type === 'credit' ? t.amount : -t.amount)), 0),
+      // A day with only transfers has no income or spending, so it shows no day total (3.9.1).
+      onlyTransfers: data.every(isLinkedEntry),
       data,
     }));
   }, [filtered]);
@@ -253,6 +277,42 @@ export default function TransactionsScreen() {
     ...selectableAccounts.map((a) => ({ id: a.id, label: accountName(a), icon: a.icon })),
   ];
 
+  // One account picked and money moved to or from it: "Between your own accounts · In RM 100 · Out RM 0".
+  const transferRow =
+    accountId && transferFlow.inflow + transferFlow.outflow > 0 ? (
+      <Pressable
+        onPress={() => {
+          setType('transfer');
+          setView('list');
+        }}
+        style={({ pressed }) => [styles.transferRow, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
+        accessibilityRole="button"
+        accessibilityHint={t('tx.transfer.summaryNote')}
+      >
+        <Ionicons name="swap-horizontal" size={18} color={colors.accent} />
+        <View style={styles.transferBody}>
+          <ThemedText type="small" style={styles.transferTitle}>
+            {t('tx.transfer.summaryTitle')}
+          </ThemedText>
+          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+            {t('tx.transfer.summaryNote')}
+          </ThemedText>
+        </View>
+        <View style={styles.transferAmounts}>
+          {transferFlow.inflow > 0 ? (
+            <ThemedText type="smallBold" style={[styles.transferNum, { color: colors.positive }]} numberOfLines={1}>
+              {t('tx.transfer.summaryIn', { amount: hideAmounts ? MASK : formatMoney(transferFlow.inflow) })}
+            </ThemedText>
+          ) : null}
+          {transferFlow.outflow > 0 ? (
+            <ThemedText type="smallBold" style={[styles.transferNum, { color: colors.text }]} numberOfLines={1}>
+              {t('tx.transfer.summaryOut', { amount: hideAmounts ? MASK : formatMoney(transferFlow.outflow) })}
+            </ThemedText>
+          ) : null}
+        </View>
+      </Pressable>
+    ) : null;
+
   const titleBlock = (
     <>
       {/* Title */}
@@ -289,6 +349,8 @@ export default function TransactionsScreen() {
         selectedId={categoryId}
         onSelect={toggleCategory}
       />
+
+      {transferRow}
 
       {savedTotal > 0 ? (
         <View style={[styles.savedRow, { backgroundColor: colors.backgroundElement }]}>
@@ -424,6 +486,7 @@ export default function TransactionsScreen() {
       />
       {selectableAccounts.length > 1 ? <AccountStrip items={stripItems} selectedId={accountId} onSelect={selectAccount} hidden={hideAmounts} /> : null}
       <InOutCard income={stats.income} spending={stats.spending} hidden={hideAmounts} />
+      {transferRow}
       {savedTotal > 0 ? (
         <View style={[styles.savedRow, { backgroundColor: colors.backgroundElement }]}>
           <Ionicons name="wallet-outline" size={18} color={colors.accent} />
@@ -508,7 +571,7 @@ export default function TransactionsScreen() {
 
   const empty = !ready ? (
     <ScreenSkeleton rows={8} />
-  ) : monthTxns.length + monthSaved.length + monthGoal.length + monthDebt.length === 0 ? (
+  ) : monthTxns.length + linkedEntries.length === 0 ? (
       <Card padding={0} style={styles.empty}>
         <EmptyState
           icon="receipt-outline"
@@ -543,6 +606,7 @@ export default function TransactionsScreen() {
               item={item}
               position={rowPosition(index, section.data.length)}
               showAccount={!accountId}
+              viewAccountId={accountId}
               hidden={hideAmounts}
               onOpen={() =>
                 isAdjustmentEntry(item)
@@ -565,6 +629,7 @@ export default function TransactionsScreen() {
                   {`  ·  ${tp('tx.list.count', section.data.length)}`}
                 </ThemedText>
               </ThemedText>
+{section.onlyTransfers ? null : (
               <ThemedText
                 type="small"
                 style={{ color: section.net < 0 ? colors.negative : colors.positive, fontWeight: '600', ...tabularNums }}
@@ -573,6 +638,7 @@ export default function TransactionsScreen() {
                   ? MASK
                   : formatMoney(section.net, { signed: true, type: section.net < 0 ? 'debit' : 'credit' })}
               </ThemedText>
+              )}
             </View>
           )}
           ListHeaderComponent={header}
@@ -608,6 +674,11 @@ const styles = StyleSheet.create({
   viewToggle: { marginBottom: Spacing.three },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.three },
   savedLabel: { flex: 1 },
+  transferRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.three },
+  transferBody: { flex: 1, minWidth: 0, gap: 2 },
+  transferTitle: { fontWeight: '700' },
+  transferAmounts: { alignItems: 'flex-end', gap: 2, flexShrink: 0 },
+  transferNum: { ...tabularNums },
   container: { flex: 1 },
   flex: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four },

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View, useColorScheme, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { HomeUpcoming, useUpcomingItems } from '@/components/home/home-upcoming';
@@ -222,8 +222,28 @@ function BudgetTile() {
   );
 }
 
-/** Coming up on the left, this month's spending and the budget ring on the right. */
+/**
+ * Coming up on the left, this month's spending and the budget ring on the right.
+ * Phones (under 560 pt wide): Coming up takes the full width and the two small tiles sit side by side under it.
+ * Half a phone screen was too narrow for bill names and dates, which were cut to "G…" and "In 7 …" (3.9.1).
+ */
 export function HomeBento({ accountId }: { accountId?: string }) {
+  const { width } = useWindowDimensions();
+  if (width < STACK_BELOW) {
+    return (
+      <View style={styles.colGap}>
+        <HomeUpcoming variant="tile" />
+        <View style={styles.bento}>
+          <View style={styles.col}>
+            <SpendTile accountId={accountId} />
+          </View>
+          <View style={styles.col}>
+            <BudgetTile />
+          </View>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={styles.bento}>
       <View style={styles.col}>
@@ -236,6 +256,8 @@ export function HomeBento({ accountId }: { accountId?: string }) {
     </View>
   );
 }
+
+const STACK_BELOW = 560;
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },

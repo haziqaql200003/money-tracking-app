@@ -17,6 +17,8 @@ type Props = {
   background?: string;
   /** Position inside its day card: rounds the right corners and hides the last divider. */
   position?: 'first' | 'middle' | 'last' | 'only';
+  /** The account the list is showing: transfers read as money in or out of it. */
+  viewAccountId?: string | null;
 };
 
 /** Where row `i` of `n` sits inside its card. */
@@ -25,7 +27,7 @@ export function rowPosition(i: number, n: number): 'first' | 'middle' | 'last' |
 }
 
 /** A transaction row with swipe actions: left = Edit and Delete (all the way = delete), right = copy to today. */
-export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, background, position = 'middle' }: Props) {
+export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, background, position = 'middle', viewAccountId }: Props) {
   const colors = useTheme();
   const { t } = useT();
   const { offer } = useUndo();
@@ -72,7 +74,7 @@ export function SwipeableTransactionRow({ item, showAccount, hidden, onOpen, bac
       onFullSwipe={remove}
       leftAction={linked ? undefined : { key: 'copy', label: t('common.copy'), icon: 'copy-outline', color: colors.positive, onPress: copy }}
     >
-      <TransactionRow item={item} showAccount={showAccount} hidden={hidden} onPress={onOpen} last={position === 'last' || position === 'only'} />
+      <TransactionRow item={item} showAccount={showAccount} hidden={hidden} onPress={onOpen} last={position === 'last' || position === 'only'} viewAccountId={viewAccountId} />
     </SwipeRow>
   );
 }

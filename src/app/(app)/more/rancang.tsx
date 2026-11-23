@@ -294,7 +294,7 @@ export default function RancangScreen() {
                   >
                     <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
                     <View style={styles.flex}>
-                      <ThemedText numberOfLines={1}>{b.title}</ThemedText>
+                      <ThemedText numberOfLines={2}>{b.title}</ThemedText>
                       <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
                         {dueText(b.daysUntil)} · {dayLabel(b.date)}
                       </ThemedText>

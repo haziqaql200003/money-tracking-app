@@ -33,13 +33,20 @@ export function adjustmentEntries(accounts: Account[]): Transaction[] {
   );
 }
 
+/**
+ * A plain transfer between two of your own accounts (no budget, goal or debt attached), shown as a row so the
+ * money can be followed from one account to the other (3.9.0). Like every transfer it is never income or spending.
+ */
+export const TRANSFER_PREFIX = 'tr:';
+
 export const isSavedEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(SAVED_PREFIX);
 export const isDebtEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(DEBT_PREFIX);
-/** Either kind of transfer shown as a row in Transactions. */
 export const isGoalEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(GOAL_PREFIX);
-export const isLinkedEntry = (t: Pick<Transaction, 'id'>) => isSavedEntry(t) || isDebtEntry(t) || isGoalEntry(t);
-/** True for rows that open the transfer editor (savings and goal transfers). */
-export const isEditableTransferEntry = (t: Pick<Transaction, 'id'>) => isSavedEntry(t) || isGoalEntry(t);
+export const isPlainTransferEntry = (t: Pick<Transaction, 'id'>) => t.id.startsWith(TRANSFER_PREFIX);
+/** Any transfer shown as a row in Transactions. Never counted as income or spending. */
+export const isLinkedEntry = (t: Pick<Transaction, 'id'>) => isSavedEntry(t) || isDebtEntry(t) || isGoalEntry(t) || isPlainTransferEntry(t);
+/** True for rows that open the transfer editor (plain, savings and goal transfers). */
+export const isEditableTransferEntry = (t: Pick<Transaction, 'id'>) => isSavedEntry(t) || isGoalEntry(t) || isPlainTransferEntry(t);
 export const savedTransferId = (t: Pick<Transaction, 'id'>) => t.id.slice(SAVED_PREFIX.length);
 
 export function savedEntries(transfers: Transfer[]): Transaction[] {
@@ -70,6 +77,41 @@ export function goalEntriesOnly(transfers: Transfer[]): Transaction[] {
       type: 'debit' as const,
       accountId: tr.fromAccountId,
     }));
+}
+
+/** Plain transfers (nothing attached) as rows. Shaped like the other transfer rows: from the sending account. */
+export function plainTransferEntries(transfers: Transfer[]): Transaction[] {
+  return transfers
+    .filter((tr) => !tr.budgetCategoryId && !tr.goalId && !tr.debtId)
+    .map((tr) => ({
+      id: `${TRANSFER_PREFIX}${tr.id}`,
+      title: tr.note?.trim() ?? '',
+      date: tr.date,
+      categoryId: 'financial',
+      subcategory: '',
+      amount: tr.amount,
+      type: 'debit' as const,
+      accountId: tr.fromAccountId,
+    }));
+}
+
+/** Every transfer as a row: plain, savings (in budget), goal and debt transfers. `hiddenIds` = internal debt accounts. */
+export function allTransferEntries(transfers: Transfer[], hiddenIds: ReadonlySet<string>): Transaction[] {
+  return [...plainTransferEntries(transfers), ...savedEntries(transfers), ...goalEntriesOnly(transfers), ...debtEntries(transfers, hiddenIds)];
+}
+
+/**
+ * Which way a transfer row moves money for the account being looked at: 'in' when it arrives there, 'out' when it
+ * leaves, 'between' when no single account is selected (then it is neither, and shows no sign).
+ */
+export function transferDirection(
+  transfer: Pick<Transfer, 'fromAccountId' | 'toAccountId'> | undefined,
+  viewAccountId: string | null | undefined,
+): 'in' | 'out' | 'between' {
+  if (!transfer || !viewAccountId) return 'between';
+  if (transfer.toAccountId === viewAccountId) return 'in';
+  if (transfer.fromAccountId === viewAccountId) return 'out';
+  return 'between';
 }
 
 /** Transfers that belong to a debt (instalment payment, loan payout, credit-line repayment). `hiddenIds` = internal debt accounts. */

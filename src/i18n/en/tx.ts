@@ -31,6 +31,15 @@ export const enTx = {
   'tx.list.tabOut': 'Out',
   'tx.list.tabIn': 'In',
   'tx.list.searchA11y': 'Search',
+  // transfers between your own accounts (3.9.0)
+  'tx.transfer.rowTitle': 'Transfer',
+  'tx.transfer.rowFrom': 'From {account}',
+  'tx.transfer.rowTo': 'To {account}',
+  'tx.transfer.between': '{from} → {to}', // i18n-ignore: same arrow format in both languages
+  'tx.transfer.summaryTitle': 'Between your own accounts',
+  'tx.transfer.summaryIn': 'In {amount}',
+  'tx.transfer.summaryOut': 'Out {amount}',
+  'tx.transfer.summaryNote': 'Transfers move your money; they are not income or spending.',
   // CSV export
   'tx.csv.subcategory': 'Subcategory',
   'tx.csv.type': 'Type',

@@ -33,6 +33,15 @@ export const msTx: Record<keyof typeof enTx, string> = {
   'tx.list.tabOut': 'Keluar',
   'tx.list.tabIn': 'Masuk',
   'tx.list.searchA11y': 'Cari',
+  // transfers between your own accounts (3.9.0)
+  'tx.transfer.rowTitle': 'Pindahan',
+  'tx.transfer.rowFrom': 'Dari {account}',
+  'tx.transfer.rowTo': 'Ke {account}',
+  'tx.transfer.between': '{from} → {to}', // i18n-ignore: same arrow format in both languages
+  'tx.transfer.summaryTitle': 'Antara akaun anda sendiri',
+  'tx.transfer.summaryIn': 'Masuk {amount}',
+  'tx.transfer.summaryOut': 'Keluar {amount}',
+  'tx.transfer.summaryNote': 'Pindahan hanya mengalihkan wang anda; ia bukan pendapatan atau perbelanjaan.',
   // CSV export
   'tx.csv.subcategory': 'Subkategori',
   'tx.csv.type': 'Jenis',

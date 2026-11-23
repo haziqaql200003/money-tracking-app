@@ -105,9 +105,14 @@ export default function RecurringScreen() {
           <CategoryIcon icon={category?.icon ?? 'help-circle'} color={category?.color ?? '#8E8E93'} size={42} />
         )}
         <View style={styles.flex}>
-          <ThemedText numberOfLines={1}>{rule.title}</ThemedText>
-          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={1}>
-            {frequencyLabel(rule.frequency)} · {status}
+          {/* Phones: the name may take two lines, and when it is due gets a line of its own so it is never cut
+              ("Next: In 2 d…" in 3.9.0). How often and which account go on the line under it (3.9.1). */}
+          <ThemedText numberOfLines={2}>{rule.title}</ThemedText>
+          <ThemedText type="small" style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>
+            {status}
+          </ThemedText>
+          <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={2}>
+            {frequencyLabel(rule.frequency)}
             {transfer ? ` · ${accountLabel(rule.accountId)} → ${accountLabel(rule.toAccountId)}` : account ? ` · ${accountName(account)}` : ''}
             {ask ? ` · ${t('tx.rec.modeAsk')}` : ''}
           </ThemedText>
