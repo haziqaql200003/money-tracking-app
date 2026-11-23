@@ -28,6 +28,7 @@ import { ledgerEntries } from '@/utils/ledger';
 import { looksLikeSavings } from '@/utils/saved';
 import type { SavingsGoal } from '@/utils/goals';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -48,7 +49,7 @@ export function GoalFormModal({ visible, onClose, editing }: Props) {
         <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={editing ? t('plan.goalForm.edit') : t('plan.goalForm.new')}
             left={

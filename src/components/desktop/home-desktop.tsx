@@ -1,8 +1,9 @@
-import { useRouter, type Href } from 'expo-router';
+import { useIsFocused, useRouter, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/ui/text';
 
 import { HomeUpcoming } from '@/components/home/home-upcoming';
+import { WhatsNewPopup } from '@/components/home/whats-new-popup';
 import { PendingBanner } from '@/components/transactions/pending-banner';
 import { RecentTransactions } from '@/components/transactions/recent-transactions';
 import { SpendingOverview } from '@/components/home/spending-overview';
@@ -45,6 +46,7 @@ export function HomeDesktop() {
   const colors = useTheme();
   const { t } = useT();
   const router = useRouter();
+  const focused = useIsFocused();
   const { ready, selectableAccounts, accountBalance, budgetEntries } = useTransactions();
   // Income and spending as Faham counts them, so these tiles match Analyse for the same month.
   const { entries } = useLedger();
@@ -204,6 +206,8 @@ export function HomeDesktop() {
           </View>
         </>
       )}
+      {/* After an update the web shows what is new too, once (the phone Home shows it through its guide). */}
+      <WhatsNewPopup visible={ready && focused} />
     </ScrollView>
   );
 }

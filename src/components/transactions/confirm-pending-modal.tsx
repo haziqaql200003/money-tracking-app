@@ -19,6 +19,7 @@ import { formatMoney } from '@/utils/currency';
 import { dayLabel } from '@/utils/dates';
 import { isTransfer } from '@/utils/recurring';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   /** The entry being confirmed. null = closed. */
@@ -39,7 +40,7 @@ export function ConfirmPendingModal({ entry, onClose }: Props) {
         <DragSheet visible={!!entry} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={t('tx.confirm.title')}
             left={

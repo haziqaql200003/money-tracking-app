@@ -31,6 +31,7 @@ import {
 } from '@/utils/debts';
 import { p1 } from '@/utils/percent';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 const WARN_COLOR = '#D97706';
 
@@ -46,7 +47,7 @@ export function DebtDetailModal({ debt, onClose, onEdit }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <DragSheet visible={!!debt} onClose={onClose} style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={debt?.name ?? ''}
             left={

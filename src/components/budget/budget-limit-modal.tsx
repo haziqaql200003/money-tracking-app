@@ -17,6 +17,7 @@ import { categoryName } from '@/i18n/data';
 import { spentByCategory } from '@/utils/budget';
 import { formatMoney } from '@/utils/currency';
 import { monthKeyFromOffset } from '@/utils/dates';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   /** The category being edited. null = closed. */
@@ -45,7 +46,7 @@ export function BudgetLimitModal({ category, spent, monthName, onClose }: Props)
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
 
           {/* Mounted only while a category is open, so the field starts from its limit with no effect. */}
           {category ? <LimitForm key={category.id} category={category} spent={spent} monthName={monthName} onClose={onClose} /> : null}

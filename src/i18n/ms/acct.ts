@@ -337,6 +337,7 @@ export const msAcct: Record<keyof typeof enAcct, string> = {
   'acct.assets.overdrawnNote': '{list}: baki negatif, tidak dipaparkan dalam carta.',
   'acct.assets.accountsHeader': 'Akaun · {count}',
   'acct.assets.sortHint': 'Tekan dan tahan satu akaun, kemudian seret untuk ubah susunan. Leret ke kiri untuk Edit dan Padam.',
+  'acct.assets.sortHint.pointer': 'Klik akaun untuk mengubahnya. Untuk menukar susunan, tahan butang tetikus pada akaun, kemudian seret.',
   'acct.assets.tapToEdit': 'Ketik untuk ubah',
   'acct.assets.overdrawn': 'Baki negatif',
   'acct.assets.empty': 'Kosong',

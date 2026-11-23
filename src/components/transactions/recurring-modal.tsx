@@ -21,6 +21,7 @@ import { accountName, categoryName, subcategoryName } from '@/i18n/data';
 import { toDateKey } from '@/utils/dates';
 import { FREQUENCIES, isTransfer, materializeRecurring } from '@/utils/recurring';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -42,7 +43,7 @@ export function RecurringModal({ visible, onClose, editing }: Props) {
         <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={editing ? t('tx.rec.editTitle') : t('tx.rec.newTitle')}
             left={

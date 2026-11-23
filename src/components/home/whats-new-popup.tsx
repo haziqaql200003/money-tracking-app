@@ -10,6 +10,7 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 import { useUpdates } from '@/context/UpdatesContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 /**
  * Opens by itself once after an update. Big updates (the first or second number changed) get a highlight
@@ -81,7 +82,7 @@ export function WhatsNewPopup({ visible, onTry }: { visible: boolean; /** "Try i
     <Modal visible transparent animationType="slide" onRequestClose={markUpdateSeen} statusBarTranslucent>
       <Pressable style={[styles.fill, { backgroundColor: colors.overlay }]} onPress={markUpdateSeen} accessibilityLabel={t('common.close')} />
       <View style={[styles.sheet, { backgroundColor: colors.backgroundElement, paddingBottom: insets.bottom + Spacing.three }]}>
-        <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+        <SheetHandle style={styles.handle} />
         <View style={styles.sheetHead}>
           <View style={[styles.sheetIcon, { backgroundColor: colors.accent }]}>
             <Ionicons name="sparkles" size={22} color="#fff" />
@@ -111,7 +112,8 @@ export function WhatsNewPopup({ visible, onTry }: { visible: boolean; /** "Try i
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   dim: { flex: 1, justifyContent: 'center', padding: Spacing.four },
-  dialog: { borderRadius: Radius.xl, overflow: 'hidden' },
+  // Phone width fills the screen; a wide browser keeps it to a dialog's width, centred.
+  dialog: { borderRadius: Radius.xl, overflow: 'hidden', width: '100%', maxWidth: 480, alignSelf: 'center' },
   head: { height: 170, padding: 20, justifyContent: 'flex-end', overflow: 'hidden' },
   headCircle: { position: 'absolute', right: -50, top: -40, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.1)' },
   mark: { position: 'absolute', left: 20, top: 20, width: 44, height: 44, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
@@ -124,7 +126,7 @@ const styles = StyleSheet.create({
   lineIcon: { marginTop: 3 },
   ghost: { height: 44, alignItems: 'center', justifyContent: 'center' },
   fill: { flex: 1 },
-  sheet: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingHorizontal: 22, paddingTop: 12, gap: 14 },
+  sheet: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingHorizontal: 22, paddingTop: 12, gap: 14, width: '100%', maxWidth: 560, alignSelf: 'center' },
   handle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center' },
   sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sheetIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

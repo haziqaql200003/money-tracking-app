@@ -29,6 +29,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 import { categoryName, subcategoryName } from '@/i18n/data';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -56,7 +57,7 @@ export function CategoryModal({ visible, onClose, editingCategory, defaultKind =
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           {/* Remounted on every open, so the form starts from the category (or the defaults) with no reset effect. */}
           <CategoryForm key={epoch} onClose={onClose} editingCategory={editingCategory} defaultKind={defaultKind} />
         </DragSheet>

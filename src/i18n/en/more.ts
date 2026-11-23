@@ -82,6 +82,7 @@ export const enMore = {
   'more.settings.cardThemeDefaultSub': 'The normal WaKira look',
   'more.settings.themeFollowHome': 'Follow the card on Home',
   'more.settings.themeFollowHomeSub': 'Swipe to a premium card on Home and the app takes its theme',
+  'more.settings.themeFollowHomeSub.pointer': 'Pick a premium card on Home and the app takes its theme', // mouse/trackpad version (3.9.0)
   'more.settings.cardThemeFooter': 'The app takes the colours of the premium card you pick here: accent, background, charts and the tab bar. Green for income and red for spending never change.',
   'more.settings.cardThemeLight': 'The full theme shows in dark mode only. In light mode WaKira uses just the card\'s accent colour.',
   'more.settings.cardThemeEmpty': 'Give one of your accounts a premium card (Spectrum, Aurora or Titanium) to unlock its theme',
@@ -196,6 +197,7 @@ export const enMore = {
   'more.about.h1.a': 'Tap the + in the middle of the bar, choose expense, income or transfer, then fill in the amount.',
   'more.about.h2.q': 'How do I edit or delete a record?',
   'more.about.h2.a': 'Swipe the record to the left. Swipe all the way to delete it, and tap Undo if it was a mistake.',
+  'more.about.h2.a.pointer': 'Click the record to open it, then choose Delete. Click Undo if it was a mistake.', // mouse/trackpad version (3.9.0)
   'more.about.h3.q': 'How do goals and Tabung work?',
   'more.about.h3.a': 'A Tabung is a savings account. Link it to a goal and money you move into it counts toward that goal. In Rancang you can also divide one account between several goals.',
   'more.about.h4.q': 'Why is my WaKira score missing?',

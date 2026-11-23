@@ -34,10 +34,43 @@ function fill(text: string, params?: Params) {
   return text.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m));
 }
 
+/**
+ * Mouse or trackpad (web): hints say "click" instead of "tap", and sentences about a touch gesture (swipe,
+ * press and hold) use their `<key>.pointer` version when one exists. Decided once when the app loads; phones,
+ * tablets and touch screens keep the touch wording.
+ */
+let pointer = detectPointer();
+function detectPointer(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  try {
+    return window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(pointer: coarse)').matches;
+  } catch {
+    return false;
+  }
+}
+/** For tests: force the wording mode. */
+export function setPointerWording(on: boolean) {
+  pointer = on;
+}
+const TAP_TO_CLICK: Record<Lang, [RegExp, string][]> = {
+  en: [[/\bTAP\b/g, 'CLICK'], [/\bTapping\b/g, 'Clicking'], [/\btapping\b/g, 'clicking'], [/\bTap\b/g, 'Click'], [/\btap\b/g, 'click']],
+  ms: [[/\bKETIK\b/g, 'KLIK'], [/\bKetik\b/g, 'Klik'], [/\bketik\b/g, 'klik']],
+};
+function forPointer(lang: Lang, text: string): string {
+  let out = text;
+  for (const [re, to] of TAP_TO_CLICK[lang]) out = out.replace(re, to);
+  return out;
+}
+
 const warned = new Set<string>();
 function lookup(lang: Lang, key: string): string {
-  const hit = (dictionaries[lang] as Record<string, string>)[key];
-  if (hit !== undefined) return hit;
+  const dict = dictionaries[lang] as Record<string, string>;
+  if (pointer) {
+    const special = dict[`${key}.pointer`];
+    if (special !== undefined) return special;
+  }
+  const hit = dict[key];
+  if (hit !== undefined) return pointer ? forPointer(lang, hit) : hit;
   if (__DEV__ && !warned.has(`${lang}:${key}`)) {
     warned.add(`${lang}:${key}`);
     console.warn(`[i18n] missing "${key}" for "${lang}"`);

@@ -19,6 +19,7 @@ export const msOb: Record<keyof typeof enOb, string> = {
   'ob.story.next': 'Seterusnya',
   'ob.story.start': 'Jom mula',
   'ob.story.swipeHint': 'Leret ke kiri atau tekan Seterusnya',
+  'ob.story.swipeHint.pointer': 'Klik Seterusnya untuk teruskan',
 
   'ob.art.nasiLemak': 'Nasi lemak',
   'ob.art.tehTarik': 'Teh tarik',
@@ -175,6 +176,7 @@ export const msOb: Record<keyof typeof enOb, string> = {
   'ob.coach.add.body': 'Butang + untuk rekod belanja, pendapatan atau pindahan. Boleh pecah kepada item (nasi lemak, SST).',
   'ob.coach.cards.title': 'Kad akaun anda',
   'ob.coach.cards.body': 'Leret untuk tukar akaun; carta dan senarai di bawah ikut akaun yang dipilih. Kad paling hujung untuk tambah akaun: bank, e-wallet, kad kredit atau simpanan.',
+  'ob.coach.cards.body.pointer': 'Tatal atau seret kad ke tepi untuk tukar akaun; carta dan senarai di bawah ikut akaun yang dipilih. Kad paling hujung untuk tambah akaun: bank, e-wallet, kad kredit atau simpanan.',
   'ob.coach.cards.try': 'Tambah akaun',
   'ob.coach.analyse.title': 'Faham corak belanja',
   'ob.coach.analyse.body': 'Analisis tunjuk ke mana duit pergi, hari paling boros dan ramalan hujung bulan.',

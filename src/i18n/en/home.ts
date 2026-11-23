@@ -92,6 +92,7 @@ export const enHome = {
   'home.overview.spentIn': 'Spent in {year}',
   'home.overview.vsPriorWeek': 'vs prior week',
   'home.overview.hintWeek': 'Swipe the chart to see other weeks · tap a day for details',
+  'home.overview.hintWeek.pointer': 'Drag the chart to see other weeks · click a day for details', // mouse/trackpad version (3.9.0)
   'home.overview.hintPoint': 'Tap a point for details',
   // Charts
   'home.chart.noSpending': 'No spending in this period',
@@ -158,6 +159,20 @@ export const enHome = {
   'home.desktop.owedSub': '{count} active · {due} due this month',
   'home.desktop.noDebt': 'No debts recorded',
   'home.desktop.payday': '{days} days to payday',
+  'home.nav.kira': 'Kira', // i18n-ignore: brand word, same in both languages
+  'home.nav.kiraSub': 'Track',
+  'home.nav.faham': 'Faham', // i18n-ignore: brand word, same in both languages
+  'home.nav.fahamSub': 'Understand',
+  'home.nav.rancang': 'Rancang', // i18n-ignore: brand word, same in both languages
+  'home.nav.rancangSub': 'Plan',
+  'home.nav.settingsHelp': 'Settings & help',
+  'home.nav.rancangOverview': 'Plan overview',
+  'home.nav.rancangOverviewSub': 'Bills in the next 30 days, goals and reminders',
+  'home.nav.showGroup': 'Show {group}',
+  'home.nav.hideGroup': 'Hide {group}',
+  'home.nav.pages': '{count} pages',
+  'home.nav.aiSub': 'Record or ask in your own words',
+  'home.tabs.records': 'Records',
   'home.tabs.docs': 'Docs',
   // Date field
   'home.date.pick': 'Pick date',

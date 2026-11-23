@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccountForm } from '@/components/accounts/account-form/account-form';
@@ -10,6 +10,7 @@ import type { Account } from '@/context/TransactionsContext';
 import { useOpenEpoch } from '@/hooks/use-open-epoch';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -39,7 +40,7 @@ export function AddAccountModal({ visible, onClose, editingAccount, initialProvi
               { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
             ]}
           >
-            <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+            <SheetHandle style={styles.handle} />
             {/* Remounted on every open, so the form starts from the account (or the defaults) with no reset effect. */}
             <AccountForm key={epoch} onClose={onClose} editingAccount={editingAccount} onOpenAdjustments={setAdjView} initialProvider={initialProvider} />
             {visible ? <AdjustmentsModal visible={!!adjView} onClose={() => setAdjView(null)} accountId={adjView} /> : null}

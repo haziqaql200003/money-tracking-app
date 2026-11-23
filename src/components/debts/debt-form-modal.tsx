@@ -25,6 +25,7 @@ import { brandKey, findBrand, providerChoices } from '@/constants/brands';
 import { BrandAvatar } from '@/components/ui/brand-avatar';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 /** Quick picks, from the companies WaKira knows (constants/brands.ts), so they group and show their logo. */
 const PROVIDERS: Record<DebtKind, string[]> = {
@@ -46,7 +47,7 @@ export function DebtFormModal({ visible, onClose, editing }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <DragSheet visible={visible} onClose={onClose} style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={editing ? t('debt.edit.title') : t('debt.form.title')}
             left={

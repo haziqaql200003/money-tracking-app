@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SheetHeader } from '@/components/ui/sheet-header';
@@ -9,6 +9,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import type { Transfer } from '@/context/TransactionsContext';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -30,7 +31,7 @@ export function TransferModal({ visible, onClose, editing }: Props) {
         <DragSheet visible={visible} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={editing ? t('tx.transfer.editTitle') : t('common.transfer')}
             left={
@@ -62,4 +63,4 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
   },
   handle: { width: 36, height: 4, borderRadius: Radius.xs, alignSelf: 'center', marginBottom: Spacing.three },
-});
+});

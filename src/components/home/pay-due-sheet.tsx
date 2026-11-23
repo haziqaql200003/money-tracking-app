@@ -18,6 +18,7 @@ import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
 import { creditStatus, instalmentAmount, nextCreditDue } from '@/utils/debts';
 import { iouLeft } from '@/utils/ious';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 /** What the sheet is about: one instalment of a plan, the bill of a credit line (SPayLater, card), or what is left of a record with a person. */
 export type DueTarget = { kind: 'instalment'; debtId: string; n: number } | { kind: 'credit'; debtId: string } | { kind: 'iou'; iouId: string };
@@ -29,7 +30,6 @@ type Props = { target: DueTarget | null; onClose: () => void; onOpenDebts: () =>
  * It writes the same records as paying from the Debts screen.
  */
 export function PayDueSheet({ target, onClose, onOpenDebts }: Props) {
-  const colors = useTheme();
   const { t } = useT();
   const insets = useSafeAreaInsets();
   return (
@@ -37,7 +37,7 @@ export function PayDueSheet({ target, onClose, onOpenDebts }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <DragSheet visible={!!target} onClose={onClose} style={[styles.box, { paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           {/* Mounted only while something is open, so the fields start from its values with no reset code. */}
           {target ? <DueForm key={target.kind === 'iou' ? target.iouId : target.kind === 'credit' ? `credit:${target.debtId}` : `${target.debtId}:${target.n}`} target={target} onClose={onClose} onOpenDebts={onOpenDebts} /> : null}
         </DragSheet>

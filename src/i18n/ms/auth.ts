@@ -80,6 +80,7 @@ export const msAuth: Record<keyof typeof enAuth, string> = {
   'auth.onboarding.tip.add.body': 'Tekan butang + di tengah bar bawah untuk merekod perbelanjaan, pendapatan atau pindahan antara akaun. Boleh dipecahkan kepada item (cth. nasi lemak, SST).',
   'auth.onboarding.tip.cards.title': 'Kad akaun',
   'auth.onboarding.tip.cards.body': 'Di Utama, leret kad ke tepi untuk menukar akaun. Carta dan senarai di bawah akan mengikut akaun yang dipilih.',
+  'auth.onboarding.tip.cards.body.pointer': 'Di Utama, tatal atau seret kad ke tepi untuk menukar akaun. Carta dan senarai di bawah akan mengikut akaun yang dipilih.',
   'auth.onboarding.tip.analyse.title': 'Faham',
   'auth.onboarding.tip.analyse.body': 'Tab Faham menunjukkan pendapatan berbanding perbelanjaan setiap bulan, ke mana wang pergi, hari paling boros dan beberapa ringkasan pantas.',
   'auth.onboarding.tip.plan.title': 'Rancang',

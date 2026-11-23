@@ -22,7 +22,8 @@ const CLOSE_VELOCITY = 0.9;
 /**
  * The box of a bottom sheet that can be pulled down to close, like iOS sheets.
  * Only the top strip (handle + title row) starts a drag, so scrolling the form and moving sliders inside still work.
- * Wide web: the same box becomes a panel on the right edge (full height, no drag), like a desktop app's side panel.
+ * Desktop web: the same box becomes a centred pop-up (no drag, no grab bar), like a desktop app's dialog.
+ * It keeps the sheet's own height rules (content-sized, at most 88% of the window), and Esc or a click outside closes it.
  */
 export function DragSheet({ visible, onClose, style, children }: Props) {
   const colors = useTheme();
@@ -79,15 +80,19 @@ export function DragSheet({ visible, onClose, style, children }: Props) {
 const styles = StyleSheet.create({
   desktopPanel: {
     position: 'absolute',
-    top: 0,
+    top: '6%',
+    left: 0,
     right: 0,
-    bottom: 0,
-    width: 480,
-    maxWidth: '100%',
-    maxHeight: '100%',
-    borderTopRightRadius: 0,
-    borderBottomLeftRadius: 28,
-    borderTopLeftRadius: 28,
-    paddingTop: 24,
+    marginHorizontal: 'auto',
+    width: 640,
+    maxWidth: '94%',
+    maxHeight: '88%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    boxShadow: '0px 24px 64px rgba(12, 16, 32, 0.28)',
   },
 });

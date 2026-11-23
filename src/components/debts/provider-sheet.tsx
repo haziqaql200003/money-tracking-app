@@ -24,6 +24,7 @@ import { formatMoney } from '@/utils/currency';
 import { toDateKey, monthLabel } from '@/utils/dates';
 import { creditStatus, isBnpl, remainingPrincipal, round2, totalToRepay, type Debt } from '@/utils/debts';
 import { groupKeyOf, lastPaymentDate, monthBills, paidHistory, paidMonths, providerGroups, type PayItem, type ProviderGroup } from '@/utils/provider-groups';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 const MASK = 'RM ••••'; // i18n-ignore
 const FAR = '9999-12-31';
@@ -467,7 +468,7 @@ function PaySheet({ group, until, money, dateLabel, byId, options, onClose, onPa
     <View style={styles.sheetOverlay}>
       <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
       <DragSheet visible onClose={onClose} style={[styles.sheetBox, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
-        <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+        <SheetHandle style={styles.handle} />
         <View style={styles.sheetHead}>
           <View style={styles.flex}>
             <ThemedText style={styles.sheetTitle}>{t('debt.pv.payTitle')}</ThemedText>

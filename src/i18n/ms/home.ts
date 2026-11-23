@@ -94,6 +94,7 @@ export const msHome: Record<keyof typeof enHome, string> = {
   'home.overview.spentIn': 'Dibelanjakan pada {year}',
   'home.overview.vsPriorWeek': 'berbanding minggu sebelumnya',
   'home.overview.hintWeek': 'Leret carta untuk melihat minggu lain · ketik satu hari untuk butiran',
+  'home.overview.hintWeek.pointer': 'Seret carta untuk melihat minggu lain · klik satu hari untuk butiran',
   'home.overview.hintPoint': 'Ketik satu titik untuk butiran',
   // Charts
   'home.chart.noSpending': 'Tiada perbelanjaan dalam tempoh ini',
@@ -160,6 +161,20 @@ export const msHome: Record<keyof typeof enHome, string> = {
   'home.desktop.owedSub': '{count} aktif · {due} perlu dibayar bulan ini',
   'home.desktop.noDebt': 'Tiada hutang direkod',
   'home.desktop.payday': '{days} hari lagi ke hari gaji',
+  'home.nav.kira': 'Kira', // i18n-ignore: brand word, same in both languages
+  'home.nav.kiraSub': 'Duit',
+  'home.nav.faham': 'Faham', // i18n-ignore: brand word, same in both languages
+  'home.nav.fahamSub': 'Corak',
+  'home.nav.rancang': 'Rancang', // i18n-ignore: brand word, same in both languages
+  'home.nav.rancangSub': 'Masa depan',
+  'home.nav.settingsHelp': 'Tetapan & bantuan',
+  'home.nav.rancangOverview': 'Ringkasan rancangan',
+  'home.nav.rancangOverviewSub': 'Bil 30 hari akan datang, matlamat dan peringatan',
+  'home.nav.showGroup': 'Tunjuk {group}',
+  'home.nav.hideGroup': 'Sembunyi {group}',
+  'home.nav.pages': '{count} halaman',
+  'home.nav.aiSub': 'Rekod atau tanya dengan ayat anda sendiri',
+  'home.tabs.records': 'Rekod',
   'home.tabs.docs': 'Dokumen',
   // Date field
   'home.date.pick': 'Pilih tarikh',

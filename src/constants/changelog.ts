@@ -14,9 +14,36 @@ export type Release = {
   silent?: boolean;
 };
 
-export const CURRENT_VERSION = '3.8.1';
+export const CURRENT_VERSION = '3.9.0';
 
 export const CHANGELOG: Release[] = [
+  {
+    version: '3.9.0',
+    date: '2026-11-23',
+    title: 'A new way around WaKira', // i18n-ignore: bilingual data, see titleMs
+    titleMs: 'Cara baharu meneroka WaKira',
+    highlights: [
+      { text: 'One menu for every screen size, grouped as Kira, Faham and Rancang', ms: 'Satu menu untuk setiap saiz skrin, dikumpul sebagai Kira, Faham dan Rancang' }, // i18n-ignore: bilingual data
+      { text: 'Home, Transactions and Analyse now count spending the same way', ms: 'Utama, Transaksi dan Faham kini mengira perbelanjaan dengan cara yang sama' }, // i18n-ignore: bilingual data
+      { text: 'On the web: a side menu on laptops, an icon rail on tablets and pop-up forms', ms: 'Di web: menu sisi di komputer riba, rel ikon di tablet dan borang timbul' }, // i18n-ignore: bilingual data
+    ],
+    changes: [
+      { kind: 'new', text: 'Menus are grouped by what you want to do: Kira (Home, Transactions, Accounts & assets, Debts, Recurring), Faham (Analyse, Monthly report, Ask WaKira) and Rancang (Plan overview, Budgets, Goals, Salary planner, Cash flow calendar, Tax relief).', ms: 'Menu dikumpul ikut apa yang anda mahu buat: Kira (Utama, Transaksi, Akaun & aset, Hutang, Berulang), Faham (Faham, Laporan bulanan, Tanya WaKira) dan Rancang (Ringkasan rancangan, Bajet, Matlamat, Perancang gaji, Kalendar aliran tunai, Pelepasan cukai).' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'More is laid out in the same groups, with Settings & help at the end. Ask WaKira now has its own place in the menu.', ms: 'Lagi disusun dalam kumpulan yang sama, dengan Tetapan & bantuan di hujung. Tanya WaKira kini ada tempatnya sendiri dalam menu.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Web on a laptop: the side menu shows the group you are in and folds the others, so it fits a short window. Click a group to open it.', ms: 'Web di komputer riba: menu sisi menunjukkan kumpulan semasa dan melipat yang lain, supaya muat dalam tetingkap pendek. Klik satu kumpulan untuk membukanya.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'Web on a tablet: a slim icon rail on the left in place of the bottom bar, and screens no longer stretch across the full width.', ms: 'Web di tablet: rel ikon nipis di kiri menggantikan bar bawah, dan skrin tidak lagi meregang sepenuh lebar.' }, // i18n-ignore: bilingual data
+      { kind: 'new', text: 'What is new after an update now shows on the web as well, not only in the phone app.', ms: 'Apa yang baharu selepas kemas kini kini dipaparkan di web juga, bukan hanya dalam app telefon.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'The bottom bar shows the name under each icon. Transactions is called Records there to fit.', ms: 'Bar bawah menunjukkan nama di bawah setiap ikon. Transaksi dipanggil Rekod di situ supaya muat.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'On a computer, forms open as a pop-up in the middle of the screen without the drag bar. Press Esc or click outside to close.', ms: 'Di komputer, borang dibuka sebagai tetingkap timbul di tengah skrin tanpa bar seret. Tekan Esc atau klik di luar untuk menutup.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'With a mouse or trackpad, hints say click instead of tap, and swipe or press-and-hold tips explain the mouse way instead.', ms: 'Dengan tetikus atau pad jejak, petunjuk menyebut klik dan bukan ketik, dan petua leret atau tekan lama menerangkan cara tetikus.' }, // i18n-ignore: bilingual data
+      { kind: 'improved', text: 'Recurring shows a count in the side menu when entries are waiting for you.', ms: 'Berulang menunjukkan bilangan dalam menu sisi apabila ada entri menunggu anda.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'Home, the Transactions summary and the recent records line now leave out balance corrections and card, loan, PayLater, savings and investment payments, and refunds lower spending, the same as Analyse.', ms: 'Utama, ringkasan Transaksi dan baris rekod terkini kini mengecualikan pembetulan baki dan bayaran kad, pinjaman, PayLater, simpanan dan pelaburan, dan bayaran balik mengurangkan perbelanjaan, sama seperti Faham.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'On the desktop Home, Spent this month and Kept this month count every account, like the phone app and Analyse.', ms: 'Di Utama desktop, Belanja bulan ini dan Disimpan bulan ini mengira semua akaun, seperti app telefon dan Faham.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'The monthly report no longer lists a refund as a spending category, so category shares add up to 100%.', ms: 'Laporan bulanan tidak lagi menyenaraikan bayaran balik sebagai kategori perbelanjaan, jadi bahagian kategori berjumlah 100%.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'An Analyse highlight showed the percent sign twice.', ms: 'Satu sorotan dalam Faham menunjukkan tanda peratus dua kali.' }, // i18n-ignore: bilingual data
+      { kind: 'fixed', text: 'On the web, opening or reloading a page before the welcome tutorial was finished showed the Privacy Notice instead of the tutorial.', ms: 'Di web, membuka atau memuat semula halaman sebelum tutorial selamat datang selesai memaparkan Notis Privasi dan bukan tutorial.' }, // i18n-ignore: bilingual data
+    ],
+  },
   {
     version: '3.8.1',
     date: '2026-11-10',

@@ -22,6 +22,7 @@ import { dayNumber, dueText } from '@/utils/bills';
 import { formatMoney } from '@/utils/currency';
 import { toDateKey } from '@/utils/dates';
 import { iouDone, iouLeft, iouOverdue, iouPaid } from '@/utils/ious';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 const MASK = 'RM ••••'; // i18n-ignore
 
@@ -41,7 +42,6 @@ type Props = {
  * Pay side: amount, account, slide to complete. Summary side: what is left, the history, a nudge to send.
  */
 export function IouSheet({ iouId, mode, onClose, onOpenDetail }: Props) {
-  const colors = useTheme();
   const { t } = useT();
   const insets = useSafeAreaInsets();
   return (
@@ -49,7 +49,7 @@ export function IouSheet({ iouId, mode, onClose, onOpenDetail }: Props) {
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <DragSheet visible={!!iouId} onClose={onClose} style={[styles.box, { paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           {/* Mounted only while open, so the fields start from this record with no reset code. */}
           {iouId ? <IouBody key={`${iouId}:${mode ?? ''}`} iouId={iouId} mode={mode} onClose={onClose} onOpenDetail={onOpenDetail} /> : null}
         </DragSheet>

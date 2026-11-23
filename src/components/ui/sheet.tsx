@@ -7,6 +7,7 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 import { DragSheet } from '@/components/ui/drag-sheet';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -43,7 +44,7 @@ export function Sheet({ visible, onClose, title, right, footer, children }: Prop
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
 
           <View style={styles.header}>
             <View style={[styles.slot, { alignItems: 'flex-start' }]}>

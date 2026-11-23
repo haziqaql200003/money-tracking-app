@@ -22,6 +22,7 @@ import { depositCalendar, goalMonthSaved, goalOutlook, goalProgress, goalProject
 import { cycleOf } from '@/utils/cycle';
 import { p1 } from '@/utils/percent';
 import { Alert } from '@/services/dialog';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 const MASK = 'RM ••••';
 const HISTORY_LIMIT = 8;
@@ -53,7 +54,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
         <DragSheet visible={!!goalId} onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={t('plan.goalDetail.title')}
             left={

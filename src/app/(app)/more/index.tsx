@@ -32,7 +32,7 @@ import { useUpdates } from '@/context/UpdatesContext';
 const MASK = 'RM ••••'; // i18n-ignore
 const WARN_COLOR = '#D97706';
 
-type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/goals' | '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback' | '/more/inbox'; badge?: boolean };
+type MenuItem = { icon: IconName; label: string; subtitle: string; tint: string; href: '/more/goals' | '/more/ai' | '/more/rancang' | '/more/assets' | '/more/budgets' | '/more/recurring' | '/more/debts' | '/more/categories' | '/more/settings' | '/more/security' | '/more/data' | '/more/about' | '/more/whats-new' | '/more/tax' | '/more/cashflow' | '/more/planner' | '/more/report' | '/more/feedback' | '/more/inbox'; badge?: boolean };
 
 export default function MoreScreen() {
   const colors = useTheme();
@@ -70,9 +70,9 @@ export default function MoreScreen() {
   const accountList = accountBalances();
   const netWorth = accountList.reduce((sum, a) => sum + a.balance, 0);
 
-  // Money: the four places people open most, as tiles.
+  // The menu follows the motto, like the desktop side menu: Kira (track), Faham (understand), Rancang (plan).
   const debtsOwed = debts.filter((d) => d.status !== 'done').length;
-  const tiles: MenuItem[] = [
+  const kira: MenuItem[] = [
     {
       icon: 'wallet-outline',
       label: t('more.index.menu.assets'),
@@ -88,22 +88,6 @@ export default function MoreScreen() {
       href: '/more/debts',
     },
     {
-      icon: 'pie-chart-outline',
-      label: t('more.index.menu.budgets'),
-      subtitle: t('more.index.budgets.sub', { budgeted: budgeted.length, total: expenseCategories.length }),
-      tint: colors.accent,
-      href: '/more/budgets',
-    },
-    {
-      icon: 'flag-outline',
-      label: t('plan.goals.title'),
-      subtitle: goals.length > 0 ? tp('plan.rancang.goalCount', goals.length) : t('more.index.goals.empty'),
-      tint: '#15803D',
-      href: '/more/goals',
-    },
-  ];
-  const planning: MenuItem[] = [
-    {
       icon: 'repeat',
       label: t('more.index.menu.recurring'),
       subtitle:
@@ -115,6 +99,45 @@ export default function MoreScreen() {
       tint: '#8B5CF6',
       href: '/more/recurring',
       badge: pendingEntries.length > 0,
+    },
+  ];
+  const faham: MenuItem[] = [
+    {
+      icon: 'document-text-outline',
+      label: t('mrep.title'),
+      subtitle: t('mrep.menu.sub'),
+      tint: '#EC4899',
+      href: '/more/report',
+    },
+    {
+      icon: 'sparkles-outline',
+      label: t('ai.title'),
+      subtitle: t('home.nav.aiSub'),
+      tint: '#6366F1',
+      href: '/more/ai',
+    },
+  ];
+  const rancang: MenuItem[] = [
+    {
+      icon: 'flag-outline',
+      label: t('home.nav.rancangOverview'),
+      subtitle: t('home.nav.rancangOverviewSub'),
+      tint: '#22C55E',
+      href: '/more/rancang',
+    },
+    {
+      icon: 'pie-chart-outline',
+      label: t('more.index.menu.budgets'),
+      subtitle: t('more.index.budgets.sub', { budgeted: budgeted.length, total: expenseCategories.length }),
+      tint: colors.accent,
+      href: '/more/budgets',
+    },
+    {
+      icon: 'trophy-outline',
+      label: t('plan.goals.title'),
+      subtitle: goals.length > 0 ? tp('plan.rancang.goalCount', goals.length) : t('more.index.goals.empty'),
+      tint: '#15803D',
+      href: '/more/goals',
     },
     {
       icon: 'cash-outline',
@@ -131,34 +154,11 @@ export default function MoreScreen() {
       href: '/more/cashflow',
     },
     {
-      icon: 'notifications-outline',
-      label: t('more.index.menu.rancang'),
-      subtitle: t('more.index.rancang.billsSub'),
-      tint: '#22C55E',
-      href: '/more/rancang',
-    },
-  ];
-  const reports: MenuItem[] = [
-    {
-      icon: 'document-text-outline',
-      label: t('mrep.title'),
-      subtitle: t('mrep.menu.sub'),
-      tint: '#EC4899',
-      href: '/more/report',
-    },
-    {
       icon: 'receipt-outline',
       label: t('tax.title'),
       subtitle: t('tax.menu.sub'),
       tint: '#CA8A04',
       href: '/more/tax',
-    },
-    {
-      icon: 'pricetags-outline',
-      label: t('more.index.menu.categories'),
-      subtitle: tp('more.index.categories.sub', categories.length),
-      tint: '#F0529C',
-      href: '/more/categories',
     },
   ];
   // Settings opens one hub (display, privacy, sign-in, data); help and app info follow.
@@ -169,6 +169,13 @@ export default function MoreScreen() {
       subtitle: t('more.index.settingsHub.sub'),
       tint: '#14B8A6',
       href: '/more/settings',
+    },
+    {
+      icon: 'pricetags-outline',
+      label: t('more.index.menu.categories'),
+      subtitle: tp('more.index.categories.sub', categories.length),
+      tint: '#F0529C',
+      href: '/more/categories',
     },
     {
       icon: 'megaphone-outline',
@@ -290,34 +297,11 @@ export default function MoreScreen() {
             )}
           </Pressable>
 
-          {/* My money: tiles */}
-          <ThemedText type="small" style={[styles.secLabel, { color: colors.textSecondary }]}>
-            {t('more.index.section.money')}
-          </ThemedText>
-          <View style={styles.grid}>
-            {tiles.map((item) => (
-              <Pressable
-                key={item.href}
-                onPress={() => router.push(item.href)}
-                style={({ pressed }) => [styles.tile, { backgroundColor: colors.backgroundElement }, pressed && { opacity: 0.7 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.label}, ${item.subtitle}`}
-              >
-                <View style={[styles.tileIcon, { backgroundColor: `${item.tint}1F` }]}>
-                  <Ionicons name={item.icon} size={22} color={item.tint} />
-                </View>
-                <View>
-                  <ThemedText style={styles.tileLabel} numberOfLines={1}>{item.label}</ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }} numberOfLines={2}>{item.subtitle}</ThemedText>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Planning, reports and help, each under its own heading */}
+          {/* Kira · Faham · Rancang, then Settings & help: the same groups as the desktop side menu */}
           {[
-            { title: t('more.index.section.planning'), items: planning },
-            { title: t('more.index.section.reports'), items: reports },
+            { title: `${t('home.nav.kira')} · ${t('home.nav.kiraSub')}`, items: kira },
+            { title: `${t('home.nav.faham')} · ${t('home.nav.fahamSub')}`, items: faham },
+            { title: `${t('home.nav.rancang')} · ${t('home.nav.rancangSub')}`, items: rancang },
             { title: t('more.index.section.help'), items: helpItems },
           ].map((group) => (
             <Section key={group.title} title={group.title}>
@@ -345,11 +329,6 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   header: { paddingVertical: Spacing.three },
   profileChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderRadius: Radius.pill },
-  secLabel: { fontWeight: '700', letterSpacing: 0.8, marginBottom: Spacing.two, marginLeft: Spacing.one, textTransform: 'uppercase' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginBottom: Spacing.four },
-  tile: { flexBasis: '47%', flexGrow: 1, borderRadius: Radius.lg, padding: 14, gap: 10, minHeight: 124 },
-  tileIcon: { width: 42, height: 42, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  tileLabel: { fontWeight: '700' },
   heading: { fontSize: FontSize.display, lineHeight: 40 },
   card: { borderRadius: Radius.lg, marginBottom: Spacing.three },
 

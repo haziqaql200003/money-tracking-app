@@ -4,13 +4,12 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 
 import { useIsDesktop } from '@/components/desktop/use-desktop';
+import { MENU_PAGES } from '@/components/shell/nav-model';
 import { IconButton } from '@/components/ui/icon-button';
 import { Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
 
-/** Pages the desktop side menu opens directly: there they are a place of their own, so no back button. */
-const SIDEBAR_PAGES = new Set(['/more/rancang', '/more/budgets', '/more/debts', '/more/recurring', '/more/assets', '/more/categories', '/more/planner', '/more/cashflow', '/more/report', '/more/tax', '/more/feedback']);
 
 /** Header for sub-screens: round back button, title, optional action on the right. */
 export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
@@ -19,7 +18,8 @@ export function ScreenHeader({ title, right }: { title: string; right?: ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const desktop = useIsDesktop();
-  const showBack = !(desktop && SIDEBAR_PAGES.has(pathname));
+  // Pages the desktop side menu opens directly are places of their own there: no back button (same list as the menu).
+  const showBack = !(desktop && MENU_PAGES.has(pathname));
 
   return (
     <View style={[styles.row, desktop && styles.desktopRow]}>

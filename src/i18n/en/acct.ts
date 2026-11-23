@@ -335,6 +335,7 @@ export const enAcct = {
   'acct.assets.overdrawnNote': '{list}: overdrawn, not shown in the chart.',
   'acct.assets.accountsHeader': 'Accounts · {count}',
   'acct.assets.sortHint': 'Press and hold an account, then drag to change the order. Swipe left for Edit and Delete.',
+  'acct.assets.sortHint.pointer': 'Click an account to edit it. To change the order, hold the mouse button on an account, then drag.', // mouse/trackpad version (3.9.0)
   'acct.assets.tapToEdit': 'Tap to edit',
   'acct.assets.overdrawn': 'Overdrawn',
   'acct.assets.empty': 'Empty',

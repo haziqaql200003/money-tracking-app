@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SheetHeader } from '@/components/ui/sheet-header';
@@ -8,6 +8,7 @@ import { DragSheet } from '@/components/ui/drag-sheet';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = { visible: boolean; title: string; onClose: () => void; right?: ReactNode; children: ReactNode };
 
@@ -25,7 +26,7 @@ export function ToolSheet({ visible, title, onClose, right, children }: Props) {
           onClose={onClose}
           style={[styles.box, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           <SheetHeader
             title={title}
             left={

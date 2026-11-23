@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TransactionForm } from '@/components/transactions/transaction-form/transaction-form';
@@ -10,6 +10,7 @@ import type { ReceiptPrefill } from '@/utils/receipt';
 import { useOpenEpoch } from '@/hooks/use-open-epoch';
 import { useTheme } from '@/hooks/use-theme';
 import { useT } from '@/i18n';
+import { SheetHandle } from '@/components/ui/sheet-handle';
 
 type Props = {
   visible: boolean;
@@ -40,7 +41,7 @@ export function AddTransactionModal({ visible, onClose, onSave, editingTransacti
             { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, Spacing.three) },
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.divider }]} />
+          <SheetHandle style={styles.handle} />
           {/* Remounted on every open, so the form starts from the transaction (or the defaults) with no reset code. */}
           <TransactionForm
             key={`${epoch}:${current?.n ?? 0}`}

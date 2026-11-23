@@ -17,6 +17,7 @@ export const enOb = {
   'ob.story.next': 'Next',
   'ob.story.start': "Let's start",
   'ob.story.swipeHint': 'Swipe left or tap Next',
+  'ob.story.swipeHint.pointer': 'Click Next to continue', // mouse/trackpad version (3.9.0)
 
   'ob.art.nasiLemak': 'Nasi lemak',
   'ob.art.tehTarik': 'Teh tarik',
@@ -173,6 +174,7 @@ export const enOb = {
   'ob.coach.add.body': 'The + button records spending, income or a transfer. Split it into items (nasi lemak, SST) if you like.',
   'ob.coach.cards.title': 'Your account cards',
   'ob.coach.cards.body': 'Swipe to change account; the chart and list below follow it. The last card adds a new account: bank, e-wallet, credit card or savings.',
+  'ob.coach.cards.body.pointer': 'Scroll or drag the cards sideways to change account; the chart and list below follow it. The last card adds a new account: bank, e-wallet, credit card or savings.', // mouse/trackpad version (3.9.0)
   'ob.coach.cards.try': 'Add account',
   'ob.coach.analyse.title': 'Understand your spending',
   'ob.coach.analyse.body': 'Analyse shows where the money went, your priciest days and how the month is likely to end.',

@@ -7,11 +7,13 @@ import type { ViewRef } from '@/utils/rn-refs';
 import { BlurTargetView } from 'expo-blur';
 
 import { DesktopSidebar } from '@/components/desktop/desktop-sidebar';
-import { DESKTOP_MAX_CONTENT, useIsDesktop } from '@/components/desktop/use-desktop';
+import { TabletRail } from '@/components/desktop/tablet-rail';
+import { DESKTOP_MAX_CONTENT, useBreakpoint } from '@/components/desktop/use-desktop';
 import { GlassTabBar } from '@/components/glass/glass-tab-bar';
 import { useTheme } from '@/hooks/use-theme';
 import { useUpdates } from '@/context/UpdatesContext';
-import { useT } from '@/i18n';
+import { useT } from '@/i18n';
+
 import { Radius } from '@/constants/theme';
 
 /** Screens laid out for the full desktop width. */
@@ -25,20 +27,29 @@ export default function AppTabs() {
   const { hasUnseenUpdate } = useUpdates();
   // Android blur needs to know what to blur: the screens sit in this target, the tab bar blurs it.
   const blurTarget = useRef<ViewRef>(null);
-  // Wide web: a side menu instead of the floating tab bar.
-  const desktop = useIsDesktop();
+  // Web layouts: side menu (laptop, desktop), icon rail (tablet), floating tab bar (phones and narrow web).
+  const bp = useBreakpoint();
+  const desktop = bp === 'laptop' || bp === 'desktop';
+  const tablet = bp === 'tablet';
   const pathname = usePathname();
   const wideMore = WIDE_MORE_PATHS.some((p) => pathname.startsWith(p));
 
   return (
     <Tabs
-      tabBar={(props) => (desktop ? <DesktopSidebar {...props} /> : <GlassTabBar {...props} blurTarget={blurTarget} />)}
+      tabBar={(props) =>
+        desktop ? <DesktopSidebar {...props} /> : tablet ? <TabletRail {...props} /> : <GlassTabBar {...props} blurTarget={blurTarget} />
+      }
       screenLayout={({ children, route }) =>
         desktop ? (
           // Wide web: screens sit in a centred column so lines and cards do not stretch across a big monitor.
           // Home and Transactions have their own multi-column desktop layout; the rest read best a little narrower.
           <View style={[styles.target, { backgroundColor: colors.background }]}>
             <View style={[styles.desktopColumn, !(WIDE_ROUTES.has(route.name) || (route.name === 'more' && wideMore)) && styles.desktopReading]}>{children}</View>
+          </View>
+        ) : tablet ? (
+          // Tablet web: each screen keeps its phone layout, centred so cards never stretch past a readable width.
+          <View style={[styles.target, { backgroundColor: colors.background }]}>
+            <View style={styles.tabletColumn}>{children}</View>
           </View>
         ) : (
           <BlurTargetView ref={blurTarget} style={styles.target}>
@@ -48,7 +59,7 @@ export default function AppTabs() {
       }
       screenOptions={{
         headerShown: false,
-        tabBarPosition: desktop ? 'left' : 'bottom',
+        tabBarPosition: desktop || tablet ? 'left' : 'bottom',
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textSecondary,
       }}
@@ -63,7 +74,8 @@ export default function AppTabs() {
       <Tabs.Screen
         name="transactions"
         options={{
-          title: t('home.tabs.transactions'),
+          // The bottom bar is short on room: "Records". The side menu keeps the full name.
+          title: t('home.tabs.records'),
           tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color as string} />,
         }}
       />
@@ -100,6 +112,7 @@ const styles = StyleSheet.create({
   target: { flex: 1 },
   desktopColumn: { flex: 1, width: '100%', maxWidth: DESKTOP_MAX_CONTENT, alignSelf: 'center' },
   desktopReading: { maxWidth: 980 },
+  tabletColumn: { flex: 1, width: '100%', maxWidth: 680, alignSelf: 'center' },
   tabBadge: {
     position: 'absolute',
     top: -2,

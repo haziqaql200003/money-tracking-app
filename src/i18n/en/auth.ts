@@ -78,6 +78,7 @@ export const enAuth = {
   'auth.onboarding.tip.add.body': 'Tap the + button in the middle of the bottom bar to record spending, income or a transfer between accounts. You can split it into items (e.g. nasi lemak, SST).',
   'auth.onboarding.tip.cards.title': 'Account cards',
   'auth.onboarding.tip.cards.body': 'On Home, swipe the card sideways to switch accounts. The charts and lists below follow the selected account.',
+  'auth.onboarding.tip.cards.body.pointer': 'On Home, scroll or drag the cards sideways to switch accounts. The charts and lists below follow the selected account.', // mouse/trackpad version (3.9.0)
   'auth.onboarding.tip.analyse.title': 'Analyse',
   'auth.onboarding.tip.analyse.body': 'The Analyse tab shows income vs spending each month, where your money goes, your biggest spending day and a few quick summaries.',
   'auth.onboarding.tip.plan.title': 'Plan',
